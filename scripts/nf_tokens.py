@@ -118,18 +118,29 @@ def slug_do_projeto(raiz: Path) -> str:
     return str(raiz.resolve()).replace("/", "-").replace("\\", "-")
 
 
-def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None) -> Telemetria:
-    base = base or BASE_TRANSCRIPTS
+def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
+                   diretorio: Path | None = None) -> Telemetria:
+    """`diretorio` le aquela pasta diretamente, sem derivar o slug do caminho.
+
+    O slug vem do caminho absoluto do projeto, entao muda de maquina para
+    maquina. Para saida reproduzivel — a pagina de demonstracao versionada — e
+    preciso poder apontar uma pasta fixa.
+    """
     tel = Telemetria()
 
-    if not base.is_dir():
-        tel.motivo = "sem transcripts locais do Claude Code nesta maquina"
-        return tel
-
-    diretorio = base / slug_do_projeto(raiz)
-    if not diretorio.is_dir():
-        tel.motivo = f"nenhuma sessao registrada para {raiz.name}"
-        return tel
+    if diretorio is not None:
+        if not diretorio.is_dir():
+            tel.motivo = "diretorio de transcripts informado nao existe"
+            return tel
+    else:
+        base = base or BASE_TRANSCRIPTS
+        if not base.is_dir():
+            tel.motivo = "sem transcripts locais do Claude Code nesta maquina"
+            return tel
+        diretorio = base / slug_do_projeto(raiz)
+        if not diretorio.is_dir():
+            tel.motivo = f"nenhuma sessao registrada para {raiz.name}"
+            return tel
 
     arquivos = sorted(diretorio.glob("*.jsonl"))
     if not arquivos:
@@ -175,7 +186,9 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None) -> Tele
                     modelo = msg.get("model") or "desconhecido"
                     tel.por_modelo.setdefault(modelo, Consumo()).somar(uso)
                     if quando:
-                        dia = quando.astimezone().date().isoformat()
+                        # UTC sempre. Usar o fuso local faria o mesmo transcript
+                        # render dias diferentes em maquinas diferentes.
+                        dia = quando.astimezone(timezone.utc).date().isoformat()
                         tel.por_dia.setdefault(dia, Consumo()).somar(uso)
                         carimbos.append(dia)
                     if sid := registro.get("sessionId"):

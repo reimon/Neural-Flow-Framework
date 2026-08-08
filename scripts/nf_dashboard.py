@@ -107,6 +107,7 @@ class Dados:
     smoke: dict = field(default_factory=dict)
     loop: dict = field(default_factory=dict)
     tokens: object = None
+    janela_dias: int = 30
 
     @property
     def ativa(self) -> Sprint | None:
@@ -362,7 +363,8 @@ def _mtime(caminho: Path) -> str:
         return "?"
 
 
-def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None) -> Dados:
+def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
+            transcripts: Path | None = None, dias: int = 30) -> Dados:
     return Dados(
         projeto=projeto or raiz.name,
         gerado_em=gerado_em or datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -372,7 +374,8 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None) -> Da
         grafo=coletar_grafo(raiz),
         smoke=coletar_smoke(raiz),
         loop=coletar_loop(raiz),
-        tokens=coletar_tokens(raiz, dias=30),
+        tokens=coletar_tokens(raiz, dias=dias, diretorio=transcripts),
+        janela_dias=dias,
     )
 
 
@@ -925,7 +928,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         <p class="sub">Por modelo, em tokens faturaveis</p>
         {barras_horizontais([(m, c.faturavel) for m, c in por_modelo], "var(--series-1)", True)}
         {'<div class="sep"></div><p class="sub">Por dia</p>' + barras_horizontais([(dia, c.faturavel) for dia, c in dias_ord], "var(--series-2)", True) if len(dias_ord) > 1 else ''}
-        <p class="nota">Medido nos transcripts locais, janela de 30 dias. So numeros sao
+        <p class="nota">Medido nos transcripts locais, janela de {d.janela_dias} dias. So numeros sao
         lidos — o conteudo das mensagens nunca e acessado.</p>"""
     else:
         motivo = getattr(tel, "motivo", "coletor indisponivel") if tel else "coletor indisponivel"
@@ -1262,6 +1265,13 @@ def main() -> int:
     ap.add_argument("--out", help="arquivo de saida (default: .neural-flow/dashboard.html)")
     ap.add_argument("--name", help="nome do projeto")
     ap.add_argument("--open", action="store_true", help="abre no navegador")
+    ap.add_argument("--dias", type=int, default=30,
+                    help="janela da telemetria de tokens (default: 30)")
+    ap.add_argument(
+        "--transcripts",
+        help="diretorio de transcripts a ler (default: o do projeto em ~/.claude). "
+             "Usado para gerar saida reproduzivel.",
+    )
     ap.add_argument(
         "--gerado-em",
         help="carimbo de geracao fixo (ex: 2026-08-08 12:00). Torna a saida "
@@ -1272,7 +1282,9 @@ def main() -> int:
     raiz = Path(args.root).resolve()
     destino = Path(args.out).resolve() if args.out else raiz / ".neural-flow" / "dashboard.html"
 
-    dados = coletar(raiz, args.name, args.gerado_em)
+    dados = coletar(raiz, args.name, args.gerado_em,
+                    Path(args.transcripts).resolve() if args.transcripts else None,
+                    args.dias)
     destino.parent.mkdir(parents=True, exist_ok=True)
     # Os links apontam para os artefatos reais, entao dependem de onde a pagina
     # e gravada: `.neural-flow/dashboard.html` alcanca `../graphify-out/`.

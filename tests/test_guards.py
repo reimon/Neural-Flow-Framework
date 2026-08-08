@@ -876,6 +876,16 @@ class TestDemoVersionada(unittest.TestCase):
     FIXTURE = RAIZ / "tests" / "fixtures" / "demo"
     CARIMBO = "2026-08-08 12:00"
 
+    @property
+    def ARGS(self) -> list[str]:
+        # Janela enorme e transcript da fixture: sem isso a demo dependeria da
+        # data de hoje (os registros sairiam da janela de 30 dias em um mes) e
+        # do `~/.claude` da maquina.
+        return ["--root", str(self.FIXTURE), "--name", "AgendaMed",
+                "--gerado-em", self.CARIMBO,
+                "--transcripts", str(self.FIXTURE / "transcripts"),
+                "--dias", "36500"]
+
     @staticmethod
     def _normalizar(texto: str) -> str:
         return re.sub(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", "<TEMPO>", texto)
@@ -887,9 +897,8 @@ class TestDemoVersionada(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             saida = Path(t) / "d.html"
             proc = subprocess.run(
-                [sys.executable, str(SCRIPTS / "nf_dashboard.py"),
-                 "--root", str(self.FIXTURE), "--name", "AgendaMed",
-                 "--gerado-em", self.CARIMBO, "--out", str(saida)],
+                [sys.executable, str(SCRIPTS / "nf_dashboard.py"), *self.ARGS,
+                 "--out", str(saida)],
                 capture_output=True, text=True,
             )
             self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -898,9 +907,9 @@ class TestDemoVersionada(unittest.TestCase):
             self.assertEqual(
                 atual, novo,
                 "docs/dashboard-demo.html esta desatualizada. Regenere:\n"
-                f"  python3 scripts/nf_dashboard.py --root tests/fixtures/demo "
-                f'--name "AgendaMed" --gerado-em "{self.CARIMBO}" '
-                "--out docs/dashboard-demo.html",
+                "  python3 scripts/nf_dashboard.py "
+                + " ".join(self.ARGS).replace(str(RAIZ) + "/", "")
+                + " --out docs/dashboard-demo.html",
             )
 
     def test_demo_exercita_as_secoes(self) -> None:
@@ -911,6 +920,7 @@ class TestDemoVersionada(unittest.TestCase):
             "AMBIGUOUS",                    # arestas pendentes do grafo
             "2 critical",                   # achados do smoke-gate
             "agendamento",                  # comunidades do grafo
+            "Aproveitamento de cache",      # telemetria de tokens
             "pendente de revisao humana" if False else "Divergencias",
         ):
             with self.subTest(esperado=esperado):
@@ -925,9 +935,8 @@ class TestDemoVersionada(unittest.TestCase):
             for i in range(2):
                 alvo = Path(t) / f"d{i}.html"
                 subprocess.run(
-                    [sys.executable, str(SCRIPTS / "nf_dashboard.py"),
-                     "--root", str(self.FIXTURE), "--name", "AgendaMed",
-                     "--gerado-em", self.CARIMBO, "--out", str(alvo)],
+                    [sys.executable, str(SCRIPTS / "nf_dashboard.py"), *self.ARGS,
+                     "--out", str(alvo)],
                     capture_output=True, text=True, check=True,
                 )
                 saidas.append(self._normalizar(alvo.read_text(encoding="utf-8")))
