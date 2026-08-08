@@ -698,6 +698,80 @@ class TestDashboard(unittest.TestCase):
             self.assertIn("&lt;script&gt;", texto)
 
 
+class TestDemoVersionada(unittest.TestCase):
+    """`docs/dashboard-demo.html` nao pode apodrecer.
+
+    Uma demo versionada que deixa de refletir o gerador e pior que nenhuma: quem
+    chega no repositorio confia nela. Este teste regenera a partir da fixture e
+    compara — se alguem mudar o dashboard e esquecer de regerar, o CI reprova.
+
+    A comparacao normaliza carimbos de tempo derivados de mtime: o git nao
+    preserva mtime, entao esses valores mudam a cada clone sem que nada real
+    tenha mudado.
+    """
+
+    DEMO = RAIZ / "docs" / "dashboard-demo.html"
+    FIXTURE = RAIZ / "tests" / "fixtures" / "demo"
+    CARIMBO = "2026-08-08 12:00"
+
+    @staticmethod
+    def _normalizar(texto: str) -> str:
+        return re.sub(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", "<TEMPO>", texto)
+
+    def test_demo_esta_atualizada(self) -> None:
+        import tempfile
+
+        self.assertTrue(self.DEMO.is_file(), "docs/dashboard-demo.html nao existe")
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "d.html"
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_dashboard.py"),
+                 "--root", str(self.FIXTURE), "--name", "AgendaMed",
+                 "--gerado-em", self.CARIMBO, "--out", str(saida)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            atual = self._normalizar(self.DEMO.read_text(encoding="utf-8"))
+            novo = self._normalizar(saida.read_text(encoding="utf-8"))
+            self.assertEqual(
+                atual, novo,
+                "docs/dashboard-demo.html esta desatualizada. Regenere:\n"
+                f"  python3 scripts/nf_dashboard.py --root tests/fixtures/demo "
+                f'--name "AgendaMed" --gerado-em "{self.CARIMBO}" '
+                "--out docs/dashboard-demo.html",
+            )
+
+    def test_demo_exercita_as_secoes(self) -> None:
+        """Uma demo com secoes vazias nao demonstra nada."""
+        texto = self.DEMO.read_text(encoding="utf-8")
+        for esperado in (
+            "AgendaMed", "112%",            # estouro de budget visivel
+            "AMBIGUOUS",                    # arestas pendentes do grafo
+            "2 critical",                   # achados do smoke-gate
+            "agendamento",                  # comunidades do grafo
+            "pendente de revisao humana" if False else "Divergencias",
+        ):
+            with self.subTest(esperado=esperado):
+                self.assertIn(esperado, texto)
+
+    def test_saida_e_reproduzivel(self) -> None:
+        """Sem determinismo o teste de drift acusaria mudanca a cada execucao."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saidas = []
+            for i in range(2):
+                alvo = Path(t) / f"d{i}.html"
+                subprocess.run(
+                    [sys.executable, str(SCRIPTS / "nf_dashboard.py"),
+                     "--root", str(self.FIXTURE), "--name", "AgendaMed",
+                     "--gerado-em", self.CARIMBO, "--out", str(alvo)],
+                    capture_output=True, text=True, check=True,
+                )
+                saidas.append(self._normalizar(alvo.read_text(encoding="utf-8")))
+            self.assertEqual(saidas[0], saidas[1])
+
+
 class TestHelpers(unittest.TestCase):
     """nf_guards e usado por todos os guards — regressao aqui contamina tudo."""
 

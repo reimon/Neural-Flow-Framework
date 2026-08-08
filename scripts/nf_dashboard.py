@@ -153,11 +153,21 @@ def coletar_sprints(raiz: Path) -> list[Sprint]:
 
 
 def coletar_guards(raiz: Path) -> list[dict]:
-    gate = raiz / "scripts" / "nf_gate.py"
+    arquivo_de = {
+        "sprint": "sprint_state", "budget": "token_budget",
+        "context": "context_sources", "adr": "adr",
+        "spec": "module_spec", "calibration": "calibration",
+    }
     resultado = []
     for nome, protocolo, o_que in GUARDS:
-        script = raiz / "scripts" / f"validate_{ {'sprint':'sprint_state','budget':'token_budget','context':'context_sources','adr':'adr','spec':'module_spec','calibration':'calibration'}[nome] }.py"
-        if not gate.is_file() or not script.is_file():
+        # Os guards podem estar instalados no projeto ou ao lado deste script.
+        # Sem esse fallback, apontar --root para outro repositorio devolveria
+        # "nao instalado" para tudo, mesmo com os guards disponiveis aqui.
+        alvo = f"validate_{arquivo_de[nome]}.py"
+        script = raiz / "scripts" / alvo
+        if not script.is_file():
+            script = AQUI / alvo
+        if not script.is_file():
             resultado.append({"nome": nome, "protocolo": protocolo, "o_que": o_que,
                               "estado": "ausente", "achados": []})
             continue
@@ -165,7 +175,7 @@ def coletar_guards(raiz: Path) -> list[dict]:
             [sys.executable, str(script), "--root", str(raiz), "--quiet"],
             capture_output=True, text=True,
         )
-        saida = proc.stdout + proc.stderr
+        saida = (proc.stdout + proc.stderr).replace(str(raiz) + "/", "")
         achados = [{"codigo": c, "msg": m.strip()} for c, m in RE_CODIGO.findall(saida)]
         if "nada a validar" in saida or (proc.returncode == 0 and not achados and "PASS" not in saida):
             estado = "inativo"
@@ -278,6 +288,9 @@ def coletar_smoke(raiz: Path) -> dict:
     relatorio = raiz / "audit-report.md"
     if relatorio.is_file():
         info["rodou"] = True
+        # O relatorio e a prova de que rodou; exigir tambem o registro MCP
+        # esconderia os achados atras de "nao configurado".
+        info["configurado"] = True
         info["quando"] = _mtime(relatorio)
         texto = relatorio.read_text(encoding="utf-8", errors="replace")
         for rotulo, padrao in (
@@ -329,10 +342,10 @@ def _mtime(caminho: Path) -> str:
         return "?"
 
 
-def coletar(raiz: Path, projeto: str | None) -> Dados:
+def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None) -> Dados:
     return Dados(
         projeto=projeto or raiz.name,
-        gerado_em=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        gerado_em=gerado_em or datetime.now().strftime("%Y-%m-%d %H:%M"),
         sprints=coletar_sprints(raiz),
         guards=coletar_guards(raiz),
         adrs=coletar_adrs(raiz),
@@ -868,12 +881,17 @@ def main() -> int:
     ap.add_argument("--out", help="arquivo de saida (default: .neural-flow/dashboard.html)")
     ap.add_argument("--name", help="nome do projeto")
     ap.add_argument("--open", action="store_true", help="abre no navegador")
+    ap.add_argument(
+        "--gerado-em",
+        help="carimbo de geracao fixo (ex: 2026-08-08 12:00). Torna a saida "
+             "reproduzivel — usado para versionar a pagina de demonstracao.",
+    )
     args = ap.parse_args()
 
     raiz = Path(args.root).resolve()
     destino = Path(args.out).resolve() if args.out else raiz / ".neural-flow" / "dashboard.html"
 
-    dados = coletar(raiz, args.name)
+    dados = coletar(raiz, args.name, args.gerado_em)
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_text(render(dados), encoding="utf-8")
 

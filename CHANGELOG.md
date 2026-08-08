@@ -32,6 +32,9 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- `docs/dashboard-demo.html` — demonstracao versionada, gerada de `tests/fixtures/demo/`
+  com `--gerado-em` para saida reproduzivel. Um teste regenera e compara: a demo nao pode
+  divergir do gerador.
 
 ### Corrigido
 

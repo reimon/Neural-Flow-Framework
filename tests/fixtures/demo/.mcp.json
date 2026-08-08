@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "smoke-gate": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "github:reimon/smoke-gate#v0.5.0",
+        "smoke-gate",
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}

@@ -436,6 +436,11 @@ arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias penden
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
 se **audita**.
 
+**Ver antes de instalar:** [`docs/dashboard-demo.html`](docs/dashboard-demo.html) e uma
+demonstracao versionada, gerada a partir de `tests/fixtures/demo/` — abra o arquivo no
+navegador (ou publique `docs/` no GitHub Pages). Um teste regenera a pagina e reprova se
+ela deixar de refletir o gerador, para a demo nao apodrecer.
+
 Nao e servidor. Nenhum CDN, nenhum JavaScript de terceiros, nenhuma dependencia a instalar
 — mesma regra do ADR-002. Abre offline, roda no CI, publica no GitHub Pages.
 
