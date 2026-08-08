@@ -441,8 +441,13 @@ consumo **medido** ao lado do **declarado** na sprint — entrada, saida, escrit
 cache, por modelo e por dia, mais o aproveitamento de cache. Sem isso, o FinOps dependia
 inteiramente de alguem lembrar de anotar.
 
-> **Privacidade.** So numeros sao lidos: contagem de tokens, modelo, carimbo de tempo e
-> identificador de sessao. **O conteudo das mensagens nunca e lido nem gravado**, e nada
+Alem do consumo, o dashboard mostra **como o trabalho se distribuiu**: mapa de calor de
+requisicoes por hora e por dia, ferramentas mais chamadas pelo agente, e as sessoes mais
+caras com duracao. Bloco longo e continuo custa menos que muitas sessoes curtas — o cache
+sobrevive dentro da sessao e morre entre elas.
+
+> **Privacidade.** So numeros sao lidos: contagem de tokens, modelo, carimbo de tempo, identificador de
+> sessao e o **nome** das ferramentas chamadas — nunca com que argumentos. **O conteudo das mensagens nunca e lido nem gravado**, e nada
 > sai da sua maquina. A varredura fica restrita ao diretorio do projeto analisado.
 
 ```bash

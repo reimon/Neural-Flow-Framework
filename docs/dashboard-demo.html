@@ -9,27 +9,36 @@
    Claro e escuro sao dois conjuntos escolhidos, nao um flip automatico. */
 :root {
   color-scheme: light;
-  --bg:#f6f6f4; --surface:#fcfcfb; --line:#e4e3df;
-  --text:#0b0b0b; --text-2:#52514e; --muted:#87857f; --muted-fill:#d9d8d3;
+  --bg:#f4f5f7; --surface:#ffffff; --line:#e3e6ea; --line-forte:#cdd3da;
+  --text:#0d1014; --text-2:#4d5561; --muted:#7d8794; --muted-fill:#dde1e6;
   --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
   --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
   --radius:14px; --shadow:0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.05);
+  /* Rampa sequencial (perto de zero → maximo), azul da paleta validada */
+  --ramp-1:#cde2fb; --ramp-2:#9ec5f4; --ramp-3:#6da7ec; --ramp-4:#3987e5;
+  --ramp-5:#256abf; --ramp-6:#184f95; --ramp-7:#0d366b;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --bg:#121211; --surface:#1a1a19; --line:#302f2d;
-    --text:#ffffff; --text-2:#c3c2b7; --muted:#8d8b83; --muted-fill:#383835;
+    --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
+    --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
     --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    /* No escuro a rampa sobe em luminosidade: mais valor, mais claro */
+    --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
+    --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg:#121211; --surface:#1a1a19; --line:#302f2d;
-  --text:#ffffff; --text-2:#c3c2b7; --muted:#8d8b83; --muted-fill:#383835;
+  --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
+  --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
   --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  /* No escuro a rampa sobe em luminosidade: mais valor, mais claro */
+  --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
+  --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
 }
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
@@ -41,8 +50,9 @@ header{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;
 h1{font-size:26px;font-weight:640;letter-spacing:-.02em;margin:0}
 h1 span{color:var(--muted);font-weight:450}
 .meta{color:var(--muted);font-size:13px}
-h2{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--text-2);margin:0 0 4px}
+h2{font-size:11.5px;font-weight:660;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-2);margin:0 0 3px;display:flex;align-items:center}
+.card>h2::after{content:"";flex:1;height:1px;margin-left:12px;background:var(--line)}
 .sub{color:var(--muted);font-size:13px;margin:0 0 12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;
   align-items:start}
@@ -52,20 +62,24 @@ h2{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase;
 /* Tiles */
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
   gap:14px;margin-bottom:22px}
-.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-  padding:16px 18px;display:flex;flex-direction:column;gap:3px;box-shadow:var(--shadow);
-  border-left:3px solid var(--muted-fill)}
-.tile.ok{border-left-color:var(--st-good)}
-.tile.bad{border-left-color:var(--st-critical)}
-.tile.warn{border-left-color:var(--st-warning)}
+.tile{position:relative;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:3px;
+  box-shadow:var(--shadow);overflow:hidden}
+.tile::before{content:"";position:absolute;inset:0 0 auto;height:2px;
+  background:var(--muted-fill)}
+.tile.ok::before{background:var(--st-good)}
+.tile.bad::before{background:var(--st-critical)}
+.tile.warn::before{background:var(--st-warning)}
 .tile-k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
-.tile-v{font-size:27px;font-weight:660;letter-spacing:-.02em;line-height:1.15}
+.tile-v{font-size:28px;font-weight:660;letter-spacing:-.025em;line-height:1.15;
+  font-variant-numeric:tabular-nums}
 .tile-s{font-size:12.5px;color:var(--text-2)}
 /* Hero + linhas */
 .row{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
 .grow{flex:1;min-width:230px}
 .hero{display:flex;flex-direction:column;min-width:112px}
-.hero-n{font-size:42px;font-weight:680;letter-spacing:-.03em;line-height:1}
+.hero-n{font-size:42px;font-weight:680;letter-spacing:-.035em;line-height:1}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .hero-u{font-size:20px;color:var(--muted);margin-left:2px}
 .hero-l{font-size:12.5px;color:var(--muted);margin-top:4px}
 /* Barra: extremidade arredondada 4px, ancorada na base */
@@ -76,14 +90,17 @@ h2{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase;
   gap:10px 18px}
 .kv div{display:flex;flex-direction:column;gap:1px}
 .kv dt{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
-.kv dd{margin:0;font-size:14px;font-weight:520}
+.kv dd{margin:0;font-size:14px;font-weight:520;font-variant-numeric:tabular-nums}
 .kv .span{grid-column:1/-1}
 /* Guards */
 .guards{display:grid;gap:10px}
-.guard{border:1px solid var(--line);border-radius:10px;padding:12px 14px;
-  display:flex;flex-direction:column;gap:4px;border-left:3px solid var(--muted-fill)}
-.guard.pass{border-left-color:var(--st-good)}
-.guard.fail{border-left-color:var(--st-critical)}
+.guard{position:relative;border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px 12px 16px;display:flex;flex-direction:column;gap:4px;
+  background:var(--bg)}
+.guard::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;
+  border-radius:2px;background:var(--muted-fill)}
+.guard.pass::before{background:var(--st-good)}
+.guard.fail::before{background:var(--st-critical)}
 .guard-h{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .guard-n{font-weight:580;font-size:14.5px}
 .guard-d{font-size:12.5px;color:var(--text-2)}
@@ -125,7 +142,7 @@ h2{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase;
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:14px;
   margin-bottom:18px}
 .stats div{display:flex;flex-direction:column}
-.s-v{font-size:24px;font-weight:640;letter-spacing:-.02em}
+.s-v{font-size:24px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .s-k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 /* Severidade */
 .sev{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0}
@@ -152,6 +169,39 @@ h2{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase;
 .prot .pill{grid-column:2;grid-row:1/3;justify-self:end}
 .tbl td:nth-child(2){max-width:150px;overflow:hidden;text-overflow:ellipsis}
 .tbl td:last-child,.tbl th:last-child{text-align:right;white-space:nowrap;padding-right:0}
+/* Serie temporal */
+.svg-area{width:100%;height:76px;display:block;margin:2px 0 0;overflow:visible}
+.eixo{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);
+  font-variant-numeric:tabular-nums;margin-top:2px}
+/* Anel de proporcao */
+.topo-t{display:flex;align-items:center;justify-content:space-between;gap:18px;
+  flex-wrap:wrap}
+.anel{display:flex;align-items:center;gap:11px}
+.anel svg{width:60px;height:60px;flex:none}
+.anel-t{display:flex;flex-direction:column;line-height:1.2}
+.anel-v{font-size:21px;font-weight:660;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.anel-l{font-size:11.5px;color:var(--muted)}
+.kv-4{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+/* Mapa de ritmo */
+.ritmo{display:grid;gap:3px;margin:2px 0 10px}
+.ritmo-l{display:grid;grid-template-columns:38px 1fr;align-items:center;gap:8px}
+.ritmo-d{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ritmo-c{display:grid;grid-template-columns:repeat(24,1fr);gap:2px}
+.cel{display:block;aspect-ratio:1;border-radius:2px;min-height:9px}
+.ritmo-h{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+.escala{display:flex;align-items:center;gap:3px;font-size:10.5px;color:var(--muted);
+  margin-top:8px;flex-wrap:wrap}
+.escala .cel{width:11px;height:11px;min-height:0;aspect-ratio:auto}
+.escala-p{margin-left:auto;font-variant-numeric:tabular-nums}
+/* Sessoes */
+.sess{display:grid;gap:1px}
+.ses{display:grid;grid-template-columns:1fr auto auto;align-items:baseline;gap:10px;
+  padding:7px 0;border-bottom:1px solid var(--line)}
+.ses:last-child{border-bottom:none}
+.ses-n{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  color:var(--text-2)}
+.ses-d{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ses-v{font-size:12.5px;font-weight:560;text-align:right;min-width:52px}
 /* Ajuda contextual — popover nativo, sem JavaScript */
 .help{all:unset;display:inline-flex;align-items:center;justify-content:center;
   width:17px;height:17px;margin-left:7px;border:1px solid var(--line);border-radius:50%;
@@ -229,7 +279,7 @@ footer{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}
   <section class="card"><h2>Guards<button type="button" class="help" popovertarget="ajuda-guards" aria-label="O que e Guards?">?</button></h2>
     <p class="sub">Executados agora, sobre a arvore de trabalho</p><div class="guards"><div class="guard pass"><div class="guard-h"><span class="guard-n">State Protocol</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Sprint validada antes de executar</span><code class="guard-c">nf_gate.py sprint</code></div><div class="guard fail"><div class="guard-h"><span class="guard-n">Circuit Breaker</span><span class="pill bad"><span aria-hidden="true">&#10007;</span>FAIL</span></div><span class="guard-d">Orcamento de tokens declarado</span><code class="guard-c">nf_gate.py budget</code></div><div class="guard fail"><div class="guard-h"><span class="guard-n">Vetor de Contexto</span><span class="pill bad"><span aria-hidden="true">&#10007;</span>FAIL</span></div><span class="guard-d">Decisao ancorada em fonte que existe</span><code class="guard-c">nf_gate.py context</code><ul class="achados"><li><code>V3</code> docs/sprints/sprint-01.md — sprint concluida sem secao de evidencias</li></ul></div><div class="guard pass"><div class="guard-h"><span class="guard-n">ADR Governance</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Decisao numerada, sem ciclo nem pendura</span><code class="guard-c">nf_gate.py adr</code></div><div class="guard inativo"><div class="guard-h"><span class="guard-n">Spec-First</span><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div><span class="guard-d">Spec completa antes do codigo</span><code class="guard-c">nf_gate.py spec</code></div><div class="guard pass"><div class="guard-h"><span class="guard-n">Calibracao</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Confianca declarada e derivada de evidencia</span><code class="guard-c">nf_gate.py calibration</code></div></div></section>
   <section class="card"><h2>FinOps de tokens<button type="button" class="help" popovertarget="ajuda-finops" aria-label="O que e FinOps de tokens?">?</button></h2>
-    <p class="sub">Orcamento declarado x consumo observado</p><div class="fin"><span class="fin-l">Sprint 01</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--st-critical)"></div></div><span class="fin-v bad-t">560k / 500k (112%)</span></div><div class="fin"><span class="fin-l">Sprint 02</span><div class="track" style="height:8px"><div class="fill" style="width:76.9%;background:var(--st-warning)"></div></div><span class="fin-v warn-t">615k / 800k (77%)</span></div><p class="nota">Limite de alerta em 70%. Consumo &ge; 100% do budget sem mitigacao registrada reprova no guard <code>budget</code> (B3).</p><div class="sep"></div><p class="sub">Declarado x medido — sprint ativa</p><div class="fin"><span class="fin-l">Declarado</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--muted-fill)"></div></div><span class="fin-v">615k</span></div><div class="fin"><span class="fin-l">Medido</span><div class="track" style="height:8px"><div class="fill" style="width:39.8%;background:var(--series-3)"></div></div><span class="fin-v">318k</span></div><p class="nota">O medido vem dos transcripts locais e cobre 30 dias do projeto inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o proximo budget, nao como substituto do registro.</p><div class="sep"></div><p class="sub">Tokens gastos na construcao do indice</p><div class="fin"><span class="fin-l">Entrada</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="fin-v">412k</span></div><div class="fin"><span class="fin-l">Saida</span><div class="track" style="height:8px"><div class="fill" style="width:19.1%;background:var(--series-2)"></div></div><span class="fin-v">79k</span></div></section>
+    <p class="sub">Orcamento declarado x consumo observado</p><div class="fin"><span class="fin-l">Sprint 01</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--st-critical)"></div></div><span class="fin-v bad-t">560k / 500k (112%)</span></div><div class="fin"><span class="fin-l">Sprint 02</span><div class="track" style="height:8px"><div class="fill" style="width:76.9%;background:var(--st-warning)"></div></div><span class="fin-v warn-t">615k / 800k (77%)</span></div><p class="nota">Limite de alerta em 70%. Consumo &ge; 100% do budget sem mitigacao registrada reprova no guard <code>budget</code> (B3).</p><div class="sep"></div><p class="sub">Declarado x medido — sprint ativa</p><div class="fin"><span class="fin-l">Declarado</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--muted-fill)"></div></div><span class="fin-v">615k</span></div><div class="fin"><span class="fin-l">Medido</span><div class="track" style="height:8px"><div class="fill" style="width:30.7%;background:var(--series-3)"></div></div><span class="fin-v">245k</span></div><p class="nota">O medido vem dos transcripts locais e cobre 30 dias do projeto inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o proximo budget, nao como substituto do registro.</p><div class="sep"></div><p class="sub">Tokens gastos na construcao do indice</p><div class="fin"><span class="fin-l">Entrada</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="fin-v">412k</span></div><div class="fin"><span class="fin-l">Saida</span><div class="track" style="height:8px"><div class="fill" style="width:19.1%;background:var(--series-2)"></div></div><span class="fin-v">79k</span></div></section>
   <section class="card"><h2>smoke-gate<button type="button" class="help" popovertarget="ajuda-smoke" aria-label="O que e smoke-gate?">?</button></h2>
     <p class="sub">Gate de evidencia sobre codigo e schema</p>
         <dl class="kv">
@@ -271,31 +321,44 @@ footer{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}
         o guard <code>calibration</code> reprova (C2).</p></section>
   <section class="card"><h2>Consumo real de tokens<button type="button" class="help" popovertarget="ajuda-tokens" aria-label="O que e Consumo real de tokens?">?</button></h2>
     <p class="sub">Medido nos transcripts locais, nao declarado</p>
-        <div class="row">
-          <div class="hero"><span class="hero-n">318k</span>
+        <div class="topo-t">
+          <div class="hero"><span class="hero-n num">245k</span>
             <span class="hero-l">tokens faturaveis</span></div>
-          <div class="grow">
-            <dl class="kv">
-              <div><dt>Entrada</dt><dd>60k</dd></div>
-              <div><dt>Saida</dt><dd>36k</dd></div>
-              <div><dt>Cache escrito</dt><dd>222k</dd></div>
-              <div><dt>Cache lido</dt><dd>4M</dd></div>
-              <div><dt>Requisicoes</dt><dd>42</dd></div>
-              <div><dt>Sessoes</dt><dd>3</dd></div>
-            </dl>
-          </div>
+          <div class="anel"><svg viewBox="0 0 64 64" role="img"
+ aria-label="de cache: 95%">
+<circle cx="32" cy="32" r="26.0" fill="none" stroke="var(--muted-fill)" stroke-width="6"/>
+<circle cx="32" cy="32" r="26.0" fill="none" stroke="var(--series-3)" stroke-width="6"
+ stroke-linecap="round" stroke-dasharray="154.84 163.36"
+ transform="rotate(-90 32 32)"/></svg>
+<div class="anel-t"><span class="anel-v">95%</span>
+<span class="anel-l">de cache</span></div></div>
         </div>
-        <div class="sep"></div>
-        <p class="sub">Aproveitamento de cache</p>
-        <div class="track" style="height:10px"><div class="fill" style="width:93.4%;background:var(--series-3)"></div></div>
-        <p class="nota"><strong>93%</strong> do contexto de entrada
-        veio de cache em vez de ser reprocessado. Quanto maior, mais barata a sessao.</p>
+        <dl class="kv kv-4">
+          <div><dt>Entrada</dt><dd class="num">61k</dd></div>
+          <div><dt>Saida</dt><dd class="num">37k</dd></div>
+          <div><dt>Cache escrito</dt><dd class="num">148k</dd></div>
+          <div><dt>Cache lido</dt><dd class="num">3.8M</dd></div>
+          <div><dt>Requisicoes</dt><dd class="num">42</dd></div>
+          <div><dt>Sessoes</dt><dd class="num">3</dd></div>
+        </dl>
+        <p class="sub">Consumo por dia, tokens faturaveis</p><svg class="svg-area" viewBox="0 0 100 76" preserveAspectRatio="none"
+ role="img" aria-label="serie temporal, 3 pontos, maximo 94915">
+<defs><linearGradient id="g93300" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="var(--series-1)" stop-opacity=".26"/>
+<stop offset="1" stop-color="var(--series-1)" stop-opacity="0"/></linearGradient></defs>
+<path d="M6.00,16.47 L50.00,6.00 L94.00,22.04 L94.00,70.00 L6.00,70.00 Z" fill="url(#g93300)"/>
+<path d="M6.00,16.47 L50.00,6.00 L94.00,22.04" fill="none" stroke="var(--series-1)" stroke-width="2" vector-effect="non-scaling-stroke"
+ stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="94.00" cy="22.04" r="3" fill="var(--series-1)"
+ stroke="var(--surface)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+</svg><div class="eixo"><span>08-06</span><span>08-08</span></div>
         <div class="sep"></div>
         <p class="sub">Por modelo, em tokens faturaveis</p>
-        <div class="hbar"><span class="hbar-label" title="claude-opus-5">claude-opus-5</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="hbar-val">301k</span></div><div class="hbar"><span class="hbar-label" title="claude-fable-5">claude-fable-5</span><div class="hbar-track"><div class="hbar-fill" style="width:5.8%;background:var(--series-1)"></div></div><span class="hbar-val">17k</span></div>
-        <div class="sep"></div><p class="sub">Por dia</p><div class="hbar"><span class="hbar-label" title="2026-08-06">2026-08-06</span><div class="hbar-track"><div class="hbar-fill" style="width:72.4%;background:var(--series-2)"></div></div><span class="hbar-val">99k</span></div><div class="hbar"><span class="hbar-label" title="2026-08-07">2026-08-07</span><div class="hbar-track"><div class="hbar-fill" style="width:59.6%;background:var(--series-2)"></div></div><span class="hbar-val">82k</span></div><div class="hbar"><span class="hbar-label" title="2026-08-08">2026-08-08</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-2)"></div></div><span class="hbar-val">137k</span></div>
-        <p class="nota">Medido nos transcripts locais, janela de 36500 dias. So numeros sao
-        lidos — o conteudo das mensagens nunca e acessado.</p></section>
+        <div class="hbar"><span class="hbar-label" title="claude-opus-5">claude-opus-5</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="hbar-val">172k</span></div><div class="hbar"><span class="hbar-label" title="claude-fable-5">claude-fable-5</span><div class="hbar-track"><div class="hbar-fill" style="width:42.9%;background:var(--series-1)"></div></div><span class="hbar-val">74k</span></div>
+        <p class="nota">Todo o periodo registrado. So numeros sao lidos —
+        o conteudo das mensagens nunca e acessado.</p></section>
+  <section class="card"><h2>Ritmo e ferramentas<button type="button" class="help" popovertarget="ajuda-ritmo" aria-label="O que e Ritmo e ferramentas?">?</button></h2>
+    <p class="sub">Como o trabalho se distribuiu</p><p class="sub">Requisicoes por hora, ultimos 3 dias (UTC)</p><div class="ritmo"><div class="ritmo-l"><span class="ritmo-d">08-06</span><div class="ritmo-c"><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 00h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 01h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 02h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 03h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 04h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 05h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 06h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 07h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 08h — sem atividade"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 09h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 10h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 11h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 12h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 13h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 14h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 15h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 16h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 17h — 1 requisicoes"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 18h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 19h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 20h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 21h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 22h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 23h — sem atividade"></i></div></div><div class="ritmo-l"><span class="ritmo-d">08-07</span><div class="ritmo-c"><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 00h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 01h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 02h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 03h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 04h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 05h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 06h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 07h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 08h — sem atividade"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 09h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 10h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 11h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 12h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 13h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 14h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 15h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 16h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 17h — 1 requisicoes"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 18h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 19h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 20h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 21h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 22h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 23h — sem atividade"></i></div></div><div class="ritmo-l"><span class="ritmo-d">08-08</span><div class="ritmo-c"><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 00h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 01h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 02h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 03h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 04h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 05h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 06h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 07h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 08h — sem atividade"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 09h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 10h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 11h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 12h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 13h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 14h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 15h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 16h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 17h — 1 requisicoes"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 18h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 19h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 20h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 21h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 22h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 23h — sem atividade"></i></div></div><div class="ritmo-l"><span class="ritmo-d"></span><div class="ritmo-h"><span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>23h</span></div></div></div><div class="escala"><span>menos</span><i class="cel" style="background:var(--ramp-1)"></i><i class="cel" style="background:var(--ramp-2)"></i><i class="cel" style="background:var(--ramp-3)"></i><i class="cel" style="background:var(--ramp-4)"></i><i class="cel" style="background:var(--ramp-5)"></i><i class="cel" style="background:var(--ramp-6)"></i><i class="cel" style="background:var(--ramp-7)"></i><span>mais</span><span class="escala-p">pico 2 req/h</span></div><div class="sep"></div><p class="sub">Ferramentas mais usadas</p><div class="hbar"><span class="hbar-label" title="Write">Write</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-2)"></div></div><span class="hbar-val">8</span></div><div class="hbar"><span class="hbar-label" title="Bash">Bash</span><div class="hbar-track"><div class="hbar-fill" style="width:75.0%;background:var(--series-2)"></div></div><span class="hbar-val">6</span></div><div class="hbar"><span class="hbar-label" title="Edit">Edit</span><div class="hbar-track"><div class="hbar-fill" style="width:62.5%;background:var(--series-2)"></div></div><span class="hbar-val">5</span></div><div class="hbar"><span class="hbar-label" title="Grep">Grep</span><div class="hbar-track"><div class="hbar-fill" style="width:50.0%;background:var(--series-2)"></div></div><span class="hbar-val">4</span></div><div class="hbar"><span class="hbar-label" title="Read">Read</span><div class="hbar-track"><div class="hbar-fill" style="width:50.0%;background:var(--series-2)"></div></div><span class="hbar-val">4</span></div><div class="hbar"><span class="hbar-label" title="chrome: navigate">chrome: navigate</span><div class="hbar-track"><div class="hbar-fill" style="width:25.0%;background:var(--series-2)"></div></div><span class="hbar-val">2</span></div><div class="sep"></div><p class="sub">Sessoes por consumo</p><div class="sess"><div class="ses"><span class="ses-n">s7</span><span class="ses-d">480 min · 14 req</span><span class="ses-v num">95k</span></div><div class="ses"><span class="ses-n">s6</span><span class="ses-d">480 min · 14 req</span><span class="ses-v num">79k</span></div><div class="ses"><span class="ses-n">s8</span><span class="ses-d">480 min · 14 req</span><span class="ses-v num">71k</span></div></div></section>
   <section class="card"><h2>Protocolos<button type="button" class="help" popovertarget="ajuda-protocolos" aria-label="O que e Protocolos?">?</button></h2>
     <p class="sub">O que trava e o que se audita</p><div class="prots"><div class="prot"><span class="prot-n">State Protocol<button type="button" class="help help-sm" popovertarget="ajuda-prot-state-protocol" aria-label="O que e State Protocol?">?</button></span><code class="prot-g">nf_gate sprint</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Circuit Breaker<button type="button" class="help help-sm" popovertarget="ajuda-prot-circuit-breaker" aria-label="O que e Circuit Breaker?">?</button></span><code class="prot-g">nf_gate budget</code><span class="pill bad"><span aria-hidden="true">&#10007;</span>reprovando</span></div><div class="prot"><span class="prot-n">Vetor de Contexto<button type="button" class="help help-sm" popovertarget="ajuda-prot-vetor-de-contexto" aria-label="O que e Vetor de Contexto?">?</button></span><code class="prot-g">nf_gate context</code><span class="pill bad"><span aria-hidden="true">&#10007;</span>reprovando</span></div><div class="prot"><span class="prot-n">Evidencia Sintetica<button type="button" class="help help-sm" popovertarget="ajuda-prot-evidencia-sintetica" aria-label="O que e Evidencia Sintetica?">?</button></span><code class="prot-g">smoke-gate</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Aegis<button type="button" class="help help-sm" popovertarget="ajuda-prot-aegis" aria-label="O que e Aegis?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">Neural-Memory<button type="button" class="help help-sm" popovertarget="ajuda-prot-neural-memory" aria-label="O que e Neural-Memory?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">ADR Governance<button type="button" class="help help-sm" popovertarget="ajuda-prot-adr-governance" aria-label="O que e ADR Governance?">?</button></span><code class="prot-g">nf_gate adr</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Spec-First<button type="button" class="help help-sm" popovertarget="ajuda-prot-spec-first" aria-label="O que e Spec-First?">?</button></span><code class="prot-g">nf_gate spec</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div><div class="prot"><span class="prot-n">Loop Autonomo<button type="button" class="help help-sm" popovertarget="ajuda-prot-loop-autonomo" aria-label="O que e Loop Autonomo?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">Calibracao<button type="button" class="help help-sm" popovertarget="ajuda-prot-calibracao" aria-label="O que e Calibracao?">?</button></span><code class="prot-g">nf_gate calibration</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div></div><p class="nota">"manual" nao e falha: sao os protocolos cuja aderencia se audita, nao se trava. Guard aspiracional declarado como tal — nunca apresentado como se travasse.</p></section>
   <section class="card wide"><h2>Historico de sprints<button type="button" class="help" popovertarget="ajuda-historico" aria-label="O que e Historico de sprints?">?</button></h2><div class="tbl-scroll"><table class="tbl"><thead><tr><th>#</th><th>Titulo</th><th>Status</th><th>Aut.</th><th>Itens</th><th>Tokens</th></tr></thead><tbody><tr><td>01</td><td>Sprint 1: Descoberta e especificacao</td><td>concluida</td><td class="mono">A1</td><td>5/5</td><td class="mono">560k / 500k</td></tr><tr><td>02</td><td>Sprint 2: Motor de agendamento</td><td>em andamento</td><td class="mono">A1</td><td>2/5</td><td class="mono">615k / 800k</td></tr></tbody></table></div></section>
@@ -431,7 +494,18 @@ de fora porque custa uma fracao — soma-la inflaria o numero e confundiria volu
 contexto com custo.</p>
 <p><strong>Por que nao ha valor em dinheiro.</strong> Precos mudam e variam por plano;
 exibir um custo estimado seria inventar precisao que nao temos. Tokens sao o que o
-sistema mede de fato.</p></div></div><div popover id="ajuda-historico" class="pop" role="dialog" aria-label="Historico de sprints"><div class="pop-h"><h3>Historico de sprints</h3><button type="button" class="pop-x" popovertarget="ajuda-historico" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">
+sistema mede de fato.</p></div></div><div popover id="ajuda-ritmo" class="pop" role="dialog" aria-label="Ritmo e ferramentas"><div class="pop-h"><h3>Ritmo e ferramentas</h3><button type="button" class="pop-x" popovertarget="ajuda-ritmo" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">
+<p><strong>O mapa de calor</strong> mostra quantas requisicoes aconteceram em cada hora,
+por dia, em UTC. Serve para enxergar o padrao real de trabalho: blocos longos e continuos
+custam menos que muitas sessoes curtas, porque o cache sobrevive dentro da sessao e morre
+entre elas.</p>
+<p><strong>Ferramentas</strong> conta quais o agente chamou — nunca com que argumentos.
+Muito <code>Read</code> e <code>Grep</code> em relacao a <code>Edit</code> sugere que o
+contexto esta sendo reconstruido por varredura, exatamente o que o indice de conhecimento
+existe para evitar.</p>
+<p><strong>Sessoes</strong> lista as mais caras, com duracao e numero de requisicoes. Uma
+sessao curta e cara costuma indicar releitura pesada logo no inicio.</p>
+<p>Tudo vem dos transcripts locais; nada sai da sua maquina.</p></div></div><div popover id="ajuda-historico" class="pop" role="dialog" aria-label="Historico de sprints"><div class="pop-h"><h3>Historico de sprints</h3><button type="button" class="pop-x" popovertarget="ajuda-historico" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">
 <p><strong>O que e.</strong> Todas as sprints do projeto, com progresso, nivel de autonomia e
 consumo de tokens contra o orcamento.</p>
 <p><strong>Para que serve.</strong> Retomada e onboarding. A regra de escala do framework diz

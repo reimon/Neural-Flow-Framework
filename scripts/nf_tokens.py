@@ -90,12 +90,33 @@ class Consumo:
 
 
 @dataclass
+class Sessao:
+    id: str
+    inicio: str = ""
+    fim: str = ""
+    consumo: Consumo = field(default_factory=Consumo)
+
+    @property
+    def duracao_min(self) -> int:
+        try:
+            a = datetime.fromisoformat(self.inicio)
+            b = datetime.fromisoformat(self.fim)
+        except ValueError:
+            return 0
+        return max(0, int((b - a).total_seconds() // 60))
+
+
+@dataclass
 class Telemetria:
     disponivel: bool = False
     motivo: str = ""
     geral: Consumo = field(default_factory=Consumo)
     por_modelo: dict[str, Consumo] = field(default_factory=dict)
     por_dia: dict[str, Consumo] = field(default_factory=dict)
+    # (dia, hora UTC) -> requisicoes. Alimenta o mapa de ritmo.
+    por_hora: dict[tuple[str, int], int] = field(default_factory=dict)
+    ferramentas: dict[str, int] = field(default_factory=dict)
+    detalhe_sessoes: dict[str, Sessao] = field(default_factory=dict)
     sessoes: int = 0
     primeiro: str = ""
     ultimo: str = ""
@@ -107,6 +128,8 @@ class Telemetria:
             "geral": self.geral.como_dict(),
             "por_modelo": {k: v.como_dict() for k, v in self.por_modelo.items()},
             "por_dia": {k: v.como_dict() for k, v in self.por_dia.items()},
+            "por_hora": {f"{d}T{h:02d}": n for (d, h), n in self.por_hora.items()},
+            "ferramentas": dict(sorted(self.ferramentas.items(), key=lambda kv: -kv[1])),
             "sessoes": self.sessoes, "primeiro": self.primeiro,
             "ultimo": self.ultimo, "arquivos": self.arquivos,
         }
@@ -157,7 +180,9 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
                 for linha in f:
                     # Pre-filtro barato: a maioria das linhas e conteudo de
                     # mensagem e nem chega ao parser.
-                    if '"usage"' not in linha:
+                    tem_uso = '"usage"' in linha
+                    tem_ferramenta = '"tool_use"' in linha
+                    if not tem_uso and not tem_ferramenta:
                         continue
                     try:
                         registro = json.loads(linha)
@@ -166,6 +191,16 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
                     msg = registro.get("message")
                     if not isinstance(msg, dict):
                         continue
+                    # Nome de ferramenta e um numero de uso, nao conteudo: conta
+                    # QUAIS ferramentas o agente usou, nunca com que argumentos.
+                    if tem_ferramenta:
+                        blocos = msg.get("content")
+                        if isinstance(blocos, list):
+                            for bloco in blocos:
+                                if isinstance(bloco, dict) and bloco.get("type") == "tool_use":
+                                    nome_f = bloco.get("name") or "desconhecida"
+                                    tel.ferramentas[nome_f] = tel.ferramentas.get(nome_f, 0) + 1
+
                     uso = msg.get("usage")
                     if not isinstance(uso, dict):
                         continue
@@ -191,8 +226,16 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
                         dia = quando.astimezone(timezone.utc).date().isoformat()
                         tel.por_dia.setdefault(dia, Consumo()).somar(uso)
                         carimbos.append(dia)
+                        hora = quando.astimezone(timezone.utc).hour
+                        tel.por_hora[(dia, hora)] = tel.por_hora.get((dia, hora), 0) + 1
                     if sid := registro.get("sessionId"):
                         sessoes.add(sid)
+                        s = tel.detalhe_sessoes.setdefault(sid, Sessao(id=sid))
+                        s.consumo.somar(uso)
+                        if quando:
+                            iso = quando.astimezone(timezone.utc).isoformat()
+                            s.inicio = min(s.inicio, iso) if s.inicio else iso
+                            s.fim = max(s.fim, iso) if s.fim else iso
         except OSError:
             continue
 
@@ -246,6 +289,10 @@ def main() -> int:
     print(f"  cache lido:   {fmt(g.cache_lido)}  "
           f"({g.aproveitamento_cache:.0%} do contexto veio de cache)")
     print(f"  faturavel:    {fmt(g.faturavel)}  (entrada + saida + escrita de cache)")
+    if tel.ferramentas:
+        print("\n  ferramentas mais usadas:")
+        for nome, n in sorted(tel.ferramentas.items(), key=lambda kv: -kv[1])[:6]:
+            print(f"    {nome:<32} {n}")
     print("\n  por modelo:")
     for modelo, c in sorted(tel.por_modelo.items(), key=lambda kv: -kv[1].faturavel):
         print(f"    {modelo:<28} {fmt(c.faturavel):>7}  ({c.requisicoes} req)")

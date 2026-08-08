@@ -32,6 +32,9 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- Mapa de calor de ritmo (hora x dia), ferramentas mais usadas e sessoes por consumo.
+- Graficos em SVG desenhados a mao, sem biblioteca: area com endpoint destacado para serie
+  temporal, anel para proporcao unica, rampa sequencial com passos proprios por tema.
 - `scripts/nf_tokens.py` — telemetria real de tokens lida dos transcripts locais do Claude
   Code (entrada, saida, cache, por modelo e por dia, aproveitamento de cache). O dashboard
   passa a mostrar medido x declarado. Le apenas numeros; nunca o conteudo das mensagens.

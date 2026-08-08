@@ -380,6 +380,109 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
 
 
 
+
+# ── Graficos em SVG, desenhados a mao ──────────────────────────────────────────
+# Sem biblioteca: a pagina precisa continuar auto-contida. Cada forma segue o
+# trabalho do dado — sequencial para intensidade, area para serie temporal.
+
+
+def nome_ferramenta(bruto: str) -> str:
+    """Encurta nome de ferramenta MCP preservando o que distingue.
+
+    `mcp__claude-in-chrome__computer` e `mcp__claude-in-chrome__navigate` truncam
+    identicos numa coluna estreita — o rotulo passa a nao informar nada.
+    """
+    if bruto.startswith("mcp__"):
+        partes = bruto.split("__")
+        if len(partes) >= 3:
+            servidor = partes[1].replace("claude-in-", "").replace("-", " ")
+            return f"{servidor}: {partes[-1]}"
+        return bruto[5:]
+    return bruto
+
+
+def area_temporal(pontos: list[tuple[str, int]], cor: str, altura: int = 76) -> str:
+    """Serie no tempo: linha de 2px, area suave por baixo, ultimo ponto marcado.
+
+    O endpoint destacado responde "onde estamos agora", que e a pergunta que se
+    faz a uma serie temporal — sem obrigar a contar posicoes no eixo.
+    """
+    if len(pontos) < 2:
+        return '<p class="vazio">serie curta demais para um grafico</p>'
+    larg, pad = 100.0, 6.0
+    valores = [v for _, v in pontos]
+    teto = max(valores) or 1
+    n = len(pontos)
+    xs = [pad + i * (larg - 2 * pad) / (n - 1) for i in range(n)]
+    ys = [altura - pad - (v / teto) * (altura - 2 * pad) for v in valores]
+    linha = " ".join(f"{'M' if i == 0 else 'L'}{x:.2f},{y:.2f}" for i, (x, y) in enumerate(zip(xs, ys)))
+    area = linha + f" L{xs[-1]:.2f},{altura - pad:.2f} L{xs[0]:.2f},{altura - pad:.2f} Z"
+    ident = f"g{abs(hash(tuple(valores))) % 100000}"
+    return f"""<svg class="svg-area" viewBox="0 0 100 {altura}" preserveAspectRatio="none"
+ role="img" aria-label="serie temporal, {n} pontos, maximo {teto}">
+<defs><linearGradient id="{ident}" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="{cor}" stop-opacity=".26"/>
+<stop offset="1" stop-color="{cor}" stop-opacity="0"/></linearGradient></defs>
+<path d="{area}" fill="url(#{ident})"/>
+<path d="{linha}" fill="none" stroke="{cor}" stroke-width="2" vector-effect="non-scaling-stroke"
+ stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="{xs[-1]:.2f}" cy="{ys[-1]:.2f}" r="3" fill="{cor}"
+ stroke="var(--surface)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+</svg>"""
+
+
+def mapa_ritmo(por_hora: dict, dias: list[str]) -> str:
+    """Intensidade por dia x hora — trabalho de magnitude continua, entao rampa
+    sequencial de UMA cor (clara = perto de zero), nunca arco-iris."""
+    if not dias:
+        return '<p class="vazio">sem atividade registrada</p>'
+    pico = max(por_hora.values()) if por_hora else 1
+    # Rampa azul 100→700 da paleta validada.
+    # A rampa vive em variavel CSS: no claro vai de claro para escuro, no escuro
+    # de escuro para claro. Inverter automaticamente faria o valor alto sumir no
+    # fundo escuro — exatamente o oposto do que a intensidade deve comunicar.
+    rampa = [f"var(--ramp-{i})" for i in range(1, 8)]
+    linhas = []
+    for dia in dias:
+        celulas = []
+        for h in range(24):
+            n = por_hora.get((dia, h), 0)
+            if n:
+                passo = rampa[min(int((n / pico) ** 0.55 * len(rampa)), len(rampa) - 1)]
+                titulo = f"{dia} {h:02d}h — {n} requisicoes"
+            else:
+                passo, titulo = "var(--muted-fill)", f"{dia} {h:02d}h — sem atividade"
+            celulas.append(f'<i class="cel" style="background:{passo}" title="{titulo}"></i>')
+        linhas.append(
+            f'<div class="ritmo-l"><span class="ritmo-d">{e(dia[5:])}</span>'
+            f'<div class="ritmo-c">{"".join(celulas)}</div></div>'
+        )
+    escala = "".join(f'<i class="cel" style="background:{c}"></i>' for c in rampa)
+    return (
+        f'<div class="ritmo">{"".join(linhas)}'
+        f'<div class="ritmo-l"><span class="ritmo-d"></span>'
+        f'<div class="ritmo-h"><span>00h</span><span>06h</span><span>12h</span>'
+        f'<span>18h</span><span>23h</span></div></div></div>'
+        f'<div class="escala"><span>menos</span>{escala}<span>mais</span>'
+        f'<span class="escala-p">pico {pico} req/h</span></div>'
+    )
+
+
+def anel(fracao: float, cor: str, rotulo: str) -> str:
+    """Uma unica proporcao: anel le melhor que barra porque nao compete com as
+    barras de comparacao ao lado."""
+    raio, circ = 26.0, 2 * 3.14159265 * 26.0
+    preenchido = max(0.0, min(1.0, fracao)) * circ
+    return f"""<div class="anel"><svg viewBox="0 0 64 64" role="img"
+ aria-label="{e(rotulo)}: {fracao:.0%}">
+<circle cx="32" cy="32" r="{raio}" fill="none" stroke="var(--muted-fill)" stroke-width="6"/>
+<circle cx="32" cy="32" r="{raio}" fill="none" stroke="{cor}" stroke-width="6"
+ stroke-linecap="round" stroke-dasharray="{preenchido:.2f} {circ:.2f}"
+ transform="rotate(-90 32 32)"/></svg>
+<div class="anel-t"><span class="anel-v">{fracao:.0%}</span>
+<span class="anel-l">{e(rotulo)}</span></div></div>"""
+
+
 # ── Ajuda contextual ───────────────────────────────────────────────────────────
 # Cada quadro e cada protocolo carrega um botao "?" que abre uma janela nativa
 # (atributo `popover`) explicando o que aquilo e, o que representa e o que fazer
@@ -508,6 +611,19 @@ contexto com custo.</p>
 <p><strong>Por que nao ha valor em dinheiro.</strong> Precos mudam e variam por plano;
 exibir um custo estimado seria inventar precisao que nao temos. Tokens sao o que o
 sistema mede de fato.</p>"""),
+
+    "ritmo": ("Ritmo e ferramentas", """
+<p><strong>O mapa de calor</strong> mostra quantas requisicoes aconteceram em cada hora,
+por dia, em UTC. Serve para enxergar o padrao real de trabalho: blocos longos e continuos
+custam menos que muitas sessoes curtas, porque o cache sobrevive dentro da sessao e morre
+entre elas.</p>
+<p><strong>Ferramentas</strong> conta quais o agente chamou — nunca com que argumentos.
+Muito <code>Read</code> e <code>Grep</code> em relacao a <code>Edit</code> sugere que o
+contexto esta sendo reconstruido por varredura, exatamente o que o indice de conhecimento
+existe para evitar.</p>
+<p><strong>Sessoes</strong> lista as mais caras, com duracao e numero de requisicoes. Uma
+sessao curta e cara costuma indicar releitura pesada logo no inicio.</p>
+<p>Tudo vem dos transcripts locais; nada sai da sua maquina.</p>"""),
 
     "historico": ("Historico de sprints", """
 <p><strong>O que e.</strong> Todas as sprints do projeto, com progresso, nivel de autonomia e
@@ -902,36 +1018,61 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     # ── Consumo real ──
     if tel is not None and getattr(tel, "disponivel", False):
         g = tel.geral
-        por_modelo = sorted(tel.por_modelo.items(), key=lambda kv: -kv[1].faturavel)[:6]
+        por_modelo = sorted(tel.por_modelo.items(), key=lambda kv: -kv[1].faturavel)[:5]
         dias_ord = sorted(tel.por_dia.items())[-14:]
+        ferramentas = [(nome_ferramenta(n), v) for n, v in
+                       sorted(tel.ferramentas.items(), key=lambda kv: -kv[1])[:7]]
+        dias_ritmo = sorted({d for d, _ in tel.por_hora})[-7:]
+        sessoes = sorted(tel.detalhe_sessoes.values(),
+                         key=lambda s: -s.consumo.faturavel)[:5]
+
+        serie = (
+            f'<p class="sub">Consumo por dia, tokens faturaveis</p>'
+            f'{area_temporal([(d, c.faturavel) for d, c in dias_ord], "var(--series-1)")}'
+            f'<div class="eixo"><span>{e(dias_ord[0][0][5:])}</span>'
+            f'<span>{e(dias_ord[-1][0][5:])}</span></div>'
+            if len(dias_ord) > 1 else ""
+        )
+        html_sessoes = "".join(
+            f'<div class="ses"><span class="ses-n">{e(s.id[:8])}</span>'
+            f'<span class="ses-d">{s.duracao_min} min · {s.consumo.requisicoes} req</span>'
+            f'<span class="ses-v num">{fmt(s.consumo.faturavel)}</span></div>'
+            for s in sessoes
+        )
         corpo_tokens = f"""
-        <div class="row">
-          <div class="hero"><span class="hero-n">{fmt(g.faturavel)}</span>
+        <div class="topo-t">
+          <div class="hero"><span class="hero-n num">{fmt(g.faturavel)}</span>
             <span class="hero-l">tokens faturaveis</span></div>
-          <div class="grow">
-            <dl class="kv">
-              <div><dt>Entrada</dt><dd>{fmt(g.entrada)}</dd></div>
-              <div><dt>Saida</dt><dd>{fmt(g.saida)}</dd></div>
-              <div><dt>Cache escrito</dt><dd>{fmt(g.cache_escrito)}</dd></div>
-              <div><dt>Cache lido</dt><dd>{fmt(g.cache_lido)}</dd></div>
-              <div><dt>Requisicoes</dt><dd>{g.requisicoes}</dd></div>
-              <div><dt>Sessoes</dt><dd>{tel.sessoes}</dd></div>
-            </dl>
-          </div>
+          {anel(g.aproveitamento_cache, "var(--series-3)", "de cache")}
         </div>
-        <div class="sep"></div>
-        <p class="sub">Aproveitamento de cache</p>
-        {barra(g.aproveitamento_cache * 100, "var(--series-3)", 10)}
-        <p class="nota"><strong>{g.aproveitamento_cache:.0%}</strong> do contexto de entrada
-        veio de cache em vez de ser reprocessado. Quanto maior, mais barata a sessao.</p>
+        <dl class="kv kv-4">
+          <div><dt>Entrada</dt><dd class="num">{fmt(g.entrada)}</dd></div>
+          <div><dt>Saida</dt><dd class="num">{fmt(g.saida)}</dd></div>
+          <div><dt>Cache escrito</dt><dd class="num">{fmt(g.cache_escrito)}</dd></div>
+          <div><dt>Cache lido</dt><dd class="num">{fmt(g.cache_lido)}</dd></div>
+          <div><dt>Requisicoes</dt><dd class="num">{g.requisicoes}</dd></div>
+          <div><dt>Sessoes</dt><dd class="num">{tel.sessoes}</dd></div>
+        </dl>
+        {serie}
         <div class="sep"></div>
         <p class="sub">Por modelo, em tokens faturaveis</p>
         {barras_horizontais([(m, c.faturavel) for m, c in por_modelo], "var(--series-1)", True)}
-        {'<div class="sep"></div><p class="sub">Por dia</p>' + barras_horizontais([(dia, c.faturavel) for dia, c in dias_ord], "var(--series-2)", True) if len(dias_ord) > 1 else ''}
-        <p class="nota">Medido nos transcripts locais, janela de {d.janela_dias} dias. So numeros sao
-        lidos — o conteudo das mensagens nunca e acessado.</p>"""
+        <p class="nota">{"Todo o periodo registrado" if d.janela_dias > 3650 else f"Janela de {d.janela_dias} dias"}. So numeros sao lidos —
+        o conteudo das mensagens nunca e acessado.</p>"""
+
+        corpo_ritmo = (
+            f'<p class="sub">Requisicoes por hora, '
+            f'{"ultimos " + str(len(dias_ritmo)) + " dias" if len(dias_ritmo) > 1 else "no dia registrado"}'
+            f' (UTC)</p>'
+            f'{mapa_ritmo(tel.por_hora, dias_ritmo)}'
+            f'<div class="sep"></div><p class="sub">Ferramentas mais usadas</p>'
+            f'{barras_horizontais(ferramentas, "var(--series-2)", True)}'
+            f'<div class="sep"></div><p class="sub">Sessoes por consumo</p>'
+            f'<div class="sess">{html_sessoes}</div>'
+        )
     else:
         motivo = getattr(tel, "motivo", "coletor indisponivel") if tel else "coletor indisponivel"
+        corpo_ritmo = f'<p class="vazio">Sem telemetria: {e(motivo)}.</p>'
         corpo_tokens = (
             f'<p class="vazio">Sem telemetria: {e(motivo)}.</p>'
             '<p class="nota">O consumo medido vem dos transcripts locais do Claude Code. '
@@ -1013,6 +1154,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         grafo=corpo_grafo,
         loop=corpo_loop,
         tokens=corpo_tokens,
+        ritmo=corpo_ritmo,
         protocolos=corpo_prot,
         historico=card_hist,
     )
@@ -1029,27 +1171,36 @@ TEMPLATE = """<!doctype html>
    Claro e escuro sao dois conjuntos escolhidos, nao um flip automatico. */
 :root {{
   color-scheme: light;
-  --bg:#f6f6f4; --surface:#fcfcfb; --line:#e4e3df;
-  --text:#0b0b0b; --text-2:#52514e; --muted:#87857f; --muted-fill:#d9d8d3;
+  --bg:#f4f5f7; --surface:#ffffff; --line:#e3e6ea; --line-forte:#cdd3da;
+  --text:#0d1014; --text-2:#4d5561; --muted:#7d8794; --muted-fill:#dde1e6;
   --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
   --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
   --radius:14px; --shadow:0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.05);
+  /* Rampa sequencial (perto de zero → maximo), azul da paleta validada */
+  --ramp-1:#cde2fb; --ramp-2:#9ec5f4; --ramp-3:#6da7ec; --ramp-4:#3987e5;
+  --ramp-5:#256abf; --ramp-6:#184f95; --ramp-7:#0d366b;
 }}
 @media (prefers-color-scheme: dark) {{
   :root:where(:not([data-theme="light"])) {{
     color-scheme: dark;
-    --bg:#121211; --surface:#1a1a19; --line:#302f2d;
-    --text:#ffffff; --text-2:#c3c2b7; --muted:#8d8b83; --muted-fill:#383835;
+    --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
+    --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
     --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    /* No escuro a rampa sobe em luminosidade: mais valor, mais claro */
+    --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
+    --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
   }}
 }}
 :root[data-theme="dark"] {{
   color-scheme: dark;
-  --bg:#121211; --surface:#1a1a19; --line:#302f2d;
-  --text:#ffffff; --text-2:#c3c2b7; --muted:#8d8b83; --muted-fill:#383835;
+  --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
+  --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
   --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  /* No escuro a rampa sobe em luminosidade: mais valor, mais claro */
+  --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
+  --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
 }}
 *,*::before,*::after{{box-sizing:border-box}}
 body{{margin:0;background:var(--bg);color:var(--text);
@@ -1061,8 +1212,9 @@ header{{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;
 h1{{font-size:26px;font-weight:640;letter-spacing:-.02em;margin:0}}
 h1 span{{color:var(--muted);font-weight:450}}
 .meta{{color:var(--muted);font-size:13px}}
-h2{{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--text-2);margin:0 0 4px}}
+h2{{font-size:11.5px;font-weight:660;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-2);margin:0 0 3px;display:flex;align-items:center}}
+.card>h2::after{{content:"";flex:1;height:1px;margin-left:12px;background:var(--line)}}
 .sub{{color:var(--muted);font-size:13px;margin:0 0 12px}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;
   align-items:start}}
@@ -1072,20 +1224,24 @@ h2{{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase
 /* Tiles */
 .tiles{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
   gap:14px;margin-bottom:22px}}
-.tile{{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-  padding:16px 18px;display:flex;flex-direction:column;gap:3px;box-shadow:var(--shadow);
-  border-left:3px solid var(--muted-fill)}}
-.tile.ok{{border-left-color:var(--st-good)}}
-.tile.bad{{border-left-color:var(--st-critical)}}
-.tile.warn{{border-left-color:var(--st-warning)}}
+.tile{{position:relative;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:3px;
+  box-shadow:var(--shadow);overflow:hidden}}
+.tile::before{{content:"";position:absolute;inset:0 0 auto;height:2px;
+  background:var(--muted-fill)}}
+.tile.ok::before{{background:var(--st-good)}}
+.tile.bad::before{{background:var(--st-critical)}}
+.tile.warn::before{{background:var(--st-warning)}}
 .tile-k{{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}}
-.tile-v{{font-size:27px;font-weight:660;letter-spacing:-.02em;line-height:1.15}}
+.tile-v{{font-size:28px;font-weight:660;letter-spacing:-.025em;line-height:1.15;
+  font-variant-numeric:tabular-nums}}
 .tile-s{{font-size:12.5px;color:var(--text-2)}}
 /* Hero + linhas */
 .row{{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}}
 .grow{{flex:1;min-width:230px}}
 .hero{{display:flex;flex-direction:column;min-width:112px}}
-.hero-n{{font-size:42px;font-weight:680;letter-spacing:-.03em;line-height:1}}
+.hero-n{{font-size:42px;font-weight:680;letter-spacing:-.035em;line-height:1}}
+.num{{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}}
 .hero-u{{font-size:20px;color:var(--muted);margin-left:2px}}
 .hero-l{{font-size:12.5px;color:var(--muted);margin-top:4px}}
 /* Barra: extremidade arredondada 4px, ancorada na base */
@@ -1096,14 +1252,17 @@ h2{{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase
   gap:10px 18px}}
 .kv div{{display:flex;flex-direction:column;gap:1px}}
 .kv dt{{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}}
-.kv dd{{margin:0;font-size:14px;font-weight:520}}
+.kv dd{{margin:0;font-size:14px;font-weight:520;font-variant-numeric:tabular-nums}}
 .kv .span{{grid-column:1/-1}}
 /* Guards */
 .guards{{display:grid;gap:10px}}
-.guard{{border:1px solid var(--line);border-radius:10px;padding:12px 14px;
-  display:flex;flex-direction:column;gap:4px;border-left:3px solid var(--muted-fill)}}
-.guard.pass{{border-left-color:var(--st-good)}}
-.guard.fail{{border-left-color:var(--st-critical)}}
+.guard{{position:relative;border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px 12px 16px;display:flex;flex-direction:column;gap:4px;
+  background:var(--bg)}}
+.guard::before{{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;
+  border-radius:2px;background:var(--muted-fill)}}
+.guard.pass::before{{background:var(--st-good)}}
+.guard.fail::before{{background:var(--st-critical)}}
 .guard-h{{display:flex;justify-content:space-between;align-items:center;gap:10px}}
 .guard-n{{font-weight:580;font-size:14.5px}}
 .guard-d{{font-size:12.5px;color:var(--text-2)}}
@@ -1145,7 +1304,7 @@ h2{{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase
 .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:14px;
   margin-bottom:18px}}
 .stats div{{display:flex;flex-direction:column}}
-.s-v{{font-size:24px;font-weight:640;letter-spacing:-.02em}}
+.s-v{{font-size:24px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums}}
 .s-k{{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}}
 /* Severidade */
 .sev{{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0}}
@@ -1172,6 +1331,39 @@ h2{{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase
 .prot .pill{{grid-column:2;grid-row:1/3;justify-self:end}}
 .tbl td:nth-child(2){{max-width:150px;overflow:hidden;text-overflow:ellipsis}}
 .tbl td:last-child,.tbl th:last-child{{text-align:right;white-space:nowrap;padding-right:0}}
+/* Serie temporal */
+.svg-area{{width:100%;height:76px;display:block;margin:2px 0 0;overflow:visible}}
+.eixo{{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);
+  font-variant-numeric:tabular-nums;margin-top:2px}}
+/* Anel de proporcao */
+.topo-t{{display:flex;align-items:center;justify-content:space-between;gap:18px;
+  flex-wrap:wrap}}
+.anel{{display:flex;align-items:center;gap:11px}}
+.anel svg{{width:60px;height:60px;flex:none}}
+.anel-t{{display:flex;flex-direction:column;line-height:1.2}}
+.anel-v{{font-size:21px;font-weight:660;letter-spacing:-.02em;font-variant-numeric:tabular-nums}}
+.anel-l{{font-size:11.5px;color:var(--muted)}}
+.kv-4{{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}}
+/* Mapa de ritmo */
+.ritmo{{display:grid;gap:3px;margin:2px 0 10px}}
+.ritmo-l{{display:grid;grid-template-columns:38px 1fr;align-items:center;gap:8px}}
+.ritmo-d{{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}}
+.ritmo-c{{display:grid;grid-template-columns:repeat(24,1fr);gap:2px}}
+.cel{{display:block;aspect-ratio:1;border-radius:2px;min-height:9px}}
+.ritmo-h{{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}}
+.escala{{display:flex;align-items:center;gap:3px;font-size:10.5px;color:var(--muted);
+  margin-top:8px;flex-wrap:wrap}}
+.escala .cel{{width:11px;height:11px;min-height:0;aspect-ratio:auto}}
+.escala-p{{margin-left:auto;font-variant-numeric:tabular-nums}}
+/* Sessoes */
+.sess{{display:grid;gap:1px}}
+.ses{{display:grid;grid-template-columns:1fr auto auto;align-items:baseline;gap:10px;
+  padding:7px 0;border-bottom:1px solid var(--line)}}
+.ses:last-child{{border-bottom:none}}
+.ses-n{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  color:var(--text-2)}}
+.ses-d{{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}}
+.ses-v{{font-size:12.5px;font-weight:560;text-align:right;min-width:52px}}
 /* Ajuda contextual — popover nativo, sem JavaScript */
 .help{{all:unset;display:inline-flex;align-items:center;justify-content:center;
   width:17px;height:17px;margin-left:7px;border:1px solid var(--line);border-radius:50%;
@@ -1243,6 +1435,8 @@ footer{{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}}
     <p class="sub">Estado em disco, nao na conversa</p>{loop}</section>
   <section class="card"><h2>Consumo real de tokens{ajuda_tokens}</h2>
     <p class="sub">Medido nos transcripts locais, nao declarado</p>{tokens}</section>
+  <section class="card"><h2>Ritmo e ferramentas{ajuda_ritmo}</h2>
+    <p class="sub">Como o trabalho se distribuiu</p>{ritmo}</section>
   <section class="card"><h2>Protocolos{ajuda_protocolos}</h2>
     <p class="sub">O que trava e o que se audita</p>{protocolos}</section>
   {historico}
