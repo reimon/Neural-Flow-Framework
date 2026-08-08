@@ -42,6 +42,7 @@ from nf_guards import (  # noqa: E402
     arquivos, campos, chave, eh_placeholder, eh_template, ler, numero,
     secao, sem_acento,
 )
+from nf_tokens import coletar_tokens  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
 
@@ -105,6 +106,7 @@ class Dados:
     grafo: dict | None = None
     smoke: dict = field(default_factory=dict)
     loop: dict = field(default_factory=dict)
+    tokens: object = None
 
     @property
     def ativa(self) -> Sprint | None:
@@ -370,6 +372,7 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None) -> Da
         grafo=coletar_grafo(raiz),
         smoke=coletar_smoke(raiz),
         loop=coletar_loop(raiz),
+        tokens=coletar_tokens(raiz, dias=30),
     )
 
 
@@ -483,6 +486,26 @@ foi minima, se o tier de modelo era o mais barato viavel — isso ainda se audit
 mes. Guard aspiracional declarado como tal nunca e apresentado como se travasse algo.</p>
 <p>Clique no <strong>?</strong> de cada protocolo para entender o que ele garante.</p>"""),
 
+    "tokens": ("Consumo real de tokens", """
+<p><strong>O que e.</strong> O consumo <em>medido</em>, lido dos transcripts locais do
+Claude Code — diferente do quadro de FinOps, que mostra o que a sprint
+<em>declarou</em>. Ver os dois lado a lado revela se a estimativa esta perto da
+realidade.</p>
+<p><strong>Privacidade.</strong> So numeros sao lidos: contagem de tokens, modelo,
+carimbo de tempo e identificador de sessao. <strong>O conteudo das mensagens nunca e
+lido.</strong> Tudo acontece na sua maquina; nada sai dela.</p>
+<p><strong>Aproveitamento de cache.</strong> A metrica mais acionavel daqui. Contexto
+relido de cache custa uma fracao do que custaria reprocessado. Numero alto significa
+sessao longa e barata; numero baixo indica que o contexto esta sendo reconstruido a cada
+chamada — geralmente por reinicio frequente ou releitura de arquivos que o indice
+resolveria.</p>
+<p><strong>Faturavel.</strong> Entrada + saida + escrita de cache. A leitura de cache fica
+de fora porque custa uma fracao — soma-la inflaria o numero e confundiria volume de
+contexto com custo.</p>
+<p><strong>Por que nao ha valor em dinheiro.</strong> Precos mudam e variam por plano;
+exibir um custo estimado seria inventar precisao que nao temos. Tokens sao o que o
+sistema mede de fato.</p>"""),
+
     "historico": ("Historico de sprints", """
 <p><strong>O que e.</strong> Todas as sprints do projeto, com progresso, nivel de autonomia e
 consumo de tokens contra o orcamento.</p>
@@ -591,19 +614,25 @@ def pill(estado: str) -> str:
     return f'<span class="pill {cls}"><span aria-hidden="true">{icone}</span>{rotulo}</span>'
 
 
-def barras_horizontais(itens: list[tuple[str, int]], cor: str) -> str:
-    """Magnitude por categoria — uma serie, sem legenda (o titulo ja a nomeia)."""
+def barras_horizontais(itens: list[tuple[str, int]], cor: str,
+                      compacto: bool = False) -> str:
+    """Magnitude por categoria — uma serie, sem legenda (o titulo ja a nomeia).
+
+    `compacto` abrevia o valor (4.3M em vez de 4325344): numero cru de milhoes
+    e ilegivel de relance, que e justamente o uso de um grafico de barras.
+    """
     if not itens:
         return '<p class="vazio">sem dados</p>'
     maior = max(v for _, v in itens) or 1
     linhas = []
     for rotulo, valor in itens:
         pct = valor / maior * 100
+        texto = fmt(valor) if compacto else str(valor)
         linhas.append(
             f'<div class="hbar"><span class="hbar-label" title="{e(rotulo)}">{e(rotulo)}</span>'
             f'<div class="hbar-track"><div class="hbar-fill" style="width:{pct:.1f}%;'
             f'background:{cor}"></div></div>'
-            f'<span class="hbar-val">{valor}</span></div>'
+            f'<span class="hbar-val">{e(texto)}</span></div>'
         )
     return "".join(linhas)
 
@@ -640,6 +669,7 @@ def card(titulo: str, corpo: str, sub: str = "", extra: str = "") -> str:
 
 def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     ativa = d.ativa
+    tel = d.tokens          # usado tanto no FinOps quanto no quadro de consumo
     guards_pass = sum(1 for g in d.guards if g["estado"] == "pass")
     guards_fail = sum(1 for g in d.guards if g["estado"] == "fail")
     guards_ativos = sum(1 for g in d.guards if g["estado"] in ("pass", "fail"))
@@ -748,6 +778,23 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         corpo_fin = ('<p class="vazio">Nenhuma sprint declara <code>Token budget</code>. '
                      'O Circuit Breaker exige orcamento declarado por sprint (B1).</p>')
 
+    if tel is not None and getattr(tel, "disponivel", False) and com_budget:
+        ativa_b = next((s for s in com_budget if s.status == "em andamento"), com_budget[-1])
+        medido = tel.geral.faturavel
+        declarado = ativa_b.consumo
+        corpo_fin += (
+            '<div class="sep"></div><p class="sub">Declarado x medido — sprint ativa</p>'
+            f'<div class="fin"><span class="fin-l">Declarado</span>'
+            f'{barra(100 if declarado else 0, "var(--muted-fill)")}'
+            f'<span class="fin-v">{fmt(declarado) if declarado else "em andamento"}</span></div>'
+            f'<div class="fin"><span class="fin-l">Medido</span>'
+            f'{barra(min(medido / (ativa_b.budget or medido or 1) * 100, 100), "var(--series-3)")}'
+            f'<span class="fin-v">{fmt(medido)}</span></div>'
+            '<p class="nota">O medido vem dos transcripts locais e cobre 30 dias do projeto '
+            'inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o '
+            'proximo budget, nao como substituto do registro.</p>'
+        )
+
     if d.grafo and (d.grafo["tokens_in"] or d.grafo["tokens_out"]):
         tin, tout = d.grafo["tokens_in"], d.grafo["tokens_out"]
         corpo_fin += (
@@ -849,6 +896,46 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         corpo_loop = ('<p class="vazio">Loop nao iniciado. O estado vive em '
                       '<code>build/</code> — plano, diario e divergencias.</p>')
 
+    # ── Consumo real ──
+    if tel is not None and getattr(tel, "disponivel", False):
+        g = tel.geral
+        por_modelo = sorted(tel.por_modelo.items(), key=lambda kv: -kv[1].faturavel)[:6]
+        dias_ord = sorted(tel.por_dia.items())[-14:]
+        corpo_tokens = f"""
+        <div class="row">
+          <div class="hero"><span class="hero-n">{fmt(g.faturavel)}</span>
+            <span class="hero-l">tokens faturaveis</span></div>
+          <div class="grow">
+            <dl class="kv">
+              <div><dt>Entrada</dt><dd>{fmt(g.entrada)}</dd></div>
+              <div><dt>Saida</dt><dd>{fmt(g.saida)}</dd></div>
+              <div><dt>Cache escrito</dt><dd>{fmt(g.cache_escrito)}</dd></div>
+              <div><dt>Cache lido</dt><dd>{fmt(g.cache_lido)}</dd></div>
+              <div><dt>Requisicoes</dt><dd>{g.requisicoes}</dd></div>
+              <div><dt>Sessoes</dt><dd>{tel.sessoes}</dd></div>
+            </dl>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <p class="sub">Aproveitamento de cache</p>
+        {barra(g.aproveitamento_cache * 100, "var(--series-3)", 10)}
+        <p class="nota"><strong>{g.aproveitamento_cache:.0%}</strong> do contexto de entrada
+        veio de cache em vez de ser reprocessado. Quanto maior, mais barata a sessao.</p>
+        <div class="sep"></div>
+        <p class="sub">Por modelo, em tokens faturaveis</p>
+        {barras_horizontais([(m, c.faturavel) for m, c in por_modelo], "var(--series-1)", True)}
+        {'<div class="sep"></div><p class="sub">Por dia</p>' + barras_horizontais([(dia, c.faturavel) for dia, c in dias_ord], "var(--series-2)", True) if len(dias_ord) > 1 else ''}
+        <p class="nota">Medido nos transcripts locais, janela de 30 dias. So numeros sao
+        lidos — o conteudo das mensagens nunca e acessado.</p>"""
+    else:
+        motivo = getattr(tel, "motivo", "coletor indisponivel") if tel else "coletor indisponivel"
+        corpo_tokens = (
+            f'<p class="vazio">Sem telemetria: {e(motivo)}.</p>'
+            '<p class="nota">O consumo medido vem dos transcripts locais do Claude Code. '
+            'Sem eles, o quadro de FinOps continua valendo — so que com o valor '
+            '<em>declarado</em> na sprint, nao o medido.</p>'
+        )
+
     # ── Protocolos ──
     mapa_estado = {g["nome"]: g["estado"] for g in d.guards}
     linhas_p = []
@@ -922,6 +1009,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         smoke=corpo_smoke,
         grafo=corpo_grafo,
         loop=corpo_loop,
+        tokens=corpo_tokens,
         protocolos=corpo_prot,
         historico=card_hist,
     )
@@ -1150,6 +1238,8 @@ footer{{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}}
     <p class="sub">Grafo construido sobre a documentacao</p>{grafo}</section>
   <section class="card"><h2>Loop autonomo{ajuda_loop}</h2>
     <p class="sub">Estado em disco, nao na conversa</p>{loop}</section>
+  <section class="card"><h2>Consumo real de tokens{ajuda_tokens}</h2>
+    <p class="sub">Medido nos transcripts locais, nao declarado</p>{tokens}</section>
   <section class="card"><h2>Protocolos{ajuda_protocolos}</h2>
     <p class="sub">O que trava e o que se audita</p>{protocolos}</section>
   {historico}

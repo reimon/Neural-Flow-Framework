@@ -776,6 +776,90 @@ class TestDashboard(unittest.TestCase):
             self.assertIn("&lt;script&gt;", texto)
 
 
+class TestTelemetriaDeTokens(unittest.TestCase):
+    """Consumo REAL, lido dos transcripts locais — nao o declarado na sprint.
+
+    O teste monta um transcript sintetico em vez de usar `~/.claude` do usuario:
+    depender do historico real deixaria o resultado diferente em cada maquina.
+    """
+
+    def _transcript(self, base: Path, raiz_projeto: Path, registros: list[dict]) -> None:
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import slug_do_projeto
+
+        destino = base / slug_do_projeto(raiz_projeto)
+        destino.mkdir(parents=True)
+        linhas = [json.dumps(r) for r in registros]
+        (destino / "sessao.jsonl").write_text("\n".join(linhas) + "\n", encoding="utf-8")
+
+    def test_agrega_por_modelo_e_calcula_cache(self) -> None:
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import coletar_tokens
+
+        with tempfile.TemporaryDirectory() as t:
+            base, proj = Path(t) / "tr", Path(t) / "proj"
+            proj.mkdir()
+            agora = "2026-08-08T10:00:00.000Z"
+            self._transcript(base, proj, [
+                {"type": "user", "timestamp": agora, "message": {"content": "segredo"}},
+                {"timestamp": agora, "sessionId": "s1", "message": {
+                    "model": "claude-opus-5",
+                    "usage": {"input_tokens": 1000, "output_tokens": 500,
+                              "cache_creation_input_tokens": 2000,
+                              "cache_read_input_tokens": 7000}}},
+                {"timestamp": agora, "sessionId": "s1", "message": {
+                    "model": "claude-fable-5",
+                    "usage": {"input_tokens": 100, "output_tokens": 50,
+                              "cache_creation_input_tokens": 0,
+                              "cache_read_input_tokens": 900}}},
+            ])
+            tel = coletar_tokens(proj, dias=36500, base=base)
+
+            self.assertTrue(tel.disponivel, tel.motivo)
+            self.assertEqual(tel.geral.requisicoes, 2)
+            self.assertEqual(tel.geral.entrada, 1100)
+            self.assertEqual(tel.geral.saida, 550)
+            self.assertEqual(tel.geral.cache_lido, 7900)
+            # faturavel exclui leitura de cache, que custa uma fracao
+            self.assertEqual(tel.geral.faturavel, 1100 + 550 + 2000)
+            self.assertEqual(tel.sessoes, 1)
+            self.assertEqual(set(tel.por_modelo), {"claude-opus-5", "claude-fable-5"})
+            self.assertAlmostEqual(tel.geral.aproveitamento_cache, 7900 / 11000, places=3)
+
+    def test_projeto_sem_transcript_nao_quebra(self) -> None:
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import coletar_tokens
+
+        with tempfile.TemporaryDirectory() as t:
+            tel = coletar_tokens(Path(t), dias=30, base=Path(t) / "inexistente")
+            self.assertFalse(tel.disponivel)
+            self.assertTrue(tel.motivo)
+
+    def test_nao_extrai_conteudo_de_mensagem(self) -> None:
+        """Garantia de privacidade: so numeros saem do transcript."""
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import coletar_tokens
+
+        with tempfile.TemporaryDirectory() as t:
+            base, proj = Path(t) / "tr", Path(t) / "proj"
+            proj.mkdir()
+            self._transcript(base, proj, [
+                {"timestamp": "2026-08-08T10:00:00.000Z", "sessionId": "s1", "message": {
+                    "model": "m", "content": "TEXTO-CONFIDENCIAL-DO-USUARIO",
+                    "usage": {"input_tokens": 10, "output_tokens": 5}}},
+            ])
+            tel = coletar_tokens(proj, dias=36500, base=base)
+            serializado = json.dumps(tel.como_dict())
+            self.assertNotIn("CONFIDENCIAL", serializado)
+            self.assertEqual(tel.geral.entrada, 10)
+
+
 class TestDemoVersionada(unittest.TestCase):
     """`docs/dashboard-demo.html` nao pode apodrecer.
 

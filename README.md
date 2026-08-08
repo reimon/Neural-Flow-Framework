@@ -436,6 +436,22 @@ arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias penden
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
 se **audita**.
 
+**Consumo real de tokens.** O dashboard le os transcripts locais do Claude Code e mostra o
+consumo **medido** ao lado do **declarado** na sprint — entrada, saida, escrita e leitura de
+cache, por modelo e por dia, mais o aproveitamento de cache. Sem isso, o FinOps dependia
+inteiramente de alguem lembrar de anotar.
+
+> **Privacidade.** So numeros sao lidos: contagem de tokens, modelo, carimbo de tempo e
+> identificador de sessao. **O conteudo das mensagens nunca e lido nem gravado**, e nada
+> sai da sua maquina. A varredura fica restrita ao diretorio do projeto analisado.
+
+```bash
+python3 scripts/nf_tokens.py --dias 30    # so a telemetria, no terminal
+```
+
+Nao ha valor em dinheiro de proposito: precos mudam e variam por plano, entao exibir custo
+estimado seria inventar precisao que nao temos. Tokens sao o que o sistema mede de fato.
+
 **Ajuda contextual.** Cada quadro, cada um dos 10 protocolos e cada indicador do topo tem
 um botao **?** que abre uma janela explicando o que aquilo e, o que representa e o que fazer
 quando reprova. Usa o `popover` nativo do HTML — janela de verdade, com `Esc` e clique-fora,

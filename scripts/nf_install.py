@@ -40,7 +40,7 @@ GUARDS = [
     "nf_gate.py", "nf_guards.py", "validate_sprint_state.py",
     "validate_token_budget.py", "validate_context_sources.py",
     "validate_adr.py", "validate_module_spec.py", "validate_calibration.py",
-    "nf_dashboard.py",
+    "nf_dashboard.py", "nf_tokens.py",
 ]
 
 SMOKE_GATE_REPO = "reimon/smoke-gate"

@@ -32,6 +32,9 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- `scripts/nf_tokens.py` — telemetria real de tokens lida dos transcripts locais do Claude
+  Code (entrada, saida, cache, por modelo e por dia, aproveitamento de cache). O dashboard
+  passa a mostrar medido x declarado. Le apenas numeros; nunca o conteudo das mensagens.
 - Ajuda contextual no dashboard: botao `?` em cada quadro, protocolo e indicador, abrindo
   janela com `popover` nativo — sem JavaScript, preservando a auto-contencao.
 - Dashboard linka os artefatos do graphify (`graph.html`, wiki, `GRAPH_REPORT.md`) com
