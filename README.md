@@ -276,6 +276,7 @@ Para aplicar o Neural-Flow em qualquer projeto, copiar e preencher:
 | Template                                  | Vira no projeto                | Papel                                                      |
 | ----------------------------------------- | ------------------------------ | ---------------------------------------------------------- |
 | templates/AGENTS-template.md              | `AGENTS.md` (raiz)             | Fonte de verdade tool-agnostica para qualquer LLM; principio "documentacao orienta, guard obriga" |
+| templates/CLAUDE-template.md              | `CLAUDE.md` (raiz)             | Principios de execucao (Karpathy) amarrados aos protocolos que os tornam verificaveis |
 | templates/AI_SAFETY-template.md           | `.github/AI_SAFETY.md`         | Proibicoes absolutas e acoes com confirmacao (Aegis operacional) |
 | templates/MEMORY-template.md              | `MEMORY.md` (raiz)             | Memoria viva: decisoes, padroes e Solutions Log datado     |
 | templates/adr-template.md                 | `docs/adr/ADR-NNN-*.md`        | Registro de decisao arquitetural                           |
@@ -365,7 +366,7 @@ stdlib pura (ADR-002).
 
 | Modo | Quando | O que instala |
 | ---- | ------ | ------------- |
-| **brownfield** | O projeto ja tem codigo (`package.json`, `src/`, `pyproject.toml`...) | Guards + hook + CI, `AGENTS.md`, `.github/AI_SAFETY.md`, `MEMORY.md`, sprint de adocao e o smoke-gate |
+| **brownfield** | O projeto ja tem codigo (`package.json`, `src/`, `pyproject.toml`...) | Guards + hook + CI, `AGENTS.md`, `CLAUDE.md`, `.github/AI_SAFETY.md`, `MEMORY.md`, sprint de adocao e o smoke-gate |
 | **greenfield** | O projeto ainda e uma ideia | Tudo do brownfield **mais** o andaime docs-first: `COMECE-AQUI.md`, padrao de especificacao, `docs/modulos/`, `docs/adr/`, e os arquivos de estado do loop em `build/` |
 
 O modo greenfield existe para o caso "tenho uma ideia de aplicativo": o repositorio nasce
@@ -381,9 +382,36 @@ O instalador liga o [`smoke-gate`](https://github.com/reimon/smoke-gate) por pad
 - **MCP em qualquer stack** (`.mcp.json` e `.vscode/mcp.json`) — o agente chama
   `audit_check_sql` para validar SQL contra o schema em <50ms **antes** de gerar a query;
 - **devDependency + script `audit` + Action** quando existe `package.json` — os detectores
-  da v0.5 cobrem Node/TS + Postgres, entao a dependencia so entra onde faz sentido.
+  cobrem Node/TS + Postgres, entao a dependencia so entra onde faz sentido.
 
-Desligar com `--smoke-gate no`.
+**Sempre a versao mais recente.** O instalador consulta as tags do smoke-gate e grava a
+mais nova no projeto. Nao ha versao fixada no codigo do framework: publicou v0.6, a
+proxima instalacao ja usa v0.6, sem release nossa. A versao resolvida e **gravada** no
+projeto — referencia flutuante faria o mesmo commit auditar diferente em dias diferentes.
+
+```bash
+--smoke-gate-ref main      # acompanhar o branch, sem pinagem
+--smoke-gate-ref v0.5.0    # congelar numa versao
+--smoke-gate no            # nao instalar
+```
+
+Sem rede, cai para a ultima versao conhecida e avisa — instalacao nunca falha por isso.
+
+### Disciplina do agente: CLAUDE.md
+
+O instalador escreve um `CLAUDE.md` com os quatro principios de execucao de
+[andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) — Think
+Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution — e amarra cada
+um ao protocolo que o torna verificavel:
+
+| Principio | Protocolo que o trava |
+| --- | --- |
+| Think Before Coding | Spec-First — duvida vira divergencia registrada, nunca preenchimento plausivel |
+| Simplicity First | Vetor de Contexto — nao reimplementar o que `AGENTS.md` ja lista |
+| Surgical Changes | Loop Autonomo — um item por iteracao, commit escopado |
+| Goal-Driven Execution | Evidencia Sintetica — verde e a unica condicao para marcar pronto |
+
+Os principios sao a disciplina; os protocolos sao a trava. Um sem o outro nao segura.
 
 ### Garantias
 

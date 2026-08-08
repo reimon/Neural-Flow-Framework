@@ -516,8 +516,74 @@ class TestInstalador(unittest.TestCase):
             self._instalar(destino, "--mode", "greenfield")
             mcp = json.loads((destino / ".mcp.json").read_text(encoding="utf-8"))
             args = mcp["mcpServers"]["smoke-gate"]["args"]
-            self.assertIn("github:reimon/smoke-gate#v0.5.0", args)
+            self.assertTrue(
+                any(a.startswith("github:reimon/smoke-gate#") for a in args),
+                f"smoke-gate nao registrado no MCP: {args}",
+            )
             self.assertIn("mcp", args)
+
+    def test_smoke_gate_usa_a_versao_mais_recente(self) -> None:
+        """A versao e resolvida na instalacao, nao fixada no codigo do framework.
+
+        Assim cada instalacao nasce com a mais nova sem precisar de release nossa,
+        e o projeto instalado continua reproduzivel — referencia flutuante faria o
+        mesmo commit auditar diferente em dias diferentes.
+        """
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_install import SMOKE_GATE_FALLBACK, resolver_ref_smoke_gate
+
+        # Override explicito sempre vence e nao consulta a rede.
+        self.assertEqual(resolver_ref_smoke_gate("main"), ("main", None))
+        self.assertEqual(resolver_ref_smoke_gate("v9.9.9"), ("v9.9.9", None))
+
+        # Sem override: tag valida (da rede) ou fallback declarado — nunca vazio.
+        ref, _aviso = resolver_ref_smoke_gate(None)
+        self.assertRegex(
+            ref, r"^(v?\d+\.\d+\.\d+|main)$",
+            f"ref resolvido invalido: {ref!r}",
+        )
+        self.assertTrue(SMOKE_GATE_FALLBACK.startswith("v"))
+
+    def test_ref_do_smoke_gate_e_respeitado_nos_artefatos(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            (destino).mkdir()
+            (destino / "package.json").write_text(
+                json.dumps({"name": "x", "version": "1.0.0"}), encoding="utf-8"
+            )
+            self._instalar(destino, "--smoke-gate-ref", "v9.9.9")
+            pkg = json.loads((destino / "package.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                pkg["devDependencies"]["@kaiketsu/smoke-gate"],
+                "github:reimon/smoke-gate#v9.9.9",
+            )
+            action = (destino / ".github" / "workflows" / "smoke-gate.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("reimon/smoke-gate/action@v9.9.9", action)
+
+    def test_claude_md_traz_os_principios_de_execucao(self) -> None:
+        """CLAUDE.md e o que muda o comportamento do agente antes de qualquer guard."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            self._instalar(destino, "--mode", "greenfield")
+            claude = destino / "CLAUDE.md"
+            self.assertTrue(claude.is_file(), "CLAUDE.md nao foi instalado")
+            texto = claude.read_text(encoding="utf-8")
+            for principio in (
+                "Think Before Coding", "Simplicity First",
+                "Surgical Changes", "Goal-Driven Execution",
+            ):
+                with self.subTest(principio=principio):
+                    self.assertIn(principio, texto)
+            self.assertIn("multica-ai/andrej-karpathy-skills", texto, "fonte nao creditada")
+            self.assertIn("AGENTS.md", texto, "deve apontar para a fonte de verdade")
+            self.assertIn("nf_gate.py", texto, "deve ensinar a rodar os guards")
+            self.assertNotIn("TEMPLATE Neural-Flow", texto, "cabecalho de template vazou")
 
     def test_instalacao_e_idempotente(self) -> None:
         import tempfile

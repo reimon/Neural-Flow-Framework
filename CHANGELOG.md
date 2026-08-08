@@ -17,6 +17,29 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
 
 ---
 
+## [Nao publicado]
+
+### Adicionado
+
+- `install.sh` + `scripts/nf_install.py` — instalador com deteccao de modo
+  (greenfield/brownfield), idempotente, que nao sobrescreve nada e se auto-valida
+  rodando `nf_gate` no projeto gerado.
+- `templates/CLAUDE-template.md` — principios de execucao (Karpathy) amarrados aos
+  protocolos que os tornam verificaveis. Instalado nos dois modos.
+- smoke-gate resolvido na **versao mais recente** a cada instalacao (tags via API),
+  com `--smoke-gate-ref` para congelar ou acompanhar `main`.
+
+### Corrigido
+
+- `scripts/setup-hooks.sh`: interpretador `python` fixo, mascaramento de falha e
+  instalacao em `.git/hooks` com `core.hooksPath` ativo (hook morto).
+- Guard `calibration` nao ignorava blocos de codigo — o arquivo que documenta o formato
+  era lido como se cada exemplo fosse divergencia pendente.
+- Workflow de reindex falhava sem os segredos do indice, deixando badge vermelho cronico
+  em fork e em projeto sem a implementacao de referencia Azure. Agora pula com aviso.
+
+---
+
 ## [0.1.0] — 2026-08-08
 
 Primeira versao publica.

@@ -31,12 +31,28 @@ jobs:
       AZURE_OPENAI_EMBEDDING_DEPLOYMENT: text-embedding-3-small
 
     steps:
+      # Sem credenciais configuradas nao ha o que reindexar. Falhar aqui deixaria
+      # o CI permanentemente vermelho em todo fork e em todo projeto que use o
+      # Neural-Flow sem a implementacao de referencia Azure — e badge vermelho
+      # cronico ensina o time a ignorar o CI.
+      - name: Verificar se o indice esta configurado
+        id: config
+        run: |
+          if [ -z "${AZURE_SEARCH_ENDPOINT}" ] || [ -z "${AZURE_OPENAI_ENDPOINT}" ]; then
+            echo "configurado=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Segredos do indice nao configurados — reindex pulado."
+          else
+            echo "configurado=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.config.outputs.configurado == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 2 # needed for git diff-tree in changed-only mode
 
       - name: Set up Python
+        if: steps.config.outputs.configurado == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -44,12 +60,13 @@ jobs:
           cache-dependency-path: scripts/requirements.txt
 
       - name: Install dependencies
+        if: steps.config.outputs.configurado == 'true'
         run: pip install -r scripts/requirements.txt
 
       - name: Run ingestion (changed-only)
-        if: ${{ !inputs.full_reindex }}
+        if: steps.config.outputs.configurado == 'true' && !inputs.full_reindex
         run: python scripts/ingest.py --changed-only
 
       - name: Run full reindex
-        if: ${{ inputs.full_reindex }}
+        if: steps.config.outputs.configurado == 'true' && inputs.full_reindex
         run: python scripts/ingest.py

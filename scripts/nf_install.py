@@ -42,8 +42,50 @@ GUARDS = [
     "validate_adr.py", "validate_module_spec.py", "validate_calibration.py",
 ]
 
-SMOKE_GATE_REF = "github:reimon/smoke-gate#v0.5.0"
-SMOKE_GATE_ACTION = "reimon/smoke-gate/action@v0.5.0"
+SMOKE_GATE_REPO = "reimon/smoke-gate"
+# Rede indisponivel ou API fora do ar nao pode impedir a instalacao — cai para a
+# ultima versao conhecida em vez de falhar.
+SMOKE_GATE_FALLBACK = "v0.5.0"
+
+
+def resolver_ref_smoke_gate(ref: str | None) -> tuple[str, str | None]:
+    """Descobre a versao mais recente do smoke-gate no momento da instalacao.
+
+    Devolve (ref, aviso). `--smoke-gate-ref` sobrepoe: use `main` para acompanhar
+    o branch sem pinagem, ou uma tag para congelar.
+
+    A versao e resolvida na instalacao e gravada no projeto: cada instalacao
+    nasce com a mais nova, e o projeto instalado continua reproduzivel. Gravar
+    uma referencia flutuante faria o mesmo commit auditar de formas diferentes em
+    dias diferentes — o oposto do que o framework pede.
+    """
+    if ref:
+        return ref, None
+
+    import json as _json
+    import re as _re
+    import urllib.error
+    import urllib.request
+
+    url = f"https://api.github.com/repos/{SMOKE_GATE_REPO}/tags?per_page=100"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "neural-flow-installer"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            tags = _json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
+        return SMOKE_GATE_FALLBACK, (
+            f"nao consegui consultar as versoes do smoke-gate ({exc.__class__.__name__}); "
+            f"usando {SMOKE_GATE_FALLBACK}. Ajuste com --smoke-gate-ref."
+        )
+
+    def chave(nome: str) -> tuple:
+        m = _re.match(r"^v?(\d+)\.(\d+)\.(\d+)", nome)
+        return tuple(int(g) for g in m.groups()) if m else (-1, -1, -1)
+
+    validas = [t["name"] for t in tags if chave(t["name"]) != (-1, -1, -1)]
+    if not validas:
+        return SMOKE_GATE_FALLBACK, "nenhuma tag de versao encontrada; usando fallback"
+    return max(validas, key=chave), None
 
 # Sinais de que o projeto ja tem codigo.
 SINAIS_CODIGO = [
@@ -140,6 +182,10 @@ def instalar_guards(inst: Instalacao) -> None:
 
 def instalar_governanca(inst: Instalacao, nome_projeto: str) -> None:
     inst.copiar_template("templates/AGENTS-template.md", inst.alvo / "AGENTS.md")
+    # CLAUDE.md carrega os principios de execucao (Karpathy) e amarra cada um ao
+    # protocolo que o torna verificavel. Vale nos dois modos: e a disciplina do
+    # agente, independente de haver codigo ainda.
+    inst.copiar_template("templates/CLAUDE-template.md", inst.alvo / "CLAUDE.md")
     inst.copiar_template(
         "templates/AI_SAFETY-template.md", inst.alvo / ".github" / "AI_SAFETY.md"
     )
@@ -469,17 +515,19 @@ def _merge_json(inst: Instalacao, destino: Path, chave_raiz: str, servidor: dict
         destino.write_text(json.dumps(dados, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def instalar_smoke_gate(inst: Instalacao) -> None:
+def instalar_smoke_gate(inst: Instalacao, ref: str) -> None:
     """Liga o smoke-gate: MCP sempre; devDependency e Action quando ha package.json.
 
     O MCP vale para qualquer stack — `audit_check_sql` valida SQL contra o schema
-    antes do agente gerar a query. Os detectores da v0.5 sao Node/TS + Postgres,
+    antes do agente gerar a query. Os detectores atuais sao Node/TS + Postgres,
     entao a dependencia e a Action so entram onde fazem sentido.
     """
+    pacote = f"github:{SMOKE_GATE_REPO}#{ref}"
+    action = f"{SMOKE_GATE_REPO}/action@{ref}"
     servidor = {
         "type": "stdio",
         "command": "npx",
-        "args": ["-y", SMOKE_GATE_REF, "smoke-gate", "mcp", "serve"],
+        "args": ["-y", pacote, "smoke-gate", "mcp", "serve"],
     }
     _merge_json(inst, inst.alvo / ".mcp.json", "mcpServers", servidor)
     _merge_json(inst, inst.alvo / ".vscode" / "mcp.json", "servers", servidor)
@@ -488,7 +536,7 @@ def instalar_smoke_gate(inst: Instalacao) -> None:
     if not pkg.exists():
         inst.avisos.append(
             "sem package.json: smoke-gate ligado via MCP apenas. "
-            "Os detectores da v0.5 cobrem Node/TS + Postgres; o runtime gate entra "
+            "Os detectores cobrem Node/TS + Postgres; o runtime gate entra "
             "quando o projeto tiver HTTP + banco."
         )
         return
@@ -503,7 +551,7 @@ def instalar_smoke_gate(inst: Instalacao) -> None:
     if "@kaiketsu/smoke-gate" in dev and not inst.forcar:
         inst.mantidos.append("package.json (smoke-gate ja declarado)")
     else:
-        dev["@kaiketsu/smoke-gate"] = SMOKE_GATE_REF
+        dev["@kaiketsu/smoke-gate"] = pacote
         dados.setdefault("scripts", {}).setdefault("audit", "smoke-gate audit --llm none")
         inst.criados.append("package.json (devDependency + script audit)")
         if not inst.dry_run:
@@ -529,7 +577,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # necessario para o audit --since
-      - uses: {SMOKE_GATE_ACTION}
+      - uses: {action}
         with:
           fail-on: critical
           comment: summary
@@ -594,6 +642,11 @@ def main() -> int:
         "--smoke-gate", choices=["auto", "yes", "no"], default="auto",
         help="auto = sempre MCP, e dependencia/Action quando ha package.json",
     )
+    ap.add_argument(
+        "--smoke-gate-ref",
+        help="versao do smoke-gate (default: a mais recente publicada). "
+             "Use `main` para acompanhar o branch sem pinagem.",
+    )
     ap.add_argument("--git-init", action="store_true", help="inicializa repo git se nao houver")
     ap.add_argument("--force", action="store_true", help="sobrescreve arquivos existentes")
     ap.add_argument("--dry-run", action="store_true", help="mostra o que faria, sem escrever")
@@ -621,7 +674,11 @@ def main() -> int:
     if modo == "greenfield":
         instalar_greenfield(inst, nome)
     if args.smoke_gate != "no":
-        instalar_smoke_gate(inst)
+        ref, aviso = resolver_ref_smoke_gate(args.smoke_gate_ref)
+        if aviso:
+            inst.avisos.append(aviso)
+        print(f"  smoke-gate: {ref}")
+        instalar_smoke_gate(inst, ref)
     configurar_git(inst, args.git_init or modo == "greenfield")
 
     print(f"\nCriados ({len(inst.criados)}):")
