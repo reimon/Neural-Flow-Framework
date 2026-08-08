@@ -1,6 +1,6 @@
 # Neural-Flow Framework
 
-**v0.1.0** · 10 protocolos · 6 guards executaveis · MIT
+**v0.1.0** · 10 protocolos · 6 guards executaveis · dashboard · MIT
 
 Sistema de Controle Autonomo para engenharia assistida por IA.
 
@@ -291,6 +291,7 @@ Para aplicar o Neural-Flow em qualquer projeto, copiar e preencher:
 | templates/loop/PROMPT-LOOP-template.md    | `build/PROMPT-LOOP.md`         | Folha de operacao do humano que dispara o loop             |
 | templates/githooks/pre-commit             | `.githooks/pre-commit`         | Gates rodando sobre o stage a cada commit                  |
 | scripts/validate_calibration.py           | `scripts/`                     | Guard executavel do protocolo de Calibracao                |
+| scripts/nf_dashboard.py                   | `scripts/`                     | Dashboard HTML auto-contido do estado da governanca        |
 
 Playbook pronto (nao e template, ja e generico): `docs/playbooks/guardrails-ia-infra-producao.md` — guardrails para IA operar infraestrutura de producao (modos de operacao, gates de plan, sinais de STOP, RACI, prompt padrao).
 
@@ -421,6 +422,36 @@ Os principios sao a disciplina; os protocolos sao a trava. Um sem o outro nao se
 - **Auto-valida.** Ao terminar, roda `nf_gate.py` no projeto instalado. Se o que ele
   gerou nao passa no proprio gate, o instalador **falha e diz que o bug e dele**, nao seu.
   Coberto por teste: `test_greenfield_gera_projeto_que_passa_no_gate`.
+
+## Dashboard
+
+```bash
+python3 scripts/nf_dashboard.py --open
+```
+
+Le os artefatos do repositorio e gera **um HTML auto-contido** com o estado da governanca:
+sprint ativa e progresso, os 6 guards executados na hora, FinOps de tokens (orcamento x
+consumo por sprint), smoke-gate (versao e ultimo audit), o indice de conhecimento (nos,
+arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias pendentes,
+confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
+se **audita**.
+
+Nao e servidor. Nenhum CDN, nenhum JavaScript de terceiros, nenhuma dependencia a instalar
+— mesma regra do ADR-002. Abre offline, roda no CI, publica no GitHub Pages.
+
+```bash
+python3 scripts/nf_dashboard.py --out docs/dashboard.html   # para publicar
+python3 scripts/nf_dashboard.py --root ../outro-projeto     # outro repo
+```
+
+Por padrao grava em `.neural-flow/dashboard.html`, que o instalador ja adiciona ao
+`.gitignore` — o dashboard e derivado, reconstruivel a qualquer momento a partir dos
+artefatos.
+
+Sobre as cores: a paleta e a do metodo de dataviz, **validada por script** nos dois modos
+(banda de luminosidade, piso de croma, separacao para daltonismo e contraste contra a
+superficie). Status nunca aparece so como cor — sempre icone + rotulo. Toda barra carrega
+rotulo direto com o valor.
 
 ## O Que Muda no Comportamento do Agente
 

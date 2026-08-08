@@ -611,6 +611,93 @@ class TestInstalador(unittest.TestCase):
         )
 
 
+class TestDashboard(unittest.TestCase):
+    """O dashboard le artefatos do repositorio e gera HTML auto-contido.
+
+    Auto-contido nao e detalhe estetico: uma pagina que busca CDN nao abre
+    offline, nao roda em CI isolado e vaza para onde o time nao controla.
+    """
+
+    DASH = SCRIPTS / "nf_dashboard.py"
+
+    def _gerar(self, raiz: Path, saida: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(self.DASH), "--root", str(raiz), "--out", str(saida)],
+            capture_output=True, text=True,
+        )
+
+    def test_gera_html_valido_a_partir_da_fixture(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "d.html"
+            proc = self._gerar(CONFORME, saida)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = saida.read_text(encoding="utf-8")
+            self.assertTrue(texto.startswith("<!doctype html>"))
+            self.assertIn("</html>", texto)
+            for secao in ("Sprint ativa", "Guards", "FinOps", "smoke-gate",
+                          "Protocolos", "Loop autonomo"):
+                with self.subTest(secao=secao):
+                    self.assertIn(secao, texto)
+
+    def test_html_e_auto_contido(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "d.html"
+            self._gerar(CONFORME, saida)
+            texto = saida.read_text(encoding="utf-8")
+            for proibido in ("http://", "https://", "<script", "src=", "@import"):
+                with self.subTest(proibido=proibido):
+                    self.assertNotIn(
+                        proibido, texto,
+                        f"dashboard nao pode depender de recurso externo ({proibido})",
+                    )
+
+    def test_projeto_vazio_nao_quebra(self) -> None:
+        """Sem sprint, sem ADR, sem grafo: informa o que falta, nao explode."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t) / "vazio"
+            raiz.mkdir()
+            saida = Path(t) / "d.html"
+            proc = self._gerar(raiz, saida)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = saida.read_text(encoding="utf-8")
+            self.assertIn("Nenhuma sprint encontrada", texto)
+
+    def test_estouro_de_budget_aparece_como_critico(self) -> None:
+        """A leitura visual tem de bater com o veredito do guard."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "d.html"
+            self._gerar(VIOLADOR, saida)
+            texto = saida.read_text(encoding="utf-8")
+            self.assertIn("130%", texto)
+            self.assertIn("--st-critical", texto)
+
+    def test_dados_sao_escapados(self) -> None:
+        """Titulo de sprint com HTML nao pode injetar marcacao na pagina."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t) / "p"
+            (raiz / "docs" / "sprints").mkdir(parents=True)
+            (raiz / "docs" / "sprints" / "s.md").write_text(
+                "# Sprint 1: <script>alert(1)</script>\n"
+                "## Snapshot Operacional\n- Status: `em andamento`\n",
+                encoding="utf-8",
+            )
+            saida = Path(t) / "d.html"
+            self._gerar(raiz, saida)
+            texto = saida.read_text(encoding="utf-8")
+            self.assertNotIn("<script>alert", texto)
+            self.assertIn("&lt;script&gt;", texto)
+
+
 class TestHelpers(unittest.TestCase):
     """nf_guards e usado por todos os guards — regressao aqui contamina tudo."""
 

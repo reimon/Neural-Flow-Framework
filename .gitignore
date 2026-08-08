@@ -25,3 +25,6 @@ venv/
 
 # Cache de teste
 tests/**/__pycache__/
+
+# Dashboard gerado (derivado dos artefatos)
+.neural-flow/

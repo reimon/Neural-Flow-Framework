@@ -40,6 +40,7 @@ GUARDS = [
     "nf_gate.py", "nf_guards.py", "validate_sprint_state.py",
     "validate_token_budget.py", "validate_context_sources.py",
     "validate_adr.py", "validate_module_spec.py", "validate_calibration.py",
+    "nf_dashboard.py",
 ]
 
 SMOKE_GATE_REPO = "reimon/smoke-gate"
@@ -618,7 +619,7 @@ def configurar_git(inst: Instalacao, iniciar: bool) -> None:
     if marca not in conteudo and not inst.dry_run:
         gitignore.write_text(
             conteudo.rstrip("\n") + "\n\n# Neural-Flow\n__pycache__/\nscripts/__pycache__/\n"
-            "audit-report.md\n",
+            "audit-report.md\n.neural-flow/\n",
             encoding="utf-8",
         )
 
@@ -718,7 +719,8 @@ Instalado. Proximos passos:
 
   1. {proximos}
   2. docs/sprints/sprint-01.md — sua primeira sprint, ja valida no gate
-  3. python3 scripts/nf_gate.py --list   (o que cada guard trava)
+  3. python3 scripts/nf_gate.py --list        (o que cada guard trava)
+  4. python3 scripts/nf_dashboard.py --open  (o estado da governanca, visual)
 
 O hook de pre-commit ja esta ativo: o proximo commit passa pelos guards.""")
     return 0

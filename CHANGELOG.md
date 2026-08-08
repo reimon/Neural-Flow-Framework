@@ -28,6 +28,10 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   protocolos que os tornam verificaveis. Instalado nos dois modos.
 - smoke-gate resolvido na **versao mais recente** a cada instalacao (tags via API),
   com `--smoke-gate-ref` para congelar ou acompanhar `main`.
+- `scripts/nf_dashboard.py` — dashboard HTML auto-contido (sem CDN, sem JS de terceiros)
+  com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
+  protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
+  icone + rotulo. Instalado por padrao.
 
 ### Corrigido
 
