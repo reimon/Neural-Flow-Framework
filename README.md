@@ -436,6 +436,12 @@ arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias penden
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
 se **audita**.
 
+O card do indice de conhecimento **linka os artefatos do graphify** — `graph.html`
+(grafo interativo, force-directed, com filtro por comunidade), a wiki e o
+`GRAPH_REPORT.md` —, com o tamanho de cada um. Sao links, nao embutidos: `graph.html`
+costuma passar de 2 MB, e embuti-lo destruiria a promessa de arquivo unico e leve. O
+caminho e calculado a partir de onde a pagina e gravada.
+
 **Ver antes de instalar:** [`docs/dashboard-demo.html`](docs/dashboard-demo.html) e uma
 demonstracao versionada, gerada a partir de `tests/fixtures/demo/` — abra o arquivo no
 navegador (ou publique `docs/` no GitHub Pages). Um teste regenera a pagina e reprova se

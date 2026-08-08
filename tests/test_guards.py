@@ -642,18 +642,51 @@ class TestDashboard(unittest.TestCase):
                     self.assertIn(secao, texto)
 
     def test_html_e_auto_contido(self) -> None:
+        """A pagina tem de renderizar offline, sem uma unica requisicao.
+
+        A garantia e sobre RECURSO BUSCADO, nao sobre a palavra "https". Um
+        hyperlink nao dispara requisicao ao abrir a pagina — proibi-lo tiraria a
+        capacidade de linkar o grafo do graphify, que e justamente o ponto.
+        """
         import tempfile
 
         with tempfile.TemporaryDirectory() as t:
             saida = Path(t) / "d.html"
             self._gerar(CONFORME, saida)
             texto = saida.read_text(encoding="utf-8")
-            for proibido in ("http://", "https://", "<script", "src=", "@import"):
+            for proibido in ("<script", "src=", "@import", "<iframe", "<link "):
                 with self.subTest(proibido=proibido):
                     self.assertNotIn(
                         proibido, texto,
-                        f"dashboard nao pode depender de recurso externo ({proibido})",
+                        f"dashboard nao pode buscar recurso externo ({proibido})",
                     )
+            # url(http...) em CSS tambem e busca; url(data:) nao.
+            self.assertNotRegex(texto, r"url\(\s*['\"]?https?:")
+
+    def test_linka_os_artefatos_do_graphify(self) -> None:
+        """O grafo interativo tem varios MB: linkar, nunca embutir."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "sub" / "d.html"
+            proc = self._gerar(RAIZ / "tests" / "fixtures" / "demo", saida)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = saida.read_text(encoding="utf-8")
+            for artefato in ("graph.html", "wiki/index.md", "GRAPH_REPORT.md"):
+                with self.subTest(artefato=artefato):
+                    self.assertIn(artefato, texto)
+            # O caminho tem de ser relativo e independente da maquina. Quando a
+            # saida cai fora da arvore analisada, `relpath` produziria algo como
+            # `../../../../Users/<voce>/...` — por isso o fallback para o caminho
+            # canonico a partir da raiz do projeto.
+            self.assertNotIn(str(RAIZ), texto)
+            self.assertNotIn("/Users/", texto)
+            self.assertNotIn("/home/", texto)
+            import re as _re
+            for href in _re.findall(r'href="([^"]*graphify-out[^"]*)"', texto):
+                with self.subTest(href=href):
+                    self.assertFalse(href.startswith("/"), "link absoluto")
+                    self.assertNotIn("..", href.split("graphify-out")[0].strip("./"))
 
     def test_projeto_vazio_nao_quebra(self) -> None:
         """Sem sprint, sem ADR, sem grafo: informa o que falta, nao explode."""

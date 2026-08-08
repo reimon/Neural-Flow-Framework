@@ -248,7 +248,25 @@ def coletar_grafo(raiz: Path) -> dict | None:
             pass
 
     ambiguas = sum(1 for a in arestas if str(a.get("_origin", "")).upper() == "AMBIGUOUS")
+
+    # Artefatos navegaveis. O dashboard LINKA em vez de embutir: `graph.html`
+    # costuma passar de 2 MB, e embuti-lo em cada geracao destruiria a promessa
+    # de arquivo unico e leve. O link preserva as duas coisas.
+    artefatos = []
+    for nome, rotulo, descricao in (
+        ("graph.html", "Grafo interativo", "force-directed, filtro por comunidade"),
+        ("wiki/index.md", "Wiki", "um artigo por comunidade, navegavel"),
+        ("GRAPH_REPORT.md", "Relatorio", "god nodes e comunidades, em texto"),
+        ("graph.svg", "SVG", "para embutir em documento"),
+    ):
+        caminho = base / nome
+        if caminho.is_file():
+            artefatos.append({
+                "rotulo": rotulo, "descricao": descricao, "arquivo": nome,
+                "tamanho": caminho.stat().st_size,
+            })
     return {
+        "artefatos": artefatos,
         "nos": len(nos), "arestas": len(arestas), "comunidades": len(comunidades),
         "top": top, "ambiguas": ambiguas, "arquivos": arquivos_indexados,
         "tokens_in": custo.get("total_input_tokens", 0),
@@ -413,6 +431,29 @@ def barras_horizontais(itens: list[tuple[str, int]], cor: str) -> str:
     return "".join(linhas)
 
 
+def botoes_grafo(artefatos: list[dict], prefixo: str) -> str:
+    """Acesso direto aos artefatos do graphify, relativo ao arquivo gerado."""
+    if not artefatos:
+        return ('<p class="nota">Nenhum artefato navegavel em <code>graphify-out/</code>. '
+                'Gere com <code>graphify &lt;caminho&gt;</code>.</p>')
+    itens = []
+    for a in artefatos:
+        b = a["tamanho"]
+        if b >= 1_048_576:
+            peso = f"{b / 1_048_576:.1f} MB"
+        elif b >= 1024:
+            peso = f"{b / 1024:.0f} KB"
+        else:
+            peso = f"{b} B"   # "0 KB" parece defeito, nao arquivo pequeno
+        itens.append(
+            f'<a class="btn" href="{e(prefixo)}{e(a["arquivo"])}" '
+            f'target="_blank" rel="noopener noreferrer">'
+            f'<span class="btn-t">{e(a["rotulo"])}</span>'
+            f'<span class="btn-d">{e(a["descricao"])} · {e(peso)}</span></a>'
+        )
+    return f'<div class="btns">{"".join(itens)}</div>'
+
+
 def card(titulo: str, corpo: str, sub: str = "", extra: str = "") -> str:
     s = f'<p class="sub">{sub}</p>' if sub else ""
     return (
@@ -420,7 +461,7 @@ def card(titulo: str, corpo: str, sub: str = "", extra: str = "") -> str:
     )
 
 
-def render(d: Dados) -> str:
+def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     ativa = d.ativa
     guards_pass = sum(1 for g in d.guards if g["estado"] == "pass")
     guards_fail = sum(1 for g in d.guards if g["estado"] == "fail")
@@ -570,15 +611,24 @@ def render(d: Dados) -> str:
           <div><span class="s-v">{fmt(g['comunidades'])}</span><span class="s-k">comunidades</span></div>
           <div><span class="s-v">{fmt(g['arquivos'])}</span><span class="s-k">arquivos</span></div>
         </div>
+        {botoes_grafo(g['artefatos'], rel_grafo)}
         <p class="sub">Maiores comunidades, por numero de nos</p>
         {barras_horizontais(g['top'], "var(--series-1)")}
         <p class="nota">Atualizado em {e(g['atualizado'])}.
         {'<strong>' + str(g['ambiguas']) + ' arestas AMBIGUOUS</strong> — sao os pontos onde a especificacao deixou uma relacao sem fechar.' if g['ambiguas'] else ''}
         Consulte o indice antes de ler arquivo: custa ~48x menos tokens.</p>"""
     else:
-        corpo_grafo = ('<p class="vazio">Nenhum indice em <code>graphify-out/</code>. '
-                       'O Vetor de Contexto pede indice antes de leitura — '
-                       'rode <code>graphify &lt;caminho&gt;</code>.</p>')
+        corpo_grafo = (
+            '<p class="vazio">Nenhum indice em <code>graphify-out/</code>. '
+            'O Vetor de Contexto pede indice antes de leitura: consultar o grafo custa '
+            '~48x menos tokens que reler os arquivos, e a deteccao de comunidades expoe '
+            'relacao que ninguem pensaria em consultar.</p>'
+            '<p class="nota">Para construir: <code>graphify &lt;caminho&gt;</code>. '
+            'Depois disso este card passa a linkar o grafo interativo, a wiki e o '
+            'relatorio. Exemplo do que e gerado: '
+            '<a href="https://github.com/Graphify-Labs/graphify" target="_blank" '
+            'rel="noopener noreferrer">graphify</a>.</p>'
+        )
 
     # ── Loop ──
     if d.loop.get("ativo"):
@@ -789,6 +839,17 @@ h2{{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase
 .hbar-fill{{height:100%;border-radius:0 4px 4px 0}}
 .hbar-val{{font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;
   color:var(--text-2)}}
+/* Acesso aos artefatos do grafo */
+.btns{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;
+  margin:4px 0 18px}}
+.btn{{display:flex;flex-direction:column;gap:2px;padding:10px 12px;text-decoration:none;
+  border:1px solid var(--line);border-radius:10px;background:var(--bg);
+  transition:border-color .15s,transform .15s}}
+.btn:hover{{border-color:var(--series-1);transform:translateY(-1px)}}
+.btn:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}
+.btn-t{{font-size:13.5px;font-weight:580;color:var(--series-1)}}
+.btn-d{{font-size:11.5px;color:var(--muted)}}
+@media (prefers-reduced-motion:reduce){{.btn{{transition:none}}.btn:hover{{transform:none}}}}
 /* Stats */
 .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:14px;
   margin-bottom:18px}}
@@ -893,7 +954,22 @@ def main() -> int:
 
     dados = coletar(raiz, args.name, args.gerado_em)
     destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_text(render(dados), encoding="utf-8")
+    # Os links apontam para os artefatos reais, entao dependem de onde a pagina
+    # e gravada: `.neural-flow/dashboard.html` alcanca `../graphify-out/`.
+    #
+    # So vale calcular o caminho relativo quando a saida esta DENTRO do projeto
+    # analisado. Fora dele, `relpath` sobe ate a raiz do sistema e grava algo
+    # como `../../../../Users/<voce>/...` — sem sentido para quem abrir a pagina
+    # e carregando o layout da maquina de quem gerou.
+    import os as _os
+
+    try:
+        destino.parent.relative_to(raiz)
+        rel = _os.path.relpath(raiz / "graphify-out", destino.parent)
+        rel = rel.replace(_os.sep, "/") + "/"
+    except ValueError:
+        rel = "graphify-out/"
+    destino.write_text(render(dados, rel), encoding="utf-8")
 
     tam = destino.stat().st_size / 1024
     print(f"dashboard: {destino}  ({tam:.0f} KB)")
