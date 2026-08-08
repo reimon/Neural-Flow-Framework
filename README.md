@@ -436,7 +436,7 @@ arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias penden
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
 se **audita**.
 
-**Consumo real de tokens.** O dashboard le os transcripts locais do Claude Code e mostra o
+**Consumo real de tokens.** O dashboard le os transcripts locais do Claude Code e do Codex e mostra o
 consumo **medido** ao lado do **declarado** na sprint — entrada, saida, escrita e leitura de
 cache, por modelo e por dia, mais o aproveitamento de cache. Sem isso, o FinOps dependia
 inteiramente de alguem lembrar de anotar.
@@ -445,6 +445,16 @@ Alem do consumo, o dashboard mostra **como o trabalho se distribuiu**: mapa de c
 requisicoes por hora e por dia, ferramentas mais chamadas pelo agente, e as sessoes mais
 caras com duracao. Bloco longo e continuo custa menos que muitas sessoes curtas — o cache
 sobrevive dentro da sessao e morre entre elas.
+
+**Multi-provedor.** Le tambem os rollouts do **Codex** (`~/.codex/sessions`), filtrando
+pelo diretorio do projeto — o Codex organiza sessoes por data, nao por projeto, entao sem
+esse filtro o numero seria de todos os seus projetos somados. Quando ha mais de um
+provedor, o dashboard mostra a divisao entre eles.
+
+O **Antigravity** ficou de fora por impossibilidade tecnica, nao por escolha: o historico
+local dele (`~/.gemini/antigravity-cli/history.jsonl`) registra apenas workspace e horario,
+sem token algum. Ler seu consumo exigiria falar um protocolo RPC nao documentado com o app
+em execucao.
 
 > **Privacidade.** So numeros sao lidos: contagem de tokens, modelo, carimbo de tempo, identificador de
 > sessao e o **nome** das ferramentas chamadas — nunca com que argumentos. **O conteudo das mensagens nunca e lido nem gravado**, e nada

@@ -352,6 +352,7 @@ footer{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}
 <circle cx="94.00" cy="22.04" r="3" fill="var(--series-1)"
  stroke="var(--surface)" stroke-width="2" vector-effect="non-scaling-stroke"/>
 </svg><div class="eixo"><span>08-06</span><span>08-08</span></div>
+        
         <div class="sep"></div>
         <p class="sub">Por modelo, em tokens faturaveis</p>
         <div class="hbar"><span class="hbar-label" title="claude-opus-5">claude-opus-5</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="hbar-val">172k</span></div><div class="hbar"><span class="hbar-label" title="claude-fable-5">claude-fable-5</span><div class="hbar-track"><div class="hbar-fill" style="width:42.9%;background:var(--series-1)"></div></div><span class="hbar-val">74k</span></div>
@@ -492,6 +493,10 @@ resolveria.</p>
 <p><strong>Faturavel.</strong> Entrada + saida + escrita de cache. A leitura de cache fica
 de fora porque custa uma fracao — soma-la inflaria o numero e confundiria volume de
 contexto com custo.</p>
+<p><strong>Multi-provedor.</strong> Le tambem os rollouts do Codex
+(<code>~/.codex/sessions</code>), filtrando pelo diretorio do projeto — o Codex organiza
+sessoes por data, nao por projeto, entao sem esse filtro o numero seria de todos os seus
+projetos somados. Antigravity ficou de fora: o historico local dele nao registra tokens.</p>
 <p><strong>Por que nao ha valor em dinheiro.</strong> Precos mudam e variam por plano;
 exibir um custo estimado seria inventar precisao que nao temos. Tokens sao o que o
 sistema mede de fato.</p></div></div><div popover id="ajuda-ritmo" class="pop" role="dialog" aria-label="Ritmo e ferramentas"><div class="pop-h"><h3>Ritmo e ferramentas</h3><button type="button" class="pop-x" popovertarget="ajuda-ritmo" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">

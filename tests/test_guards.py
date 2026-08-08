@@ -828,6 +828,88 @@ class TestTelemetriaDeTokens(unittest.TestCase):
             self.assertEqual(set(tel.por_modelo), {"claude-opus-5", "claude-fable-5"})
             self.assertAlmostEqual(tel.geral.aproveitamento_cache, 7900 / 11000, places=3)
 
+    def _rollout_codex(self, base: Path, cwd: str, registros: list[dict]) -> None:
+        destino = base / "2026" / "08" / "08"
+        destino.mkdir(parents=True, exist_ok=True)
+        cabecalho = [
+            {"type": "session_meta", "timestamp": "2026-08-08T10:00:00.000Z",
+             "payload": {"type": "session_meta", "session_id": "cx1", "cwd": cwd}},
+            {"type": "turn_context", "timestamp": "2026-08-08T10:00:00.000Z",
+             "payload": {"type": "turn_context", "cwd": cwd, "model": "gpt-5.6-terra",
+                         "workspace_roots": [cwd]}},
+        ]
+        linhas = [json.dumps(r) for r in cabecalho + registros]
+        (destino / "rollout-teste.jsonl").write_text("\n".join(linhas) + "\n", encoding="utf-8")
+
+    @staticmethod
+    def _evento_codex(entrada: int, cache: int, saida: int) -> dict:
+        return {"type": "event_msg", "timestamp": "2026-08-08T11:00:00.000Z",
+                "payload": {"type": "token_count", "info": {
+                    "last_token_usage": {
+                        "input_tokens": entrada, "cached_input_tokens": cache,
+                        "cache_write_input_tokens": 0, "output_tokens": saida,
+                        "total_tokens": entrada + saida},
+                    "total_token_usage": {
+                        "input_tokens": entrada * 9, "cached_input_tokens": cache * 9,
+                        "output_tokens": saida * 9}}}}
+
+    def test_codex_soma_deltas_e_nao_o_acumulado(self) -> None:
+        """`total_token_usage` e acumulado da sessao; `last_token_usage` e o delta.
+
+        Somar o acumulado a cada evento inflaria o numero em ordens de grandeza —
+        no rollout real desta maquina, 47 eventos multiplicariam tudo por ~47.
+        """
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import Telemetria, ler_codex
+        from datetime import datetime, timedelta, timezone
+
+        with tempfile.TemporaryDirectory() as t:
+            base, proj = Path(t) / "codex", Path(t) / "proj"
+            proj.mkdir()
+            self._rollout_codex(base, str(proj), [
+                self._evento_codex(1000, 400, 200),
+                self._evento_codex(500, 100, 50),
+            ])
+            tel = Telemetria()
+            corte = datetime.now(timezone.utc) - timedelta(days=36500)
+            ler_codex(proj, corte, tel, diretorio=base)
+
+            # `cached_input_tokens` e SUBCONJUNTO de `input_tokens` na semantica
+            # da OpenAI: entrada real = 1000-400 + 500-100 = 1000
+            self.assertEqual(tel.geral.entrada, 1000)
+            self.assertEqual(tel.geral.cache_lido, 500)
+            self.assertEqual(tel.geral.saida, 250)
+            self.assertEqual(tel.geral.requisicoes, 2)
+            self.assertIn("codex", tel.por_provedor)
+            self.assertIn("gpt-5.6-terra", tel.por_modelo)
+
+    def test_codex_filtra_por_projeto(self) -> None:
+        """O Codex organiza sessoes por data, nao por projeto. Sem filtrar pelo
+        `cwd`, o numero seria de todos os projetos do usuario somados."""
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import Telemetria, ler_codex
+        from datetime import datetime, timedelta, timezone
+
+        with tempfile.TemporaryDirectory() as t:
+            base = Path(t) / "codex"
+            meu, alheio = Path(t) / "meu", Path(t) / "outro"
+            meu.mkdir(); alheio.mkdir()
+            self._rollout_codex(base, str(alheio), [self._evento_codex(9000, 0, 900)])
+
+            tel = Telemetria()
+            corte = datetime.now(timezone.utc) - timedelta(days=36500)
+            ler_codex(meu, corte, tel, diretorio=base)
+            self.assertEqual(tel.geral.requisicoes, 0, "contou sessao de outro projeto")
+            self.assertNotIn("codex", tel.por_provedor)
+
+            tel2 = Telemetria()
+            ler_codex(alheio, corte, tel2, diretorio=base)
+            self.assertEqual(tel2.geral.requisicoes, 1)
+
     def test_projeto_sem_transcript_nao_quebra(self) -> None:
         import tempfile
 

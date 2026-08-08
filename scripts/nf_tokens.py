@@ -116,6 +116,10 @@ class Telemetria:
     # (dia, hora UTC) -> requisicoes. Alimenta o mapa de ritmo.
     por_hora: dict[tuple[str, int], int] = field(default_factory=dict)
     ferramentas: dict[str, int] = field(default_factory=dict)
+    por_provedor: dict[str, Consumo] = field(default_factory=dict)
+    # acumuladores usados pelos leitores durante a varredura
+    carimbos: list[str] = field(default_factory=list)
+    sessoes_ids: set = field(default_factory=set)
     detalhe_sessoes: dict[str, Sessao] = field(default_factory=dict)
     sessoes: int = 0
     primeiro: str = ""
@@ -130,6 +134,7 @@ class Telemetria:
             "por_dia": {k: v.como_dict() for k, v in self.por_dia.items()},
             "por_hora": {f"{d}T{h:02d}": n for (d, h), n in self.por_hora.items()},
             "ferramentas": dict(sorted(self.ferramentas.items(), key=lambda kv: -kv[1])),
+            "por_provedor": {k: v.como_dict() for k, v in self.por_provedor.items()},
             "sessoes": self.sessoes, "primeiro": self.primeiro,
             "ultimo": self.ultimo, "arquivos": self.arquivos,
         }
@@ -159,10 +164,16 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
         base = base or BASE_TRANSCRIPTS
         if not base.is_dir():
             tel.motivo = "sem transcripts locais do Claude Code nesta maquina"
+            _finalizar(tel, raiz, dias, datetime.now(timezone.utc) - timedelta(days=dias), 0)
+            if tel.disponivel:
+                tel.motivo = ""
             return tel
         diretorio = base / slug_do_projeto(raiz)
         if not diretorio.is_dir():
             tel.motivo = f"nenhuma sessao registrada para {raiz.name}"
+            _finalizar(tel, raiz, dias, datetime.now(timezone.utc) - timedelta(days=dias), 0)
+            if tel.disponivel:
+                tel.motivo = ""
             return tel
 
     arquivos = sorted(diretorio.glob("*.jsonl"))
@@ -171,8 +182,9 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
         return tel
 
     corte = datetime.now(timezone.utc) - timedelta(days=dias)
-    sessoes: set[str] = set()
-    carimbos: list[str] = []
+    sessoes: set[str] = tel.sessoes_ids
+    carimbos: list[str] = tel.carimbos
+    prov_cc = tel.por_provedor.setdefault("claude-code", Consumo())
 
     for arquivo in arquivos:
         try:
@@ -218,6 +230,7 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
                         continue
 
                     tel.geral.somar(uso)
+                    prov_cc.somar(uso)
                     modelo = msg.get("model") or "desconhecido"
                     tel.por_modelo.setdefault(modelo, Consumo()).somar(uso)
                     if quando:
@@ -239,14 +252,158 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
         except OSError:
             continue
 
-    tel.arquivos = len(arquivos)
-    tel.sessoes = len(sessoes)
-    if carimbos:
-        tel.primeiro, tel.ultimo = min(carimbos), max(carimbos)
+    if prov_cc.requisicoes == 0:
+        tel.por_provedor.pop("claude-code", None)
+
+    _finalizar(tel, raiz, dias, corte, len(arquivos))
+    return tel
+
+
+def _finalizar(tel: Telemetria, raiz: Path, dias: int, corte: datetime,
+               arquivos: int) -> None:
+    ler_codex(raiz, corte, tel)
+    tel.arquivos = arquivos
+    tel.sessoes = len(tel.sessoes_ids)
+    if tel.carimbos:
+        tel.primeiro, tel.ultimo = min(tel.carimbos), max(tel.carimbos)
     tel.disponivel = tel.geral.requisicoes > 0
     if not tel.disponivel:
         tel.motivo = f"sessoes encontradas, mas sem registro de uso nos ultimos {dias} dias"
-    return tel
+
+
+
+
+# ── Codex ──────────────────────────────────────────────────────────────────────
+# O Codex grava o uso nos rollouts de sessao, em `~/.codex/sessions/AAAA/MM/DD/`.
+# Nao e preciso ler `auth.json` nem consultar a API: tudo que interessa esta no
+# arquivo de sessao.
+
+BASE_CODEX = Path.home() / ".codex" / "sessions"
+
+
+def _codex_normaliza(uso: dict) -> dict:
+    """Traduz o vocabulario do Codex para o do coletor.
+
+    Na semantica da OpenAI, `cached_input_tokens` e SUBCONJUNTO de
+    `input_tokens` — nao uma parcela adicional. Somar os dois contaria o cache
+    duas vezes e inflaria a entrada. Verificado no proprio rollout:
+    `total_tokens == input_tokens + output_tokens`.
+    """
+    entrada = int(uso.get("input_tokens") or 0)
+    cache_lido = int(uso.get("cached_input_tokens") or 0)
+    return {
+        "input_tokens": max(0, entrada - cache_lido),
+        "output_tokens": int(uso.get("output_tokens") or 0),
+        "cache_creation_input_tokens": int(uso.get("cache_write_input_tokens") or 0),
+        "cache_read_input_tokens": cache_lido,
+    }
+
+
+def _pertence(caminhos: list[str], raiz: Path) -> bool:
+    """O Codex organiza sessoes por data, nao por projeto: o vinculo vem do
+    `cwd`. Sem esse filtro o numero seria de todos os projetos somados.
+
+    Os dois lados sao resolvidos antes de comparar. O caminho gravado no rollout
+    pode passar por symlink — em macOS `/tmp` e `/private/tmp` sao o mesmo lugar
+    com nomes diferentes — e a comparacao textual descartaria tudo em silencio,
+    que e o pior tipo de falha: numero zerado sem nenhum aviso.
+    """
+    alvo = str(raiz.resolve())
+    for c in caminhos:
+        if not c:
+            continue
+        try:
+            r = str(Path(c).resolve())
+        except (OSError, ValueError):
+            r = c
+        if r == alvo or r.startswith(alvo + "/"):
+            return True
+    return False
+
+
+def ler_codex(raiz: Path, corte: datetime, tel: Telemetria,
+              base: Path | None = None, diretorio: Path | None = None) -> None:
+    origem = diretorio or base or BASE_CODEX
+    if not origem.is_dir():
+        return
+    prov = tel.por_provedor.setdefault("codex", Consumo())
+
+    for arquivo in sorted(origem.rglob("*.jsonl")):
+        cwd_atual: list[str] = []
+        modelo_atual = "desconhecido"
+        sessao_id = arquivo.stem
+        try:
+            with arquivo.open(encoding="utf-8", errors="replace") as f:
+                for linha in f:
+                    if ('"token_count"' not in linha and '"cwd"' not in linha
+                            and '"model"' not in linha):
+                        continue
+                    try:
+                        registro = json.loads(linha)
+                    except json.JSONDecodeError:
+                        continue
+                    p = registro.get("payload")
+                    if not isinstance(p, dict):
+                        continue
+
+                    tipo = registro.get("type")
+                    if tipo in ("session_meta", "turn_context"):
+                        caminhos = [p.get("cwd")] + list(p.get("workspace_roots") or [])
+                        cwd_atual = [c for c in caminhos if c]
+                        if p.get("model"):
+                            modelo_atual = p["model"]
+                        if p.get("session_id"):
+                            sessao_id = p["session_id"]
+                        continue
+
+                    if p.get("type") != "token_count":
+                        continue
+                    if not _pertence(cwd_atual, raiz):
+                        continue
+
+                    info = p.get("info") or {}
+                    # `last_token_usage` e o delta do turno; `total_token_usage`
+                    # e acumulado da sessao. Somar o acumulado a cada evento
+                    # inflaria o numero em ordens de magnitude.
+                    uso = _codex_normaliza(info.get("last_token_usage") or {})
+                    if not any(uso.values()):
+                        continue
+
+                    carimbo = registro.get("timestamp") or ""
+                    quando = _instante(carimbo)
+                    if quando and quando < corte:
+                        continue
+
+                    tel.geral.somar(uso)
+                    prov.somar(uso)
+                    tel.por_modelo.setdefault(modelo_atual, Consumo()).somar(uso)
+                    if quando:
+                        dia = quando.astimezone(timezone.utc).date().isoformat()
+                        tel.por_dia.setdefault(dia, Consumo()).somar(uso)
+                        hora = quando.astimezone(timezone.utc).hour
+                        tel.por_hora[(dia, hora)] = tel.por_hora.get((dia, hora), 0) + 1
+                        tel.carimbos.append(dia)
+                    s = tel.detalhe_sessoes.setdefault(sessao_id, Sessao(id=sessao_id))
+                    s.consumo.somar(uso)
+                    if quando:
+                        iso = quando.astimezone(timezone.utc).isoformat()
+                        s.inicio = min(s.inicio, iso) if s.inicio else iso
+                        s.fim = max(s.fim, iso) if s.fim else iso
+                    tel.sessoes_ids.add(sessao_id)
+        except OSError:
+            continue
+
+    if prov.requisicoes == 0:
+        tel.por_provedor.pop("codex", None)
+
+
+def _instante(carimbo: str) -> datetime | None:
+    if not carimbo:
+        return None
+    try:
+        return datetime.fromisoformat(carimbo.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def fmt(n: float) -> str:
@@ -289,6 +446,11 @@ def main() -> int:
     print(f"  cache lido:   {fmt(g.cache_lido)}  "
           f"({g.aproveitamento_cache:.0%} do contexto veio de cache)")
     print(f"  faturavel:    {fmt(g.faturavel)}  (entrada + saida + escrita de cache)")
+    if len(tel.por_provedor) > 1:
+        print("\n  por provedor:")
+        for nome, c in sorted(tel.por_provedor.items(), key=lambda kv: -kv[1].faturavel):
+            print(f"    {nome:<16} {fmt(c.faturavel):>8}  ({c.requisicoes} req)")
+        print("    (volume, nao custo: preco por token difere entre provedores)")
     if tel.ferramentas:
         print("\n  ferramentas mais usadas:")
         for nome, n in sorted(tel.ferramentas.items(), key=lambda kv: -kv[1])[:6]:

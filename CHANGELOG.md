@@ -32,6 +32,8 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- Leitor do **Codex** na telemetria (`~/.codex/sessions`), com filtro por projeto via `cwd`
+  e normalizacao do vocabulario da OpenAI. Dashboard e CLI mostram a divisao por provedor.
 - Mapa de calor de ritmo (hora x dia), ferramentas mais usadas e sessoes por consumo.
 - Graficos em SVG desenhados a mao, sem biblioteca: area com endpoint destacado para serie
   temporal, anel para proporcao unica, rampa sequencial com passos proprios por tema.

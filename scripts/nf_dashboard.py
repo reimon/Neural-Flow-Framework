@@ -608,6 +608,10 @@ resolveria.</p>
 <p><strong>Faturavel.</strong> Entrada + saida + escrita de cache. A leitura de cache fica
 de fora porque custa uma fracao — soma-la inflaria o numero e confundiria volume de
 contexto com custo.</p>
+<p><strong>Multi-provedor.</strong> Le tambem os rollouts do Codex
+(<code>~/.codex/sessions</code>), filtrando pelo diretorio do projeto — o Codex organiza
+sessoes por data, nao por projeto, entao sem esse filtro o numero seria de todos os seus
+projetos somados. Antigravity ficou de fora: o historico local dele nao registra tokens.</p>
 <p><strong>Por que nao ha valor em dinheiro.</strong> Precos mudam e variam por plano;
 exibir um custo estimado seria inventar precisao que nao temos. Tokens sao o que o
 sistema mede de fato.</p>"""),
@@ -1033,6 +1037,17 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             f'<span>{e(dias_ord[-1][0][5:])}</span></div>'
             if len(dias_ord) > 1 else ""
         )
+        provedores = ""
+        if len(getattr(tel, "por_provedor", {})) > 1:
+            itens = sorted(tel.por_provedor.items(), key=lambda kv: -kv[1].faturavel)
+            provedores = (
+                '<div class="sep"></div><p class="sub">Por provedor</p>'
+                + barras_horizontais([(n, c.faturavel) for n, c in itens],
+                                     "var(--series-3)", True)
+                + '<p class="nota">Volume, nao custo: o preco por token difere entre '
+                  'provedores e modelos, entao a soma serve para comparar esforco, '
+                  'nao gasto.</p>'
+            )
         html_sessoes = "".join(
             f'<div class="ses"><span class="ses-n">{e(s.id[:8])}</span>'
             f'<span class="ses-d">{s.duracao_min} min · {s.consumo.requisicoes} req</span>'
@@ -1054,6 +1069,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
           <div><dt>Sessoes</dt><dd class="num">{tel.sessoes}</dd></div>
         </dl>
         {serie}
+        {provedores}
         <div class="sep"></div>
         <p class="sub">Por modelo, em tokens faturaveis</p>
         {barras_horizontais([(m, c.faturavel) for m, c in por_modelo], "var(--series-1)", True)}
