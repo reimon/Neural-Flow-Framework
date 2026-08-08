@@ -22,6 +22,7 @@ Rodar:
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -305,6 +306,243 @@ class TestTextoDoTemplateNaoDesligaGuard(unittest.TestCase):
         )
         codigo, saida = self._rodar_em_tmp(texto, "validate_token_budget.py")
         self.assertEqual(codigo, 0, f"mitigacao declarada nao foi aceita:\n{saida}")
+
+
+class TestInstaladorDeHooks(unittest.TestCase):
+    """Regressao: `scripts/setup-hooks.sh` gerava um hook quebrado.
+
+    Tres defeitos, do mais visivel ao mais insidioso:
+
+    1. chamava `python`, binario ausente no macOS moderno e em distros sem
+       python-is-python3;
+    2. mascarava QUALQUER falha com `|| echo "(non-blocking)"`, entao o indice
+       nunca era atualizado e ninguem percebia — o oposto do principio de
+       evidencia honesta que o framework prega;
+    3. instalava em `.git/hooks` mesmo com `core.hooksPath` configurado, caso em
+       que o git ignora aquele diretorio por completo. Como o getting-started
+       manda configurar `core.hooksPath=.githooks`, o hook nunca rodava para
+       quem seguia o guia.
+    """
+
+    INSTALADOR = RAIZ / "scripts" / "setup-hooks.sh"
+
+    def _repo_temporario(self, tmp: Path, hooks_path: str | None) -> None:
+        import shutil
+
+        (tmp / "scripts").mkdir(parents=True)
+        shutil.copy(self.INSTALADOR, tmp / "scripts" / "setup-hooks.sh")
+        (tmp / "scripts" / "ingest.py").write_text("", encoding="utf-8")
+        for cmd in (["git", "init", "-q", "."], ["git", "config", "user.email", "t@t.com"],
+                    ["git", "config", "user.name", "t"]):
+            subprocess.run(cmd, cwd=tmp, check=True, capture_output=True)
+        if hooks_path:
+            (tmp / hooks_path).mkdir(exist_ok=True)
+            subprocess.run(
+                ["git", "config", "core.hooksPath", hooks_path],
+                cwd=tmp, check=True, capture_output=True,
+            )
+
+    def _instalar(self, tmp: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["bash", "scripts/setup-hooks.sh"],
+            cwd=tmp, capture_output=True, text=True,
+        )
+
+    def test_instalador_nao_invoca_python_nu(self) -> None:
+        texto = self.INSTALADOR.read_text(encoding="utf-8")
+        self.assertNotRegex(
+            texto, r'(?<![\w/.$"{])python\s+"?\$\{?SCRIPT',
+            "o hook nao pode chamar `python` fixo — resolva o interpretador em runtime",
+        )
+        self.assertIn("python3", texto)
+
+    def test_sintaxe_do_instalador_e_do_hook_gerado(self) -> None:
+        import tempfile
+
+        self.assertEqual(
+            subprocess.run(["bash", "-n", str(self.INSTALADOR)]).returncode, 0
+        )
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            self._repo_temporario(tmp, None)
+            self._instalar(tmp)
+            hook = tmp / ".git" / "hooks" / "post-commit"
+            self.assertTrue(hook.is_file())
+            self.assertEqual(subprocess.run(["bash", "-n", str(hook)]).returncode, 0)
+
+    def test_respeita_core_hookspath(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            self._repo_temporario(tmp, ".githooks")
+            proc = self._instalar(tmp)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertTrue(
+                (tmp / ".githooks" / "post-commit").is_file(),
+                "com core.hooksPath ativo o hook tem de ir para la",
+            )
+            self.assertFalse(
+                (tmp / ".git" / "hooks" / "post-commit").is_file(),
+                "instalar em .git/hooks com core.hooksPath ativo cria hook morto",
+            )
+
+    def test_hook_gerado_e_executavel_e_sai_zero_sem_env(self) -> None:
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            self._repo_temporario(tmp, None)
+            self._instalar(tmp)
+            hook = tmp / ".git" / "hooks" / "post-commit"
+            self.assertTrue(os.access(hook, os.X_OK), "hook precisa ser executavel")
+            proc = subprocess.run([str(hook)], cwd=tmp, capture_output=True, text=True)
+            self.assertEqual(proc.returncode, 0, "post-commit nunca pode quebrar o commit")
+            self.assertIn(".env", proc.stdout)
+
+    def test_hook_avisa_alto_quando_nao_ha_interpretador(self) -> None:
+        """Sem Python, o hook tem de dizer que o indice NAO foi atualizado."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            self._repo_temporario(tmp, None)
+            self._instalar(tmp)
+            (tmp / "scripts" / ".env").write_text("X=1\n", encoding="utf-8")
+            hook = tmp / ".git" / "hooks" / "post-commit"
+
+            # PATH com git, mas SEM nenhum python. Esvaziar o PATH inteiro tiraria
+            # tambem o git e o hook morreria antes do trecho sob teste.
+            import shutil as _shutil
+
+            bin_isolado = tmp / "bin-isolado"
+            bin_isolado.mkdir()
+            git_real = _shutil.which("git")
+            self.assertIsNotNone(git_real, "git precisa existir para este teste")
+            (bin_isolado / "git").symlink_to(git_real)
+
+            ambiente = {"PATH": str(bin_isolado), "HOME": str(tmp)}
+            self.assertIsNone(
+                _shutil.which("python3", path=str(bin_isolado)),
+                "o PATH isolado nao pode conter python3",
+            )
+            proc = subprocess.run(
+                ["/bin/bash", str(hook)], cwd=tmp, capture_output=True, text=True,
+                env=ambiente,
+            )
+            self.assertEqual(proc.returncode, 0, "post-commit nao desfaz commit")
+            self.assertIn("NAO foi atualizado", proc.stdout + proc.stderr)
+
+
+class TestInstalador(unittest.TestCase):
+    """O instalador nao pode entregar um projeto que ja nasce reprovado.
+
+    Este e o teste mais importante da suite do ponto de vista de adocao: se
+    `nf_install.py` gera artefato que o proprio gate rejeita, o primeiro commit
+    do usuario e bloqueado por defeito nosso — e ele desinstala o framework.
+
+    Ja aconteceu tres vezes durante a construcao: AGENTS.md apontava para um
+    manifesto inexistente; o `_template.md` de ADR era cobrado como ADR sem
+    numero; e os exemplos de `DIVERGENCIAS.md` eram lidos como divergencias
+    pendentes de verdade.
+    """
+
+    INSTALADOR = SCRIPTS / "nf_install.py"
+
+    def _instalar(self, destino: Path, *extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(self.INSTALADOR), "--target", str(destino), *extra],
+            capture_output=True, text=True,
+        )
+
+    def test_greenfield_gera_projeto_que_passa_no_gate(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "ideia"
+            proc = self._instalar(destino, "--name", "Projeto Teste", "--mode", "greenfield")
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("nf_gate: PASS", proc.stdout)
+
+            for esperado in (
+                "COMECE-AQUI.md", "AGENTS.md", "MEMORY.md",
+                "docs/sprints/sprint-01.md", "docs/PADRAO-ESPECIFICACAO-MODULOS.md",
+                "docs/adr/_template.md", "build/PROTOCOLO.md", "build/PLANO.md",
+                "build/DIVERGENCIAS.md", ".githooks/pre-commit",
+                "scripts/nf_gate.py", ".github/workflows/neural-flow-gates.yml",
+            ):
+                with self.subTest(arquivo=esperado):
+                    self.assertTrue((destino / esperado).is_file(), f"faltou {esperado}")
+
+    def test_brownfield_preserva_o_que_existe(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "legado"
+            (destino / "src").mkdir(parents=True)
+            (destino / "src" / "index.ts").write_text("export const x = 1;\n", encoding="utf-8")
+            pkg_original = {
+                "name": "api-legado", "version": "2.3.0",
+                "scripts": {"test": "vitest"},
+                "devDependencies": {"vitest": "^2.0.0"},
+            }
+            (destino / "package.json").write_text(
+                json.dumps(pkg_original, indent=2), encoding="utf-8"
+            )
+            agents_original = "# AGENTS.md do time\n\nNao sobrescreva isto.\n"
+            (destino / "AGENTS.md").write_text(agents_original, encoding="utf-8")
+            subprocess.run(["git", "init", "-q", "."], cwd=destino, check=True)
+
+            proc = self._instalar(destino)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("brownfield", proc.stdout)
+            self.assertIn("nf_gate: PASS", proc.stdout)
+
+            # Nada do que existia pode ser destruido.
+            self.assertEqual((destino / "AGENTS.md").read_text(encoding="utf-8"), agents_original)
+            pkg = json.loads((destino / "package.json").read_text(encoding="utf-8"))
+            self.assertEqual(pkg["version"], "2.3.0")
+            self.assertEqual(pkg["scripts"]["test"], "vitest")
+            self.assertEqual(pkg["devDependencies"]["vitest"], "^2.0.0")
+            # E o smoke-gate tem de entrar.
+            self.assertIn("@kaiketsu/smoke-gate", pkg["devDependencies"])
+
+    def test_smoke_gate_registrado_no_mcp(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            self._instalar(destino, "--mode", "greenfield")
+            mcp = json.loads((destino / ".mcp.json").read_text(encoding="utf-8"))
+            args = mcp["mcpServers"]["smoke-gate"]["args"]
+            self.assertIn("github:reimon/smoke-gate#v0.5.0", args)
+            self.assertIn("mcp", args)
+
+    def test_instalacao_e_idempotente(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            self._instalar(destino, "--mode", "greenfield")
+            segunda = self._instalar(destino, "--mode", "greenfield")
+            self.assertEqual(segunda.returncode, 0, segunda.stdout + segunda.stderr)
+            self.assertIn("Criados (0)", segunda.stdout)
+
+    def test_dry_run_nao_escreve(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            destino.mkdir()
+            proc = self._instalar(destino, "--dry-run")
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(list(destino.iterdir()), [], "dry-run escreveu no disco")
+
+    def test_wrapper_shell_tem_sintaxe_valida(self) -> None:
+        self.assertEqual(
+            subprocess.run(["bash", "-n", str(RAIZ / "install.sh")]).returncode, 0
+        )
 
 
 class TestHelpers(unittest.TestCase):

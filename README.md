@@ -4,9 +4,19 @@
 
 Sistema de Controle Autonomo para engenharia assistida por IA.
 
-> **Comece aqui:** [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) — adocao em 5
-> minutos, sem nuvem e sem instalar dependencia. Ao fim voce ve um gate bloquear um commit
-> de verdade.
+> **Instale num projeto:**
+>
+> ```bash
+> bash /caminho/do/neural-flow/install.sh          # detecta o modo sozinho
+> ```
+>
+> Funciona nos dois cenarios: projeto que **ja tem codigo** (instala guards, hooks, CI,
+> governanca de agente e liga o smoke-gate, sem sobrescrever nada) e projeto que ainda e
+> **so uma ideia** (monta o andaime docs-first, onde a especificacao vem antes da primeira
+> linha de codigo). Detalhes em [Instalacao](#instalacao).
+>
+> **Ou entenda primeiro:** [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) — os mesmos
+> passos na mao, em 5 minutos, terminando com um gate bloqueando um commit de verdade.
 >
 > Mudancas entre versoes: [`CHANGELOG.md`](CHANGELOG.md). Divida conhecida:
 > [`ADR-003`](docs/adr/ADR-003-divida-admin-key-vs-rbac.md) — a implementacao de referencia
@@ -338,6 +348,51 @@ apenas os modos audit generico e MCP.
 | docs/protocols/README.md                    | Matriz operacional dos 10 protocolos + checklist de auditoria |
 | docs/protocols/neural-memory.md             | 6o protocolo — RAG vetorial + MCP                        |
 | docs/protocols/auditoria-mensal-template.md | Modelo oficial de auditoria mensal dos protocolos        |
+
+## Instalacao
+
+```bash
+bash /caminho/do/neural-flow/install.sh                      # no diretorio do projeto
+bash /caminho/do/neural-flow/install.sh --name "Meu App"     # nomeia o projeto
+./install.sh --target ../meu-projeto --mode greenfield       # do clone do framework
+./install.sh --target . --dry-run                            # mostra sem escrever
+```
+
+Requisitos: `git` e `python3` (3.10+). Nenhuma dependencia a instalar — os guards sao
+stdlib pura (ADR-002).
+
+### Dois modos, detectados sozinhos
+
+| Modo | Quando | O que instala |
+| ---- | ------ | ------------- |
+| **brownfield** | O projeto ja tem codigo (`package.json`, `src/`, `pyproject.toml`...) | Guards + hook + CI, `AGENTS.md`, `.github/AI_SAFETY.md`, `MEMORY.md`, sprint de adocao e o smoke-gate |
+| **greenfield** | O projeto ainda e uma ideia | Tudo do brownfield **mais** o andaime docs-first: `COMECE-AQUI.md`, padrao de especificacao, `docs/modulos/`, `docs/adr/`, e os arquivos de estado do loop em `build/` |
+
+O modo greenfield existe para o caso "tenho uma ideia de aplicativo": o repositorio nasce
+**sem codigo e com spec**, e o codigo so comeca quando `nf_gate.py spec` passa. E o metodo
+que produz sistema verificavel em vez de demo — com geracao assistida, escrever codigo e a
+parte barata; o caro e decidir o que construir e impedir que o agente preencha o vazio com
+o que soa razoavel.
+
+### smoke-gate incluido
+
+O instalador liga o [`smoke-gate`](https://github.com/reimon/smoke-gate) por padrao:
+
+- **MCP em qualquer stack** (`.mcp.json` e `.vscode/mcp.json`) — o agente chama
+  `audit_check_sql` para validar SQL contra o schema em <50ms **antes** de gerar a query;
+- **devDependency + script `audit` + Action** quando existe `package.json` — os detectores
+  da v0.5 cobrem Node/TS + Postgres, entao a dependencia so entra onde faz sentido.
+
+Desligar com `--smoke-gate no`.
+
+### Garantias
+
+- **Nao sobrescreve nada.** Arquivo existente e mantido e reportado; `package.json` tem
+  apenas a dependencia e o script acrescentados. `--force` sobrescreve.
+- **Idempotente.** Rodar de novo nao duplica.
+- **Auto-valida.** Ao terminar, roda `nf_gate.py` no projeto instalado. Se o que ele
+  gerou nao passa no proprio gate, o instalador **falha e diz que o bug e dele**, nao seu.
+  Coberto por teste: `test_greenfield_gera_projeto_que_passa_no_gate`.
 
 ## O Que Muda no Comportamento do Agente
 

@@ -89,3 +89,9 @@ Python 3.10+ stdlib puro, orquestrados por `scripts/nf_gate.py` (ver ADR-002).
   no repositorio de origem — bloqueava o primeiro commit de quem seguisse o guia
 - Typo `Manifest-Dev-IA.md` (8 ocorrencias) e referencia a prompt inexistente em
   `docs/SPRINTS-MVP.md`
+- `scripts/setup-hooks.sh` gerava um post-commit com tres defeitos: chamava `python`
+  (ausente no macOS moderno e em distros sem python-is-python3); mascarava qualquer
+  falha com `|| echo "(non-blocking)"`, de modo que o indice nunca era atualizado e
+  ninguem percebia; e instalava em `.git/hooks` mesmo com `core.hooksPath` configurado —
+  diretorio que o git ignora nesse caso, entao o hook nunca rodava para quem seguia o
+  getting-started

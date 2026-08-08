@@ -123,4 +123,5 @@ cumprir:
 - `.github/AI_SAFETY.md` — proibicoes absolutas + acoes que exigem confirmacao.
 - `MEMORY.md` — decisoes/padroes consolidados.
 - `docs/adr/` — registros de decisao arquitetural (ADRs).
-- `docs/Manifest-Dev-AI.md` — manifesto Neural-Flow (gates, sprints, autonomia).
+- `docs/sprints/` — sprints; nenhuma execucao comeca sem uma validada.
+- Manifesto Neural-Flow (gates, sprints, niveis de autonomia), se copiado para o projeto.

@@ -184,7 +184,16 @@ def checar_divergencias(divergencias: Path, res: Resultado) -> None:
                 "registre as reformulacoes feitas antes de assumir a lacuna",
             )
 
+    dentro_de_bloco = False
     for n, linha in enumerate(linhas, 1):
+        # Exemplo de formato dentro de bloco de codigo nao e uma divergencia real.
+        # Sem isto, o arquivo que DOCUMENTA o formato era lido como se cada
+        # exemplo fosse um registro pendente.
+        if linha.lstrip().startswith("```"):
+            dentro_de_bloco = not dentro_de_bloco
+            continue
+        if dentro_de_bloco:
+            continue
         titulo = RE_TITULO_DIVERGENCIA.match(linha)
         if titulo:
             fechar()
