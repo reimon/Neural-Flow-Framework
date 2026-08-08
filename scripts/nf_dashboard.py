@@ -373,6 +373,183 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None) -> Da
     )
 
 
+
+# ── Ajuda contextual ───────────────────────────────────────────────────────────
+# Cada quadro e cada protocolo carrega um botao "?" que abre uma janela nativa
+# (atributo `popover`) explicando o que aquilo e, o que representa e o que fazer
+# quando reprova. E HTML declarativo: nenhum JavaScript, entao a pagina continua
+# auto-contida e funcionando offline.
+
+AJUDA_QUADROS = {
+    "sprint": ("Sprint ativa", """
+<p><strong>O que e.</strong> A sprint em andamento e o unico lugar onde trabalho tecnico
+pode acontecer. O State Protocol e categorico: nenhuma execucao comeca sem uma sprint
+validada.</p>
+<p><strong>O que voce ve.</strong> O percentual e a fracao do checklist ja executada — item
+so recebe <code>[x]</code> quando a acao foi <em>realmente</em> feita, nunca quando esta
+"quase". <strong>Autonomia</strong> diz quanta liberdade o agente tem: A0 manual assistido,
+A1 supervisionado, A2 semi-autonomo, A3 autonomo controlado.</p>
+<p><strong>A trava que importa.</strong> Escopo que toque autenticacao, segredo,
+infraestrutura, cobranca, dado pessoal ou producao opera em <strong>A0 ou A1</strong>. Pedir
+A2/A3 nesse escopo reprova no guard (codigo S4), salvo excecao formal declarada como campo
+na propria sprint.</p>"""),
+
+    "guards": ("Guards", """
+<p><strong>O que e.</strong> Os guards sao os protocolos virando codigo executavel. O
+principio do framework e que <em>documentacao orienta, guard obriga</em>: diretriz sem guard
+depende de qual modelo leu o que, e por isso ainda nao esta pronta.</p>
+<p><strong>O que voce ve.</strong> Cada guard rodou <em>agora</em>, sobre a arvore de
+trabalho. <strong>PASS</strong> = conforme. <strong>FAIL</strong> = ha violacao, e o codigo
+(S1, B3, V1...) diz exatamente qual. <strong>inativo</strong> = o protocolo nao se aplica
+ainda porque o artefato nao existe — projeto sem ADR nao e reprovado por nao ter ADR.</p>
+<p><strong>Onde eles agem.</strong> No pre-commit, validando <em>o que esta em stage</em> e
+nao a arvore de trabalho, e no CI, que e autoritativo porque o hook local depende de
+configuracao por clone.</p>
+<p><strong>Reprovou?</strong> Rode <code>python3 scripts/nf_gate.py</code> para o detalhe.
+Nunca use <code>--no-verify</code>: se o gate reclamou, ou o artefato esta errado, ou o
+<code>git add</code> levou o que nao devia.</p>"""),
+
+    "finops": ("FinOps de tokens", """
+<p><strong>O que e.</strong> Token e custo variavel de engenharia, nao recurso invisivel.
+Toda sprint declara um orcamento, e o consumo e comparado com ele — e o Circuit Breaker,
+o disjuntor financeiro do framework.</p>
+<p><strong>Como ler as cores.</strong> Azul: dentro do orcamento. <strong>Ambar</strong>:
+passou de 70%, o limite de alerta. <strong>Vermelho</strong>: estourou os 100%.</p>
+<p><strong>A regra.</strong> Estouro <em>sem mitigacao registrada</em> reprova (codigo B3).
+Mitigar nao e apagar o numero: e declarar no campo <code>Mitigacao aplicada</code> o que foi
+feito — reduzir o tier de modelo, cortar escopo, ou registrar excecao formal. Sprint
+concluida sem consumo registrado tambem reprova (B4).</p>
+<p><strong>Tokens do indice.</strong> A segunda parte mostra o que a construcao do grafo
+custou. Esses sao medidos de verdade, vindos do <code>cost.json</code>; o consumo da sprint
+e o que voce declarou.</p>"""),
+
+    "smoke": ("smoke-gate", """
+<p><strong>O que e.</strong> Um gate que bate <em>todos</em> os endpoints HTTP contra um
+banco real e bloqueia o deploy se algum devolver 500, mais um scanner estatico que acha
+padroes frageis antes de virarem bug.</p>
+<p><strong>O que ele pega.</strong> Coluna que existe no SQL e nao no schema
+(<code>sqlDrift</code>), rota com <code>:userId</code> sem checagem de dono
+(<code>authGaps</code>), <code>err.message</code> vazando em resposta 5xx
+(<code>errorLeak</code>), SELECT+INSERT sem transacao, e endpoint sem cobertura de smoke
+test.</p>
+<p><strong>Por que existe.</strong> <code>pool.query("SELECT ...")</code> e uma string opaca
+para o compilador: renomear uma coluna passa pelo build, passa pelos testes que mockam o
+banco, e estoura em producao.</p>
+<p><strong>Para o agente.</strong> Via MCP, <code>audit_check_sql</code> valida uma query
+contra o schema em menos de 50 ms — <em>antes</em> de o agente gerar a query.</p>"""),
+
+    "grafo": ("Indice de conhecimento", """
+<p><strong>O que e.</strong> Um grafo construido sobre a documentacao do projeto: cada no e
+um conceito, cada aresta uma relacao, e as comunidades sao agrupamentos que o algoritmo
+descobriu sozinho.</p>
+<p><strong>Por que ele existe.</strong> Consultar o indice custa cerca de <strong>48x menos
+tokens</strong> que reler os arquivos. Mas o ganho maior nao e economia: e
+<em>encontrar o que ninguem procurou</em> — a deteccao de comunidades expoe relacao entre
+modulos que nenhuma pessoa teria pensado em consultar.</p>
+<p><strong>Arestas AMBIGUOUS.</strong> Sao relacoes que o extrator identificou mas nao
+conseguiu fechar com certeza. Na pratica, viram a lista de pendencias mais honesta do
+projeto: os pontos onde a especificacao deixou algo em aberto.</p>
+<p><strong>Os botoes.</strong> Levam ao grafo interativo, a wiki (um artigo por comunidade) e
+ao relatorio em texto. Sao links e nao conteudo embutido: o grafo costuma passar de 2 MB.</p>
+<p><strong>A regra de uso.</strong> Pergunta sobre o projeto comeca no indice, nunca no
+<code>grep</code>. Varredura localiza texto literal; ela nao constroi compreensao.</p>"""),
+
+    "loop": ("Loop autonomo", """
+<p><strong>O que e.</strong> Execucao prolongada onde <em>todo</em> o estado vive em disco,
+nunca na conversa. E o que resolve o problema que derruba a maioria das tentativas de
+automacao: o contexto reinicia, e se o estado morava no chat, a iteracao seguinte refaz
+trabalho ou pula etapa.</p>
+<p><strong>Os quatro arquivos.</strong> <code>PROTOCOLO.md</code> (as regras de uma
+iteracao), <code>PLANO.md</code> (backlog e fonte de verdade do que ja foi feito),
+<code>DIARIO.md</code> (rastro cronologico) e <code>DIVERGENCIAS.md</code>.</p>
+<p><strong>Divergencias sao o que voce revisa.</strong> Cada uma e uma decisao de produto que
+o loop tomou sozinho porque a especificacao nao respondeu. O diario e cronologico; as
+divergencias sao o que se le <em>antes de decidir</em>.</p>
+<p><strong>Confianca.</strong> Nao e sensacao, e derivada da evidencia: ALTA = execucao
+verificada, MEDIA = spec ou ADR vigente, BAIXA = inferencia. Item marcado pronto
+<strong>nunca</strong> pode ser BAIXA (codigo C2), e BAIXA somada a acao irreversivel obriga
+o agente a parar e perguntar.</p>"""),
+
+    "protocolos": ("Protocolos", """
+<p><strong>O que e.</strong> Os dez protocolos do framework e o estado de cada um neste
+projeto.</p>
+<p><strong>Como ler.</strong> <strong>trava</strong> = ha guard executavel e ele esta
+passando. <strong>reprovando</strong> = ha guard e ele achou violacao.
+<strong>inativo</strong> = ha guard, mas o artefato ainda nao existe.
+<strong>manual</strong> = nao ha guard; a aderencia se audita.</p>
+<p><strong>Por que "manual" aparece.</strong> Porque seria desonesto esconder. Nem tudo e
+automatizavel: se o agente <em>de fato</em> consultou o indice antes de decidir, se a leitura
+foi minima, se o tier de modelo era o mais barato viavel — isso ainda se audita, uma vez por
+mes. Guard aspiracional declarado como tal nunca e apresentado como se travasse algo.</p>
+<p>Clique no <strong>?</strong> de cada protocolo para entender o que ele garante.</p>"""),
+
+    "historico": ("Historico de sprints", """
+<p><strong>O que e.</strong> Todas as sprints do projeto, com progresso, nivel de autonomia e
+consumo de tokens contra o orcamento.</p>
+<p><strong>Para que serve.</strong> Retomada e onboarding. A regra de escala do framework diz
+para ler o snapshot da sprint ativa, depois o delta desde a ultima atualizacao, e so entao o
+historico completo — releitura integral e o maior desperdicio de tokens que existe.</p>
+<p><strong>O que observar.</strong> Sprint apos sprint estourando o orcamento nao e problema
+de estimativa: e sinal de que o escopo esta entrando maior do que cabe, ou de que o tier de
+modelo esta alto demais para a tarefa.</p>"""),
+}
+
+AJUDA_TILES = {
+    "governanca": ("Governanca", """
+<p>Quantos guards estao conformes agora. Enquanto houver um reprovando, o commit e
+bloqueado pelo hook de pre-commit — corrija antes de tentar commitar.</p>
+<p>A contagem ignora guards inativos: protocolo cujo artefato ainda nao existe nao conta
+como falha nem como acerto.</p>"""),
+    "sprint": ("Sprint ativa", """
+<p>A sprint com status <code>em andamento</code>. Se nao houver nenhuma, o State Protocol
+considera que nao ha execucao autorizada: nenhuma mudanca tecnica deveria comecar.</p>"""),
+    "divergencias": ("Divergencias", """
+<p>Decisoes que o loop tomou sozinho porque a especificacao nao respondeu, e que aguardam
+sua revisao. <strong>E a fila de revisao humana mais importante do projeto</strong> — cada
+linha ali e uma escolha de produto feita sem voce.</p>
+<p>Se esse numero cresce e ninguem revisa, o sistema esta sendo construido sobre suposicoes
+acumuladas.</p>"""),
+    "adrs": ("ADRs", """
+<p>Architecture Decision Records: decisoes arquiteturais numeradas e imutaveis. Mudanca de
+rumo nao edita o ADR antigo — cria um novo que o <em>supera</em>, preservando o historico do
+porque.</p>
+<p>O guard verifica numeracao unica, ausencia de referencia pendurada e de ciclo de
+supersecao, alem de exigir que ADR aceito aponte a sprint de origem.</p>"""),
+}
+
+AJUDA_PROTOCOLOS = {
+    "State Protocol": "Nenhuma execucao tecnica comeca sem sprint validada, com snapshot completo e status sem ambiguidade. Evita que o agente opere sem contexto minimo e reduz mudanca fora de escopo.",
+    "Circuit Breaker": "Toda sprint declara orcamento de tokens e politica de bloqueio. Ao estourar, exige mitigacao registrada ou excecao formal — o FinOps deixa de ser revisao semanal e vira trava ativa.",
+    "Vetor de Contexto": "Toda decisao tecnica ancorada em pelo menos uma fonte verificavel — e verificavel quer dizer que a fonte existe. Tambem define qual ferramenta usar para cada classe de pergunta: indice para estrutura, RAG para historico, execucao para comportamento.",
+    "Evidencia Sintetica": "Conclusao tecnica depende de prova executada, nao de declaracao textual. Verde no comando de verificacao e a unica condicao para marcar um item como pronto.",
+    "Aegis": "Classificacao de dado e zero segredo em prompt, memoria ou artefato. Define as proibicoes absolutas e as acoes que exigem confirmacao humana antes de acontecer.",
+    "Neural-Memory": "Recuperacao semantica no lugar de leitura linear: o agente consulta o indice em vez de carregar arquivos inteiros no prompt. Torna o historico ilimitado com custo proporcional a relevancia.",
+    "ADR Governance": "Decisao arquitetural registrada, numerada e imutavel. Mudanca de rumo gera novo ADR que supera o anterior, nunca edicao do antigo — o porque de cada escolha fica preservado.",
+    "Spec-First": "Especificar e passar no gate antes de codificar. Dado de dominio ausente bloqueia o item; nunca vira valor plausivel. Em dominio regulado, 'soar razoavel' e o modo de falha mais caro que existe.",
+    "Loop Autonomo": "Execucao prolongada com estado em disco, um item por iteracao, commit escopado. O loop pode ser interrompido e retomado com o mesmo prompt porque nada essencial vive na conversa.",
+    "Calibracao": "Toda conclusao declara o grau de certeza, derivado da classe de evidencia — nunca de introspeccao. BAIXA nunca fecha item; BAIXA somada a acao irreversivel obriga a parar e perguntar.",
+}
+
+
+def ajuda(chave: str, titulo: str, corpo: str, pequeno: bool = False) -> tuple[str, str]:
+    """Devolve (botao, janela) para a ajuda contextual."""
+    ident = f"ajuda-{chave}"
+    classe = "help help-sm" if pequeno else "help"
+    botao = (
+        f'<button type="button" class="{classe}" popovertarget="{ident}" '
+        f'aria-label="O que e {e(titulo)}?">?</button>'
+    )
+    janela = (
+        f'<div popover id="{ident}" class="pop" role="dialog" '
+        f'aria-label="{e(titulo)}">'
+        f'<div class="pop-h"><h3>{e(titulo)}</h3>'
+        f'<button type="button" class="pop-x" popovertarget="{ident}" '
+        f'popovertargetaction="hide" aria-label="Fechar">&times;</button></div>'
+        f'<div class="pop-b">{corpo}</div></div>'
+    )
+    return botao, janela
+
+
 # ── Render ─────────────────────────────────────────────────────────────────────
 
 
@@ -484,11 +661,17 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
          " · ".join(f"{v} {k}" for k, v in sorted(d.adrs["por_status"].items())) or "nenhum registrado",
          "ok" if d.adrs["total"] else "idle"),
     ]
-    html_tiles = "".join(
-        f'<div class="tile {cls}"><span class="tile-k">{e(k)}</span>'
-        f'<span class="tile-v">{e(v)}</span><span class="tile-s">{e(s)}</span></div>'
-        for k, v, s, cls in tiles
-    )
+    chaves_tile = ["governanca", "sprint", "divergencias", "adrs"]
+    partes_tile, janelas = [], []
+    for (k, v, s, cls), ck in zip(tiles, chaves_tile):
+        titulo, corpo = AJUDA_TILES[ck]
+        botao, janela = ajuda(f"tile-{ck}", titulo, corpo, pequeno=True)
+        janelas.append(janela)
+        partes_tile.append(
+            f'<div class="tile {cls}"><span class="tile-k">{e(k)}{botao}</span>'
+            f'<span class="tile-v">{e(v)}</span><span class="tile-s">{e(s)}</span></div>'
+        )
+    html_tiles = "".join(partes_tile)
 
     # ── Sprint ativa ──
     if ativa:
@@ -680,8 +863,14 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             est, rot = "manual", "auditoria mensal"
         cls = {"pass": "ok", "fail": "bad", "manual": "idle"}.get(est, "idle")
         icone = {"pass": "&#10003;", "fail": "&#10007;"}.get(est, "&#9679;")
+        texto_ajuda = AJUDA_PROTOCOLOS.get(nome)
+        botao_p = ""
+        if texto_ajuda:
+            slug = sem_acento(nome).lower().replace(" ", "-")
+            botao_p, janela_p = ajuda(f"prot-{slug}", nome, f"<p>{texto_ajuda}</p>", True)
+            janelas.append(janela_p)
         linhas_p.append(
-            f'<div class="prot"><span class="prot-n">{e(nome)}</span>'
+            f'<div class="prot"><span class="prot-n">{e(nome)}{botao_p}</span>'
             f'<code class="prot-g">{e(rot)}</code>'
             f'<span class="pill {cls}"><span aria-hidden="true">{icone}</span>'
             f'{e({"pass": "trava", "fail": "reprovando", "manual": "manual"}.get(est, "inativo"))}'
@@ -708,11 +897,22 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             '<th>Aut.</th><th>Itens</th><th>Tokens</th></tr></thead>'
             f'<tbody>{linhas_s}</tbody></table></div>'
         )
-        card_hist = card("Historico de sprints", corpo_hist, extra="wide")
+        botao_h, janela_h = ajuda(*(("historico",) + AJUDA_QUADROS["historico"]))
+        janelas.append(janela_h)
+        card_hist = (f'<section class="card wide"><h2>Historico de sprints{botao_h}</h2>'
+                     f'{corpo_hist}</section>')
     else:
         card_hist = ""
 
+    botoes_quadro = {}
+    for chave, (titulo, corpo) in AJUDA_QUADROS.items():
+        botao, janela = ajuda(chave, titulo, corpo)
+        botoes_quadro[f"ajuda_{chave}"] = botao
+        janelas.append(janela)
+
     return TEMPLATE.format(
+        janelas="".join(janelas),
+        **botoes_quadro,
         projeto=e(d.projeto),
         gerado=e(d.gerado_em),
         tiles=html_tiles,
@@ -881,6 +1081,35 @@ h2{{font-size:13px;font-weight:620;letter-spacing:.06em;text-transform:uppercase
 .prot .pill{{grid-column:2;grid-row:1/3;justify-self:end}}
 .tbl td:nth-child(2){{max-width:150px;overflow:hidden;text-overflow:ellipsis}}
 .tbl td:last-child,.tbl th:last-child{{text-align:right;white-space:nowrap;padding-right:0}}
+/* Ajuda contextual — popover nativo, sem JavaScript */
+.help{{all:unset;display:inline-flex;align-items:center;justify-content:center;
+  width:17px;height:17px;margin-left:7px;border:1px solid var(--line);border-radius:50%;
+  font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;vertical-align:middle;
+  transition:color .15s,border-color .15s,background .15s}}
+.help:hover,.help:focus-visible{{color:var(--series-1);border-color:var(--series-1);
+  background:var(--bg)}}
+.help:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}
+.help-sm{{width:15px;height:15px;font-size:10px;margin-left:5px}}
+/* Sem suporte a popover, o conteudo aparece embutido no fim do card: a
+   explicacao continua legivel, so nao flutua. */
+.pop{{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);
+  color:var(--text);padding:0;max-width:min(560px,92vw);box-shadow:var(--shadow)}}
+@supports selector(:popover-open) {{
+  .pop{{margin:auto}}
+  .pop::backdrop{{background:rgba(11,11,11,.45)}}
+}}
+.pop-h{{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 18px 10px;border-bottom:1px solid var(--line)}}
+.pop-h h3{{margin:0;font-size:15.5px;font-weight:620;letter-spacing:-.01em}}
+.pop-x{{all:unset;cursor:pointer;font-size:22px;line-height:1;color:var(--muted);
+  padding:0 4px;border-radius:6px}}
+.pop-x:hover{{color:var(--text)}}
+.pop-x:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}
+.pop-b{{padding:14px 18px 18px;font-size:13.5px;line-height:1.62;color:var(--text-2);
+  max-height:min(66vh,560px);overflow-y:auto}}
+.pop-b p{{margin:0 0 11px}} .pop-b p:last-child{{margin-bottom:0}}
+.pop-b strong{{color:var(--text)}}
+@media (prefers-reduced-motion:reduce){{.help{{transition:none}}}}
 /* Utilitarios */
 .mono{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}}
 .muted{{color:var(--muted)}}
@@ -910,22 +1139,23 @@ footer{{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}}
 <div class="tiles">{tiles}</div>
 
 <div class="grid">
-  <section class="card wide"><h2>Sprint ativa</h2>{sprint}</section>
-  <section class="card"><h2>Guards</h2>
+  <section class="card wide"><h2>Sprint ativa{ajuda_sprint}</h2>{sprint}</section>
+  <section class="card"><h2>Guards{ajuda_guards}</h2>
     <p class="sub">Executados agora, sobre a arvore de trabalho</p>{guards}</section>
-  <section class="card"><h2>FinOps de tokens</h2>
+  <section class="card"><h2>FinOps de tokens{ajuda_finops}</h2>
     <p class="sub">Orcamento declarado x consumo observado</p>{finops}</section>
-  <section class="card"><h2>smoke-gate</h2>
+  <section class="card"><h2>smoke-gate{ajuda_smoke}</h2>
     <p class="sub">Gate de evidencia sobre codigo e schema</p>{smoke}</section>
-  <section class="card"><h2>Indice de conhecimento</h2>
+  <section class="card"><h2>Indice de conhecimento{ajuda_grafo}</h2>
     <p class="sub">Grafo construido sobre a documentacao</p>{grafo}</section>
-  <section class="card"><h2>Loop autonomo</h2>
+  <section class="card"><h2>Loop autonomo{ajuda_loop}</h2>
     <p class="sub">Estado em disco, nao na conversa</p>{loop}</section>
-  <section class="card"><h2>Protocolos</h2>
+  <section class="card"><h2>Protocolos{ajuda_protocolos}</h2>
     <p class="sub">O que trava e o que se audita</p>{protocolos}</section>
   {historico}
 </div>
 
+{janelas}
 <footer>Neural-Flow Framework — gerado por <code>scripts/nf_dashboard.py</code></footer>
 </div>
 </body>

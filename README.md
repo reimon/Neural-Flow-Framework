@@ -436,6 +436,11 @@ arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias penden
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
 se **audita**.
 
+**Ajuda contextual.** Cada quadro, cada um dos 10 protocolos e cada indicador do topo tem
+um botao **?** que abre uma janela explicando o que aquilo e, o que representa e o que fazer
+quando reprova. Usa o `popover` nativo do HTML — janela de verdade, com `Esc` e clique-fora,
+**sem uma linha de JavaScript**. Um modal com script quebraria a garantia de auto-contencao.
+
 O card do indice de conhecimento **linka os artefatos do graphify** — `graph.html`
 (grafo interativo, force-directed, com filtro por comunidade), a wiki e o
 `GRAPH_REPORT.md` —, com o tamanho de cada um. Sao links, nao embutidos: `graph.html`

@@ -32,6 +32,8 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- Ajuda contextual no dashboard: botao `?` em cada quadro, protocolo e indicador, abrindo
+  janela com `popover` nativo — sem JavaScript, preservando a auto-contencao.
 - Dashboard linka os artefatos do graphify (`graph.html`, wiki, `GRAPH_REPORT.md`) com
   caminho relativo a saida e o tamanho de cada um; estado vazio explica como gerar.
 - `docs/dashboard-demo.html` — demonstracao versionada, gerada de `tests/fixtures/demo/`

@@ -451,6 +451,11 @@ class TestInstalador(unittest.TestCase):
     INSTALADOR = SCRIPTS / "nf_install.py"
 
     def _instalar(self, destino: Path, *extra: str) -> subprocess.CompletedProcess:
+        # Ref explicito mantem o teste hermetico: sem ele o instalador consulta a
+        # API do GitHub, o que deixa a suite lenta e refem de limite de requisicao.
+        # A resolucao dinamica tem teste proprio.
+        if not any(a == "--smoke-gate-ref" for a in extra):
+            extra = (*extra, "--smoke-gate-ref", "v0.5.0")
         return subprocess.run(
             [sys.executable, str(self.INSTALADOR), "--target", str(destino), *extra],
             capture_output=True, text=True,
@@ -687,6 +692,46 @@ class TestDashboard(unittest.TestCase):
                 with self.subTest(href=href):
                     self.assertFalse(href.startswith("/"), "link absoluto")
                     self.assertNotIn("..", href.split("graphify-out")[0].strip("./"))
+
+    def test_ajuda_contextual_em_todo_quadro_e_protocolo(self) -> None:
+        """Cada quadro e cada protocolo explica o que representa.
+
+        A ajuda usa o `popover` nativo do HTML: janela de verdade, com Esc e
+        clique-fora, **sem uma linha de JavaScript**. Isso preserva a garantia de
+        auto-contencao, que um modal com script quebraria.
+        """
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_dashboard import AJUDA_PROTOCOLOS, AJUDA_QUADROS, AJUDA_TILES
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "d.html"
+            self._gerar(RAIZ / "tests" / "fixtures" / "demo", saida)
+            texto = saida.read_text(encoding="utf-8")
+
+            esperados = (
+                [f'popovertarget="ajuda-{k}"' for k in AJUDA_QUADROS]
+                + [f'popovertarget="ajuda-tile-{k}"' for k in AJUDA_TILES]
+            )
+            for alvo in esperados:
+                with self.subTest(alvo=alvo):
+                    self.assertIn(alvo, texto)
+
+            # Todo protocolo listado tem explicacao propria.
+            for nome in AJUDA_PROTOCOLOS:
+                with self.subTest(protocolo=nome):
+                    self.assertIn(f'aria-label="O que e {nome}?"', texto)
+
+            # Toda janela referenciada por um botao precisa existir.
+            import re as _re
+            alvos = set(_re.findall(r'popovertarget="([^"]+)"', texto))
+            ids = set(_re.findall(r'<div popover id="([^"]+)"', texto))
+            self.assertFalse(alvos - ids, f"botao sem janela: {sorted(alvos - ids)}")
+
+            # E continua sem script.
+            self.assertNotIn("<script", texto)
+            self.assertIn("popover", texto)
 
     def test_projeto_vazio_nao_quebra(self) -> None:
         """Sem sprint, sem ADR, sem grafo: informa o que falta, nao explode."""

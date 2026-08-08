@@ -73,6 +73,16 @@ def resolver_ref_smoke_gate(ref: str | None) -> tuple[str, str | None]:
         req = urllib.request.Request(url, headers={"User-Agent": "neural-flow-installer"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             tags = _json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        # HTTPError e, ele proprio, uma resposta aberta: sem fechar, o interpretador
+        # emite ResourceWarning. Acontece de verdade — a API sem autenticacao tem
+        # limite baixo de requisicoes por hora.
+        motivo = f"HTTP {exc.code}"
+        exc.close()
+        return SMOKE_GATE_FALLBACK, (
+            f"nao consegui consultar as versoes do smoke-gate ({motivo}); "
+            f"usando {SMOKE_GATE_FALLBACK}. Ajuste com --smoke-gate-ref."
+        )
     except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
         return SMOKE_GATE_FALLBACK, (
             f"nao consegui consultar as versoes do smoke-gate ({exc.__class__.__name__}); "
