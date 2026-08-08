@@ -1,0 +1,27 @@
+# Segredos e configuração local — NUNCA commitar (Aegis Protocol)
+scripts/.env
+mcp/neural-memory-server/.env
+.env
+
+# Terraform state e cache
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+infra/terraform/tfplan
+infra/terraform/*.tfplan
+infra/terraform/.terraform.lock.hcl
+infra/terraform/override.tf
+infra/terraform/override.tf.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Cache de teste
+tests/**/__pycache__/

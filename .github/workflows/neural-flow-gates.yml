@@ -1,0 +1,71 @@
+name: Neural-Flow Gates
+
+# Duas camadas, de proposito:
+#
+#  1. `testes` prova que os guards funcionam nas DUAS direcoes — aprovam a fixture
+#     conforme e REPROVAM a violadora, com os codigos certos. Sem isso o CI ficaria
+#     verde com guards quebrados: verde sem cobertura e falso positivo, nao evidencia
+#     (protocolo de Calibracao).
+#
+#  2. `dogfood` roda os guards contra o proprio repositorio. O framework tem de passar
+#     nos protocolos que ele mesmo prega.
+#
+# O hook de pre-commit cobre o caminho local; o CI e autoritativo porque
+# `core.hooksPath` e opt-in por clone — guard que depende de configuracao de maquina
+# nao e guard.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  testes:
+    name: Testes dos guards (aprova conforme, reprova violador)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Versao minima suportada e a corrente. Os guards sao stdlib pura;
+        # sintaxe `X | None` em anotacao exige 3.10+ com `from __future__`.
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Suite de testes
+        run: python -m unittest discover -s tests -v
+
+      # Rede de seguranca contra o modo de falha mais insidioso: um guard que
+      # nunca reprova nada passaria despercebido se so testassemos o caminho feliz.
+      - name: Prova de que o guard reprova (fixture violadora deve sair 1)
+        run: |
+          if python scripts/nf_gate.py --root tests/fixtures/violador --quiet; then
+            echo "::error::nf_gate aprovou a fixture violadora — guard quebrado"
+            exit 1
+          fi
+          echo "OK: fixture violadora reprovada como esperado"
+
+      - name: Prova de que o guard aprova (fixture conforme deve sair 0)
+        run: python scripts/nf_gate.py --root tests/fixtures/conforme --quiet
+
+  dogfood:
+    name: O framework passa nos proprios protocolos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Guards do Neural-Flow sobre este repositorio
+        run: python scripts/nf_gate.py
+
+      - name: Hook de pre-commit e executavel
+        run: test -x templates/githooks/pre-commit

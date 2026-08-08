@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "neural-memory": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["${workspaceFolder}/mcp/neural-memory-server/server.py"],
+      "env": {
+        "AZURE_SEARCH_ENDPOINT": "${env:AZURE_SEARCH_ENDPOINT}",
+        "AZURE_SEARCH_ADMIN_KEY": "${env:AZURE_SEARCH_ADMIN_KEY}",
+        "AZURE_SEARCH_INDEX_NAME": "${env:AZURE_SEARCH_INDEX_NAME}",
+        "AZURE_OPENAI_ENDPOINT": "${env:AZURE_OPENAI_ENDPOINT}",
+        "AZURE_OPENAI_API_KEY": "${env:AZURE_OPENAI_API_KEY}",
+        "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "${env:AZURE_OPENAI_EMBEDDING_DEPLOYMENT}"
+      }
+    },
+    "smoke-gate": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "github:reimon/smoke-gate#v0.5.0", "smoke-gate", "mcp", "serve"]
+    }
+  }
+}

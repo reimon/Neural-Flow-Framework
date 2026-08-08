@@ -1,0 +1,55 @@
+name: Neural-Memory Reindex
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "apps/**/sprints/**"
+      - "templates/**"
+      - "docs/sessoes/**"
+
+  workflow_dispatch:
+    inputs:
+      full_reindex:
+        description: "Force full reindex (ignores changed-only logic)"
+        type: boolean
+        default: false
+
+jobs:
+  reindex:
+    name: Reindex neural-memory
+    runs-on: ubuntu-latest
+
+    env:
+      AZURE_SEARCH_ENDPOINT: ${{ secrets.AZURE_SEARCH_ENDPOINT }}
+      AZURE_SEARCH_ADMIN_KEY: ${{ secrets.AZURE_SEARCH_ADMIN_KEY }}
+      AZURE_SEARCH_INDEX_NAME: neural-memory
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: text-embedding-3-small
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # needed for git diff-tree in changed-only mode
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run ingestion (changed-only)
+        if: ${{ !inputs.full_reindex }}
+        run: python scripts/ingest.py --changed-only
+
+      - name: Run full reindex
+        if: ${{ inputs.full_reindex }}
+        run: python scripts/ingest.py
