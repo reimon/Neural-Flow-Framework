@@ -1164,7 +1164,31 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         botoes_quadro[f"ajuda_{chave}"] = botao
         janelas.append(janela)
 
+    if guards_fail:
+        plural = "s" if guards_fail != 1 else ""
+        verbo = "exigem" if guards_fail != 1 else "exige"
+        resumo_status = (f"Execução em andamento, com {guards_fail} controle{plural} "
+                         f"que {verbo} ação antes do próximo commit.")
+        resumo_detalhe = "Prioridade: regularize os guards reprovados e registre a evidência pendente."
+        resumo_tipo = "attention"
+        resumo_rotulo = "Atenção necessária"
+    else:
+        resumo_status = "Todos os controles ativos estão conformes para o próximo commit."
+        resumo_detalhe = "Acompanhe o consumo e mantenha o registro de evidências atualizado."
+        resumo_tipo = "healthy"
+        resumo_rotulo = "Controles conformes"
+
+    meses = ("jan", "fev", "mar", "abr", "mai", "jun",
+             "jul", "ago", "set", "out", "nov", "dez")
+    try:
+        _d, _h = d.gerado_em.split()
+        _a, _m, _dia = _d.split("-")
+        gerado_legivel = f"{_dia} {meses[int(_m) - 1]} {_a} · {_h}"
+    except (ValueError, IndexError):
+        gerado_legivel = d.gerado_em
+
     return TEMPLATE.format(
+        gerado_legivel=e(gerado_legivel),
         janelas="".join(janelas),
         **botoes_quadro,
         projeto=e(d.projeto),
@@ -1180,6 +1204,10 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         ritmo=corpo_ritmo,
         protocolos=corpo_prot,
         historico=card_hist,
+        resumo_status=resumo_status,
+        resumo_detalhe=resumo_detalhe,
+        resumo_tipo=resumo_tipo,
+        resumo_rotulo=resumo_rotulo,
     )
 
 
@@ -1194,11 +1222,19 @@ TEMPLATE = """<!doctype html>
    Claro e escuro sao dois conjuntos escolhidos, nao um flip automatico. */
 :root {{
   color-scheme: light;
-  --bg:#f4f5f7; --surface:#ffffff; --line:#e3e6ea; --line-forte:#cdd3da;
-  --text:#0d1014; --text-2:#4d5561; --muted:#7d8794; --muted-fill:#dde1e6;
+  --bg:#f3f6f8; --surface:#ffffff; --line:#dde5e9; --line-forte:#c3d0d7;
+  --text:#17242c; --text-2:#52616a; --muted:#75838b; --muted-fill:#e8eef1;
+  /* Identidade e teal; marcas de DADO usam a paleta validada por script.
+     O teal em L~0,5 tem croma abaixo do piso (le como cinza) e fica a ΔE 11,2
+     do verde para visao normal — abaixo do piso de 15, que rotulo nao desculpa. */
   --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
   --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
-  --radius:14px; --shadow:0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.05);
+  --ground:linear-gradient(125deg,#f5f8f9 0%,#edf2f4 100%);
+  --marca:#146c84; --marca-t:#ffffff;
+  --alerta-borda:#e8d2cb; --alerta-fundo:linear-gradient(90deg,#fff 55%,#fff8f5);
+  --ok-borda:#cee5da; --ok-fundo:linear-gradient(90deg,#fff 55%,#f6fbf8);
+  --alerta-texto:#9f3535; --acao-hover:#f2f8f9; --tile-ruim:#fffafa; --tile-ruim-b:#efd9d6;
+  --radius:12px; --shadow:0 1px 2px rgba(25,43,52,.03),0 12px 32px rgba(25,43,52,.055);
   /* Rampa sequencial (perto de zero → maximo), azul da paleta validada */
   --ramp-1:#cde2fb; --ramp-2:#9ec5f4; --ramp-3:#6da7ec; --ramp-4:#3987e5;
   --ramp-5:#256abf; --ramp-6:#184f95; --ramp-7:#0d366b;
@@ -1209,7 +1245,13 @@ TEMPLATE = """<!doctype html>
     --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
     --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
     --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
+    --ground:linear-gradient(125deg,#101317 0%,#0d1013 100%);
+    --marca:#5fb3c9; --marca-t:#0f1114;
+    --alerta-borda:#4a2f2f; --alerta-fundo:linear-gradient(90deg,#171a1f 55%,#1f1718);
+    --ok-borda:#24443a; --ok-fundo:linear-gradient(90deg,#171a1f 55%,#151f1b);
+    --alerta-texto:#e58a8a; --acao-hover:#1d2229; --tile-ruim:#1c1618; --tile-ruim-b:#3d2b2d;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.3);
     /* No escuro a rampa sobe em luminosidade: mais valor, mais claro */
     --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
     --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
@@ -1220,14 +1262,20 @@ TEMPLATE = """<!doctype html>
   --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
   --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
   --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
-  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
+  --ground:linear-gradient(125deg,#101317 0%,#0d1013 100%);
+  --marca:#5fb3c9; --marca-t:#0f1114;
+  --alerta-borda:#4a2f2f; --alerta-fundo:linear-gradient(90deg,#171a1f 55%,#1f1718);
+  --ok-borda:#24443a; --ok-fundo:linear-gradient(90deg,#171a1f 55%,#151f1b);
+  --alerta-texto:#e58a8a; --acao-hover:#1d2229; --tile-ruim:#1c1618; --tile-ruim-b:#3d2b2d;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.3);
   /* No escuro a rampa sobe em luminosidade: mais valor, mais claro */
   --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
   --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
 }}
 *,*::before,*::after{{box-sizing:border-box}}
 body{{margin:0;background:var(--bg);color:var(--text);
-  font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Inter,Roboto,sans-serif;
+  font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased}}
 .wrap{{max-width:1180px;margin:0 auto;padding:40px 24px 72px}}
 header{{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;
@@ -1320,7 +1368,7 @@ h2{{font-size:11.5px;font-weight:660;letter-spacing:.1em;text-transform:uppercas
   transition:border-color .15s,transform .15s}}
 .btn:hover{{border-color:var(--series-1);transform:translateY(-1px)}}
 .btn:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}
-.btn-t{{font-size:13.5px;font-weight:580;color:var(--series-1)}}
+.btn-t{{font-size:13.5px;font-weight:580;color:var(--marca)}}
 .btn-d{{font-size:11.5px;color:var(--muted)}}
 @media (prefers-reduced-motion:reduce){{.btn{{transition:none}}.btn:hover{{transform:none}}}}
 /* Stats */
@@ -1433,20 +1481,39 @@ footer{{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}}
   .wrap{{padding:24px 14px 48px}} .hero-n{{font-size:34px}}
   .fin{{grid-template-columns:1fr}} .fin .track{{margin:4px 0}}
 }}
+
+body{{background:var(--ground);min-height:100dvh;
+  font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}}
+.wrap{{max-width:1480px;padding:26px 34px 64px}}
+header{{margin-bottom:20px;padding-bottom:19px;border-bottom:1px solid var(--line);align-items:center}}
+.brand-lockup{{display:flex;align-items:center;gap:12px}}.brand-mark{{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--marca);color:var(--marca-t);font-size:10px;font-weight:760;letter-spacing:.08em}}.brand-lockup h1{{font-size:20px;font-weight:720;letter-spacing:-.035em;line-height:1.05}}.brand-lockup h1 span{{font-weight:500}}.brand-lockup p{{margin:4px 0 0;font-size:12px;color:var(--muted)}}
+.header-meta{{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}}.live-dot{{width:7px;height:7px;border-radius:50%;background:var(--st-good);box-shadow:0 0 0 3px color-mix(in srgb, var(--st-good) 18%, transparent)}}
+.command-bar{{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:17px 20px 17px 22px;margin-bottom:14px;border:1px solid var(--alerta-borda);border-left:3px solid var(--st-critical);border-radius:10px;background:var(--alerta-fundo);box-shadow:var(--shadow)}}.command-bar.healthy{{border-color:var(--ok-borda);border-left-color:var(--st-good);background:var(--ok-fundo)}}
+.command-copy{{display:grid;gap:2px}}.eyebrow,.tile-k{{font-size:10px;letter-spacing:.1em;font-weight:700;text-transform:uppercase}}.eyebrow{{color:var(--st-critical)}}.command-bar.healthy .eyebrow{{color:var(--st-good)}}.command-copy strong{{font-size:14px;letter-spacing:-.01em}}.command-copy>span:last-child{{font-size:12px;color:var(--text-2)}}.command-actions{{display:flex;gap:14px;align-items:center;white-space:nowrap}}.risk-badge{{display:inline-flex;align-items:center;gap:6px;color:var(--alerta-texto);font-size:12px;font-weight:650}}.risk-badge i{{width:7px;height:7px;border-radius:50%;background:var(--st-critical)}}.risk-badge.healthy{{color:var(--st-good)}}.risk-badge.healthy i{{background:var(--st-good)}}.action-link{{border:1px solid var(--line-forte);border-radius:7px;padding:7px 10px;color:var(--marca);text-decoration:none;font-size:12px;font-weight:650;transition:background .18s,transform .18s}}.action-link:hover{{background:var(--acao-hover);transform:translateY(-1px)}}
+.tiles{{grid-template-columns:1.35fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px}}.tile{{min-height:110px;padding:16px 18px;border-radius:10px;box-shadow:none;justify-content:center}}.tile::before{{height:3px}}.tile-v{{font-size:31px;color:var(--text)}}.tile-s{{font-size:12px}}.tile.bad{{background:var(--tile-ruim);border-color:var(--tile-ruim-b)}}
+.grid{{grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch}}.card{{padding:18px 20px;border-radius:11px;box-shadow:var(--shadow)}}.card.wide{{grid-column:span 12}}.card:nth-of-type(2){{grid-column:span 5}}.card:nth-of-type(3){{grid-column:span 4}}.card:nth-of-type(4){{grid-column:span 3}}.card:nth-of-type(5){{grid-column:span 5}}.card:nth-of-type(6){{grid-column:span 3}}.card:nth-of-type(7){{grid-column:span 4}}.card:nth-of-type(8),.card:nth-of-type(9){{grid-column:span 6}}
+h2{{font-size:10px;margin-bottom:7px;letter-spacing:.12em}}.sub{{font-size:12px;margin-bottom:12px}}.hero-n{{font-size:46px}}.hero-u{{font-size:18px}}.hero-l{{font-size:11px}}.kv{{margin-top:12px;gap:9px 16px}}.kv dt{{font-size:10px}}.kv dd{{font-size:13px}}.sep{{margin:15px 0}}.nota{{font-size:11px;margin-top:12px}}.guards{{gap:7px}}.guard{{padding:9px 12px 9px 14px;border-radius:8px}}.guard-n{{font-size:13px}}.guard-d,.guard-c,.achados{{font-size:11px}}.fin{{grid-template-columns:74px 1fr auto;margin:9px 0}}.fin-l,.fin-v{{font-size:11px}}.stats{{gap:10px;margin-bottom:14px}}.s-v{{font-size:25px}}.s-k{{font-size:9.5px}}.btns{{grid-template-columns:1fr;gap:6px;margin-bottom:14px}}.btn{{padding:8px 10px}}.btn-t{{font-size:12px}}.btn-d{{font-size:10.5px}}.hbar{{grid-template-columns:minmax(72px,118px) 1fr 36px;gap:8px;margin:6px 0}}.hbar-label,.hbar-val{{font-size:11px}}.svg-area{{height:128px;margin-top:8px}}.eixo{{font-size:10px}}.ritmo{{max-width:400px;margin-top:7px}}.cel{{min-height:7px}}.ses{{padding:6px 0}}.tbl{{font-size:12px}}
+@media (max-width:960px){{.wrap{{padding:22px 20px 48px}}.grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.card.wide,.card:nth-of-type(n){{grid-column:span 1}}.card.wide{{grid-column:1/-1}}.tiles{{grid-template-columns:repeat(2,1fr)}}.card:nth-of-type(2),.card:nth-of-type(5),.card:nth-of-type(9){{grid-column:1/-1}}}}
+@media (max-width:640px){{.wrap{{padding:16px 14px 38px}}header{{align-items:flex-start}}.header-meta{{font-size:10.5px}}.command-bar{{align-items:flex-start;flex-direction:column;gap:10px;padding:14px}}.command-actions{{width:100%;justify-content:space-between}}.tiles,.grid{{grid-template-columns:1fr}}.card.wide,.card:nth-of-type(n){{grid-column:1}}.tile{{min-height:96px}}.brand-lockup p{{font-size:10.5px}}.header-meta{{width:100%}}}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1>{projeto} <span>· Neural-Flow</span></h1>
-  <span class="meta">gerado em {gerado}</span>
+  <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">NF</span><div><h1>{projeto} <span>· Neural-Flow</span></h1><p>Visão de execução, risco e governança do projeto</p></div></div>
+  <div class="header-meta"><span class="live-dot" aria-hidden="true"></span><span>Atualizado em {gerado_legivel}</span></div>
 </header>
+
+<section class="command-bar {resumo_tipo}" aria-label="Resumo executivo">
+  <div class="command-copy"><span class="eyebrow">Resumo executivo</span><strong>{resumo_status}</strong><span>{resumo_detalhe}</span></div>
+  <div class="command-actions"><span class="risk-badge {resumo_tipo}"><i aria-hidden="true"></i> {resumo_rotulo}</span><a href="#guards" class="action-link">Ver controles <span aria-hidden="true">→</span></a></div>
+</section>
 
 <div class="tiles">{tiles}</div>
 
 <div class="grid">
   <section class="card wide"><h2>Sprint ativa{ajuda_sprint}</h2>{sprint}</section>
-  <section class="card"><h2>Guards{ajuda_guards}</h2>
+  <section class="card" id="guards"><h2>Guards{ajuda_guards}</h2>
     <p class="sub">Executados agora, sobre a arvore de trabalho</p>{guards}</section>
   <section class="card"><h2>FinOps de tokens{ajuda_finops}</h2>
     <p class="sub">Orcamento declarado x consumo observado</p>{finops}</section>
@@ -1462,7 +1529,7 @@ footer{{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}}
     <p class="sub">Como o trabalho se distribuiu</p>{ritmo}</section>
   <section class="card"><h2>Protocolos{ajuda_protocolos}</h2>
     <p class="sub">O que trava e o que se audita</p>{protocolos}</section>
-  {historico}
+{historico}
 </div>
 
 {janelas}
