@@ -49,8 +49,19 @@ AQUI = Path(__file__).resolve().parent
 ASSETS = AQUI.parent / "docs" / "img"
 
 
+SEM_TEMA = False
+
+
 def imagem_embutida(nome: str) -> str:
-    """Retorna um JPEG como data URI para o dashboard continuar abrindo offline."""
+    """Retorna um JPEG como data URI para o dashboard continuar abrindo offline.
+
+    `SEM_TEMA` desliga a incorporacao. A pagina de demonstracao versionada e
+    gerada assim: os assets de tema sao opcionais e nao versionados, entao
+    embuti-los faria a demo divergir entre uma maquina que os tem e o CI, que
+    nao — teste que falha so na maquina do dono treina o time a ignorar o CI.
+    """
+    if SEM_TEMA:
+        return "none"
     try:
         conteudo = (ASSETS / nome).read_bytes()
     except OSError:
@@ -1607,6 +1618,8 @@ def main() -> int:
     ap.add_argument("--out", help="arquivo de saida (default: .neural-flow/dashboard.html)")
     ap.add_argument("--name", help="nome do projeto")
     ap.add_argument("--open", action="store_true", help="abre no navegador")
+    ap.add_argument("--sem-tema", action="store_true",
+                    help="nao embute imagens de tema (saida reproduzivel)")
     ap.add_argument("--dias", type=int, default=30,
                     help="janela da telemetria de tokens (default: 30)")
     ap.add_argument(
@@ -1620,6 +1633,9 @@ def main() -> int:
              "reproduzivel — usado para versionar a pagina de demonstracao.",
     )
     args = ap.parse_args()
+
+    global SEM_TEMA
+    SEM_TEMA = args.sem_tema
 
     raiz = Path(args.root).resolve()
     destino = Path(args.out).resolve() if args.out else raiz / ".neural-flow" / "dashboard.html"

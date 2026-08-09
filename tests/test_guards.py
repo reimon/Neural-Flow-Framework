@@ -1020,7 +1020,7 @@ class TestDemoVersionada(unittest.TestCase):
         return ["--root", str(self.FIXTURE), "--name", "AgendaMed",
                 "--gerado-em", self.CARIMBO,
                 "--transcripts", str(self.FIXTURE / "transcripts"),
-                "--dias", "36500"]
+                "--dias", "36500", "--sem-tema"]
 
     @staticmethod
     def _normalizar(texto: str) -> str:
