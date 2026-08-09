@@ -28,6 +28,7 @@ Fontes de dados (todas opcionais — o que faltar aparece como "nao configurado"
 from __future__ import annotations
 
 import argparse
+import base64
 import html
 import json
 import re
@@ -45,6 +46,24 @@ from nf_guards import (  # noqa: E402
 from nf_tokens import coletar_tokens  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
+ASSETS = AQUI.parent / "docs" / "img"
+
+
+def imagem_embutida(nome: str) -> str:
+    """Retorna um JPEG como data URI para o dashboard continuar abrindo offline."""
+    try:
+        conteudo = (ASSETS / nome).read_bytes()
+    except OSError:
+        return "none"
+    return "data:image/jpeg;base64," + base64.b64encode(conteudo).decode("ascii")
+
+
+def diagrama_arquitetura() -> str:
+    """Incorpora o diagrama para que a pagina explicativa tambem abra offline."""
+    try:
+        return (ASSETS / "arquitetura.svg").read_text(encoding="utf-8")
+    except OSError:
+        return '<p class="vazio">Diagrama de arquitetura não encontrado.</p>'
 
 GUARDS = [
     ("sprint", "State Protocol", "Sprint validada antes de executar"),
@@ -1188,6 +1207,9 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         gerado_legivel = d.gerado_em
 
     return TEMPLATE.format(
+        arquitetura=diagrama_arquitetura(),
+        fundo_giyu=imagem_embutida("theme-giyu.jpg"),
+        fundo_tanjiro=imagem_embutida("theme-tanjiro.jpg"),
         gerado_legivel=e(gerado_legivel),
         janelas="".join(janelas),
         **botoes_quadro,
@@ -1218,8 +1240,7 @@ TEMPLATE = """<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{projeto} — Neural-Flow</title>
 <style>
-/* Paleta validada (dataviz): categoricos em ordem fixa, status reservado.
-   Claro e escuro sao dois conjuntos escolhidos, nao um flip automatico. */
+/* Paletas selecionáveis — sem JavaScript, para manter o dashboard autocontido. */
 :root {{
   color-scheme: light;
   --bg:#f3f6f8; --surface:#ffffff; --line:#dde5e9; --line-forte:#c3d0d7;
@@ -1235,29 +1256,14 @@ TEMPLATE = """<!doctype html>
   --ok-borda:#cee5da; --ok-fundo:linear-gradient(90deg,#fff 55%,#f6fbf8);
   --alerta-texto:#9f3535; --acao-hover:#f2f8f9; --tile-ruim:#fffafa; --tile-ruim-b:#efd9d6;
   --radius:12px; --shadow:0 1px 2px rgba(25,43,52,.03),0 12px 32px rgba(25,43,52,.055);
+  --character-image:none; --character-position:right -4rem top 4rem; --character-size:420px auto;
+  --pattern-image:none; --pattern-position:0 0; --pattern-size:auto;
+  --character-veil:linear-gradient(90deg,rgba(243,246,248,.98),rgba(243,246,248,.7)); --character-opacity:0;
   /* Rampa sequencial (perto de zero → maximo), azul da paleta validada */
   --ramp-1:#cde2fb; --ramp-2:#9ec5f4; --ramp-3:#6da7ec; --ramp-4:#3987e5;
   --ramp-5:#256abf; --ramp-6:#184f95; --ramp-7:#0d366b;
 }}
-@media (prefers-color-scheme: dark) {{
-  :root:where(:not([data-theme="light"])) {{
-    color-scheme: dark;
-    --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
-    --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
-    --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
-    --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
-    --ground:linear-gradient(125deg,#101317 0%,#0d1013 100%);
-    --marca:#5fb3c9; --marca-t:#0f1114;
-    --alerta-borda:#4a2f2f; --alerta-fundo:linear-gradient(90deg,#171a1f 55%,#1f1718);
-    --ok-borda:#24443a; --ok-fundo:linear-gradient(90deg,#171a1f 55%,#151f1b);
-    --alerta-texto:#e58a8a; --acao-hover:#1d2229; --tile-ruim:#1c1618; --tile-ruim-b:#3d2b2d;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.3);
-    /* No escuro a rampa sobe em luminosidade: mais valor, mais claro */
-    --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
-    --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
-  }}
-}}
-:root[data-theme="dark"] {{
+body:has(#theme-dark:checked) {{
   color-scheme: dark;
   --bg:#0f1114; --surface:#171a1f; --line:#272c33; --line-forte:#39404a;
   --text:#ffffff; --text-2:#b9c1cc; --muted:#7f8a98; --muted-fill:#2b3138;
@@ -1273,11 +1279,49 @@ TEMPLATE = """<!doctype html>
   --ramp-1:#184f95; --ramp-2:#256abf; --ramp-3:#2a78d6; --ramp-4:#3987e5;
   --ramp-5:#5598e7; --ramp-6:#6da7ec; --ramp-7:#9ec5f4;
 }}
+/* Giyu: azul-neblina, vinho e o padrão verde/laranja do haori. */
+body:has(#theme-giyu:checked) {{
+  color-scheme: light;
+  --bg:#e8eef0; --surface:#f8faf9; --line:#c7d2d6; --line-forte:#a6b7bd;
+  --text:#172532; --text-2:#40545d; --muted:#667a83; --muted-fill:#d9e2e4;
+  --series-1:#327fa2; --series-2:#c66b43; --series-3:#356b5a;
+  --st-good:#28734d; --st-warning:#b87822; --st-serious:#bd6947; --st-critical:#a14556;
+  --ground:linear-gradient(128deg,#edf3f4 0%,#d9e3e6 56%,#e9dce1 100%);
+  --marca:#6f3549; --marca-t:#ffffff;
+  --alerta-borda:#dbc1c9; --alerta-fundo:linear-gradient(90deg,#f8faf9 52%,#f5e9ed);
+  --ok-borda:#bdd5c8; --ok-fundo:linear-gradient(90deg,#f8faf9 52%,#e9f2ed);
+  --alerta-texto:#893c4d; --acao-hover:#e4eef0; --tile-ruim:#f9f2f3; --tile-ruim-b:#e3cfd4;
+  --shadow:0 1px 2px rgba(28,49,59,.04),0 14px 34px rgba(52,78,89,.09);
+  --ramp-1:#d7e8ed; --ramp-2:#b3d2dc; --ramp-3:#82b6c7; --ramp-4:#5d9db4;
+  --ramp-5:#397c99; --ramp-6:#295d77; --ramp-7:#1c4058;
+  --character-image:url("{fundo_giyu}"); --character-position:right -1rem top 3rem; --character-size:360px auto;
+  --pattern-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='156' viewBox='0 0 180 156'%3E%3Crect width='180' height='156' fill='%23172f2a'/%3E%3Cg stroke='%23edd27a' stroke-width='2'%3E%3Cpath d='M90 4 150 38 90 72 30 38Z' fill='%23e0bd60'/%3E%3Cpath d='M30 38 90 72 90 140 30 106Z' fill='%231f5647'/%3E%3Cpath d='M150 38 90 72 90 140 150 106Z' fill='%230f352d'/%3E%3Cpath d='M0 106 30 123 30 156 0 139Z' fill='%23743a4c'/%3E%3Cpath d='M180 106 150 123 150 156 180 139Z' fill='%23743a4c'/%3E%3C/g%3E%3Cpath d='M90 72V140M30 38l60 34 60-34' stroke='%23112824' stroke-width='3' fill='none'/%3E%3C/svg%3E"); --pattern-position:0 0; --pattern-size:180px 156px;
+  --character-veil:linear-gradient(90deg,rgba(232,238,240,.98) 0%,rgba(232,238,240,.88) 48%,rgba(232,238,240,.28) 100%); --character-opacity:.78;
+}}
+/* Tanjiro: água noturna, ciano e verde do haori, com vinho de apoio. */
+body:has(#theme-tanjiro:checked) {{
+  color-scheme: dark;
+  --bg:#08192b; --surface:#10273b; --line:#244259; --line-forte:#41617a;
+  --text:#f4fbff; --text-2:#b8d2df; --muted:#83a8ba; --muted-fill:#1c3950;
+  --series-1:#43c9e8; --series-2:#d87e8f; --series-3:#43bf91;
+  --st-good:#57c98e; --st-warning:#f0b94e; --st-serious:#e38b60; --st-critical:#ec7186;
+  --ground:radial-gradient(circle at 92% -8%,#155d8b 0%,transparent 31%),linear-gradient(130deg,#071629 0%,#0b2740 100%);
+  --marca:#4fd3b4; --marca-t:#071a2b;
+  --alerta-borda:#714151; --alerta-fundo:linear-gradient(90deg,#10273b 50%,#2d1a2b);
+  --ok-borda:#2c6758; --ok-fundo:linear-gradient(90deg,#10273b 50%,#10352f);
+  --alerta-texto:#f2a1ae; --acao-hover:#18364d; --tile-ruim:#261b2a; --tile-ruim-b:#623a4c;
+  --shadow:0 1px 2px rgba(0,8,16,.42),0 15px 38px rgba(0,8,16,.36);
+  --ramp-1:#17405e; --ramp-2:#1c6289; --ramp-3:#278bac; --ramp-4:#35b6d3;
+  --ramp-5:#62d4e8; --ramp-6:#9ce8f1; --ramp-7:#d4f7f7;
+  --character-image:url("{fundo_tanjiro}"); --character-position:right -8rem top 1rem; --character-size:620px auto;
+  --character-veil:linear-gradient(90deg,rgba(8,25,43,.98) 0%,rgba(8,25,43,.84) 45%,rgba(8,25,43,.24) 100%); --character-opacity:.62;
+}}
 *,*::before,*::after{{box-sizing:border-box}}
-body{{margin:0;background:var(--bg);color:var(--text);
+body{{position:relative;isolation:isolate;margin:0;background:var(--bg);color:var(--text);
   font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased}}
-.wrap{{max-width:1180px;margin:0 auto;padding:40px 24px 72px}}
+body::before{{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:var(--character-opacity);background-image:var(--character-veil),var(--character-image),var(--pattern-image);background-position:center,var(--character-position),var(--pattern-position);background-repeat:no-repeat,no-repeat,repeat;background-size:cover,var(--character-size),var(--pattern-size);transition:opacity .35s ease}}
+.wrap{{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:40px 24px 72px}}
 header{{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;
   justify-content:space-between;margin-bottom:28px}}
 h1{{font-size:26px;font-weight:640;letter-spacing:-.02em;margin:0}}
@@ -1488,22 +1532,27 @@ body{{background:var(--ground);min-height:100dvh;
 header{{margin-bottom:20px;padding-bottom:19px;border-bottom:1px solid var(--line);align-items:center}}
 .brand-lockup{{display:flex;align-items:center;gap:12px}}.brand-mark{{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--marca);color:var(--marca-t);font-size:10px;font-weight:760;letter-spacing:.08em}}.brand-lockup h1{{font-size:20px;font-weight:720;letter-spacing:-.035em;line-height:1.05}}.brand-lockup h1 span{{font-weight:500}}.brand-lockup p{{margin:4px 0 0;font-size:12px;color:var(--muted)}}
 .header-meta{{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}}.live-dot{{width:7px;height:7px;border-radius:50%;background:var(--st-good);box-shadow:0 0 0 3px color-mix(in srgb, var(--st-good) 18%, transparent)}}
+.header-tools{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}}.view-tabs,.theme-picker{{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--surface);box-shadow:0 1px 0 rgba(255,255,255,.16) inset}}.view-tabs legend,.view-tabs input,.theme-picker legend,.theme-picker input{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}.view-tab,.theme-option{{position:relative;display:grid;place-items:center;border-radius:6px;cursor:pointer;transition:background .18s,transform .18s}}.view-tab{{min-height:27px;padding:0 9px;font-size:11px;font-weight:650;color:var(--text-2)}}.theme-option{{width:29px;height:27px}}.view-tab:hover,.theme-option:hover{{background:var(--acao-hover)}}.view-tab:active,.theme-option:active{{transform:scale(.96)}}.view-tabs input:focus-visible + .view-tab,.theme-picker input:focus-visible + .theme-option{{outline:2px solid var(--series-1);outline-offset:2px}}.view-tabs input:checked + .view-tab,.theme-picker input:checked + .theme-option{{background:var(--muted-fill);color:var(--text)}}.theme-swatch{{display:block;width:15px;height:15px;border-radius:50%;border:1px solid rgba(255,255,255,.46);box-shadow:0 0 0 1px rgba(18,35,45,.18)}}.theme-swatch.light{{background:linear-gradient(135deg,#f7fafb 0 50%,#146c84 50%)}}.theme-swatch.dark{{background:linear-gradient(135deg,#171a1f 0 50%,#5fb3c9 50%)}}.theme-swatch.giyu{{background:conic-gradient(#6f3549 0 25%,#d08350 0 50%,#356b5a 0 75%,#dbe8eb 0)}}.theme-swatch.tanjiro{{background:conic-gradient(#43c9e8 0 25%,#43bf91 0 50%,#08192b 0 75%,#d87e8f 0)}}
+.about-view{{display:none}}body:has(#view-about:checked) .dashboard-view{{display:none}}body:has(#view-about:checked) .about-view{{display:block}}.about-hero{{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);gap:14px;align-items:stretch;margin-top:4px}}.about-copy,.architecture-figure,.about-block{{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}}.about-copy{{padding:30px}}.about-kicker{{margin:0 0 9px;color:var(--marca);font-size:10px;font-weight:720;letter-spacing:.13em;text-transform:uppercase}}.about-copy h2{{display:block;margin:0 0 12px;font-size:27px;line-height:1.1;letter-spacing:-.035em;text-transform:none;color:var(--text)}}.about-copy h2::after{{display:none}}.about-copy p{{max-width:62ch;margin:0;color:var(--text-2);font-size:14px;line-height:1.72}}.about-copy p+p{{margin-top:12px}}.architecture-figure{{margin:0;padding:14px;display:flex;flex-direction:column;justify-content:center;overflow:hidden}}.architecture-trigger{{all:unset;position:relative;display:block;cursor:zoom-in;border-radius:8px;overflow:hidden}}.architecture-trigger:focus-visible{{outline:2px solid var(--series-1);outline-offset:3px}}.architecture-trigger svg{{display:block;width:100%;height:auto;border-radius:8px;transition:transform .35s cubic-bezier(.16,1,.3,1)}}.architecture-trigger:hover svg{{transform:scale(1.018)}}.architecture-trigger svg line,.architecture-trigger svg path[stroke],.diagram-modal-body svg line,.diagram-modal-body svg path[stroke]{{stroke-dasharray:10 14;stroke-dashoffset:0;animation:diagram-flow 1.6s linear infinite}}.architecture-trigger svg line:nth-of-type(2n),.architecture-trigger svg path[stroke]:nth-of-type(2n),.diagram-modal-body svg line:nth-of-type(2n),.diagram-modal-body svg path[stroke]:nth-of-type(2n){{animation-delay:.24s}}.architecture-hint{{position:absolute;right:10px;bottom:10px;padding:4px 7px;border:1px solid rgba(255,255,255,.45);border-radius:5px;background:rgba(18,36,48,.78);color:#fff;font-size:10px;font-weight:680;opacity:0;transform:translateY(4px);transition:opacity .18s,transform .18s}}.architecture-trigger:hover .architecture-hint,.architecture-trigger:focus-visible .architecture-hint{{opacity:1;transform:translateY(0)}}.architecture-figure figcaption{{padding:10px 4px 0;color:var(--muted);font-size:11px;line-height:1.45}}.diagram-modal{{width:min(1240px,94vw);max-height:92dvh;margin:auto;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);box-shadow:var(--shadow)}}.diagram-modal:popover-open{{display:flex;flex-direction:column;animation:diagram-pop .28s cubic-bezier(.16,1,.3,1)}}.diagram-modal::backdrop{{background:rgba(9,18,25,.62);backdrop-filter:blur(3px)}}.diagram-modal-head{{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}}.diagram-modal-head strong{{font-size:14px}}.diagram-close{{all:unset;cursor:pointer;padding:5px 8px;border:1px solid var(--line);border-radius:6px;color:var(--text-2);font-size:12px;font-weight:650}}.diagram-close:hover{{background:var(--acao-hover);color:var(--text)}}.diagram-close:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}.diagram-modal-body{{padding:14px;overflow:auto}}.diagram-modal-body svg{{display:block;width:100%;height:auto;min-width:760px;border-radius:8px}}@keyframes diagram-flow{{to{{stroke-dashoffset:-96}}}}@keyframes diagram-pop{{from{{opacity:0;transform:scale(.96) translateY(8px)}}to{{opacity:1;transform:scale(1) translateY(0)}}}}.about-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}}.about-block{{padding:22px}}.about-block h3{{margin:0 0 8px;font-size:14px;letter-spacing:-.01em}}.about-block p{{margin:0;color:var(--text-2);font-size:13px;line-height:1.65}}.about-principles{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin:14px 0 0;padding:0;list-style:none;border-top:1px solid var(--line)}}.about-principles li{{padding:13px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2);line-height:1.5}}.about-principles strong{{display:block;margin-bottom:2px;color:var(--text);font-size:12.5px}}.about-cycle{{margin-top:14px;padding:24px 26px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}}.about-cycle h3{{margin:0 0 13px;font-size:14px}}.cycle-steps{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none;counter-reset:cycle}}.cycle-steps li{{position:relative;padding:12px 10px 12px 32px;border-top:2px solid var(--series-1);color:var(--text-2);font-size:12px;line-height:1.45;counter-increment:cycle}}.cycle-steps li::before{{content:counter(cycle,decimal-leading-zero);position:absolute;left:0;top:10px;color:var(--marca);font-size:10px;font-weight:740;letter-spacing:.06em}}
 .command-bar{{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:17px 20px 17px 22px;margin-bottom:14px;border:1px solid var(--alerta-borda);border-left:3px solid var(--st-critical);border-radius:10px;background:var(--alerta-fundo);box-shadow:var(--shadow)}}.command-bar.healthy{{border-color:var(--ok-borda);border-left-color:var(--st-good);background:var(--ok-fundo)}}
 .command-copy{{display:grid;gap:2px}}.eyebrow,.tile-k{{font-size:10px;letter-spacing:.1em;font-weight:700;text-transform:uppercase}}.eyebrow{{color:var(--st-critical)}}.command-bar.healthy .eyebrow{{color:var(--st-good)}}.command-copy strong{{font-size:14px;letter-spacing:-.01em}}.command-copy>span:last-child{{font-size:12px;color:var(--text-2)}}.command-actions{{display:flex;gap:14px;align-items:center;white-space:nowrap}}.risk-badge{{display:inline-flex;align-items:center;gap:6px;color:var(--alerta-texto);font-size:12px;font-weight:650}}.risk-badge i{{width:7px;height:7px;border-radius:50%;background:var(--st-critical)}}.risk-badge.healthy{{color:var(--st-good)}}.risk-badge.healthy i{{background:var(--st-good)}}.action-link{{border:1px solid var(--line-forte);border-radius:7px;padding:7px 10px;color:var(--marca);text-decoration:none;font-size:12px;font-weight:650;transition:background .18s,transform .18s}}.action-link:hover{{background:var(--acao-hover);transform:translateY(-1px)}}
 .tiles{{grid-template-columns:1.35fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px}}.tile{{min-height:110px;padding:16px 18px;border-radius:10px;box-shadow:none;justify-content:center}}.tile::before{{height:3px}}.tile-v{{font-size:31px;color:var(--text)}}.tile-s{{font-size:12px}}.tile.bad{{background:var(--tile-ruim);border-color:var(--tile-ruim-b)}}
 .grid{{grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch}}.card{{padding:18px 20px;border-radius:11px;box-shadow:var(--shadow)}}.card.wide{{grid-column:span 12}}.card:nth-of-type(2){{grid-column:span 5}}.card:nth-of-type(3){{grid-column:span 4}}.card:nth-of-type(4){{grid-column:span 3}}.card:nth-of-type(5){{grid-column:span 5}}.card:nth-of-type(6){{grid-column:span 3}}.card:nth-of-type(7){{grid-column:span 4}}.card:nth-of-type(8),.card:nth-of-type(9){{grid-column:span 6}}
 h2{{font-size:10px;margin-bottom:7px;letter-spacing:.12em}}.sub{{font-size:12px;margin-bottom:12px}}.hero-n{{font-size:46px}}.hero-u{{font-size:18px}}.hero-l{{font-size:11px}}.kv{{margin-top:12px;gap:9px 16px}}.kv dt{{font-size:10px}}.kv dd{{font-size:13px}}.sep{{margin:15px 0}}.nota{{font-size:11px;margin-top:12px}}.guards{{gap:7px}}.guard{{padding:9px 12px 9px 14px;border-radius:8px}}.guard-n{{font-size:13px}}.guard-d,.guard-c,.achados{{font-size:11px}}.fin{{grid-template-columns:74px 1fr auto;margin:9px 0}}.fin-l,.fin-v{{font-size:11px}}.stats{{gap:10px;margin-bottom:14px}}.s-v{{font-size:25px}}.s-k{{font-size:9.5px}}.btns{{grid-template-columns:1fr;gap:6px;margin-bottom:14px}}.btn{{padding:8px 10px}}.btn-t{{font-size:12px}}.btn-d{{font-size:10.5px}}.hbar{{grid-template-columns:minmax(72px,118px) 1fr 36px;gap:8px;margin:6px 0}}.hbar-label,.hbar-val{{font-size:11px}}.svg-area{{height:128px;margin-top:8px}}.eixo{{font-size:10px}}.ritmo{{max-width:400px;margin-top:7px}}.cel{{min-height:7px}}.ses{{padding:6px 0}}.tbl{{font-size:12px}}
 @media (max-width:960px){{.wrap{{padding:22px 20px 48px}}.grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.card.wide,.card:nth-of-type(n){{grid-column:span 1}}.card.wide{{grid-column:1/-1}}.tiles{{grid-template-columns:repeat(2,1fr)}}.card:nth-of-type(2),.card:nth-of-type(5),.card:nth-of-type(9){{grid-column:1/-1}}}}
-@media (max-width:640px){{.wrap{{padding:16px 14px 38px}}header{{align-items:flex-start}}.header-meta{{font-size:10.5px}}.command-bar{{align-items:flex-start;flex-direction:column;gap:10px;padding:14px}}.command-actions{{width:100%;justify-content:space-between}}.tiles,.grid{{grid-template-columns:1fr}}.card.wide,.card:nth-of-type(n){{grid-column:1}}.tile{{min-height:96px}}.brand-lockup p{{font-size:10.5px}}.header-meta{{width:100%}}}}
+@media (max-width:960px){{.about-hero{{grid-template-columns:1fr}}.architecture-figure{{max-width:780px}}.cycle-steps{{grid-template-columns:repeat(3,1fr)}}}}
+@media (prefers-reduced-motion:reduce){{.architecture-trigger svg,.architecture-trigger svg line,.architecture-trigger svg path[stroke],.diagram-modal:popover-open{{animation:none;transition:none}}}}
+@media (max-width:640px){{body:has(#theme-giyu:checked){{--character-position:right -7rem top 6rem;--character-size:330px auto;--character-opacity:.48}}body:has(#theme-tanjiro:checked){{--character-position:center top 10rem;--character-size:470px auto;--character-opacity:.38}}.wrap{{padding:16px 14px 38px}}header{{align-items:flex-start}}.header-meta{{font-size:10.5px}}.header-tools{{width:100%;justify-content:space-between}}.view-tab{{padding:0 7px;font-size:10.5px}}.command-bar{{align-items:flex-start;flex-direction:column;gap:10px;padding:14px}}.command-actions{{width:100%;justify-content:space-between}}.tiles,.grid,.about-grid,.about-principles{{grid-template-columns:1fr}}.card.wide,.card:nth-of-type(n){{grid-column:1}}.tile{{min-height:96px}}.brand-lockup p{{font-size:10.5px}}.about-copy,.about-block,.about-cycle{{padding:19px}}.about-copy h2{{font-size:23px}}.cycle-steps{{grid-template-columns:1fr 1fr}}}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
   <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">NF</span><div><h1>{projeto} <span>· Neural-Flow</span></h1><p>Visão de execução, risco e governança do projeto</p></div></div>
-  <div class="header-meta"><span class="live-dot" aria-hidden="true"></span><span>Atualizado em {gerado_legivel}</span></div>
+  <div class="header-tools"><fieldset class="view-tabs"><legend>Seção do dashboard</legend><input type="radio" name="view" id="view-dashboard" checked><label class="view-tab" for="view-dashboard">Painel</label><input type="radio" name="view" id="view-about"><label class="view-tab" for="view-about">O Neural-Flow</label></fieldset><fieldset class="theme-picker"><legend>Escolha a paleta do dashboard</legend><input type="radio" name="theme" id="theme-light" checked><label class="theme-option" for="theme-light" aria-label="Tema claro"><span class="theme-swatch light" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-dark"><label class="theme-option" for="theme-dark" aria-label="Tema escuro"><span class="theme-swatch dark" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-giyu"><label class="theme-option" for="theme-giyu" aria-label="Tema Giyu: vinho, verde e azul-neblina"><span class="theme-swatch giyu" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-tanjiro"><label class="theme-option" for="theme-tanjiro" aria-label="Tema Tanjiro: água, verde e azul-noturno"><span class="theme-swatch tanjiro" aria-hidden="true"></span></label></fieldset><div class="header-meta"><span class="live-dot" aria-hidden="true"></span><span>Atualizado em {gerado_legivel}</span></div></div>
 </header>
 
+<main class="dashboard-view">
 <section class="command-bar {resumo_tipo}" aria-label="Resumo executivo">
   <div class="command-copy"><span class="eyebrow">Resumo executivo</span><strong>{resumo_status}</strong><span>{resumo_detalhe}</span></div>
   <div class="command-actions"><span class="risk-badge {resumo_tipo}"><i aria-hidden="true"></i> {resumo_rotulo}</span><a href="#guards" class="action-link">Ver controles <span aria-hidden="true">→</span></a></div>
@@ -1531,6 +1580,15 @@ h2{{font-size:10px;margin-bottom:7px;letter-spacing:.12em}}.sub{{font-size:12px;
     <p class="sub">O que trava e o que se audita</p>{protocolos}</section>
 {historico}
 </div>
+</main>
+
+<main class="about-view" aria-label="Sobre o Neural-Flow Framework">
+  <section class="about-hero"><div class="about-copy"><p class="about-kicker">Método de engenharia assistida por IA</p><h2>Transformar intenção em mudança verificável.</h2><p>Neural-Flow é um framework de governança para trabalho técnico executado por pessoas e agentes. Ele organiza a execução em artefatos legíveis, regras verificáveis e evidências reproduzíveis, para que velocidade não dependa de confiança cega.</p><p>O objetivo é simples: cada mudança deve ter escopo, contexto, decisão e prova. Assim, o projeto permanece compreensível quando a conversa acaba, o agente muda ou a equipe cresce.</p></div><figure class="architecture-figure"><button type="button" class="architecture-trigger" popovertarget="diagrama-arquitetura" aria-label="Ampliar diagrama de arquitetura"><span class="architecture-hint" aria-hidden="true">Clique para ampliar</span>{arquitetura}</button><figcaption>Arquitetura do fluxo: os artefatos registram a intenção, os guards bloqueiam desvios e o CI confirma a autoridade do processo.</figcaption></figure></section>
+  <section class="about-grid"><article class="about-block"><h3>O que o framework resolve</h3><p>Projetos guiados por IA frequentemente perdem contexto, misturam hipótese com fato e deixam decisões importantes só no chat. Neural-Flow torna o estado do trabalho explícito em disco, reduzindo retrabalho e tornando a retomada confiável.</p><ul class="about-principles"><li><strong>Estado persistente</strong>Plano, diário, divergências e sprint registram o que foi feito e o que falta.</li><li><strong>Decisão rastreável</strong>ADRs preservam o porquê de mudanças arquiteturais sem reescrever o histórico.</li></ul></article><article class="about-block"><h3>Como ele preserva autonomia</h3><p>Autonomia não significa ausência de limites. O framework define até onde um agente pode avançar e quais decisões exigem revisão humana, especialmente em escopos sensíveis ou irreversíveis.</p><ul class="about-principles"><li><strong>Guards executáveis</strong>Regras críticas deixam de ser recomendação e passam a bloquear o commit quando violadas.</li><li><strong>Evidência antes de conclusão</strong>Um item só está pronto quando a verificação foi executada e registrada.</li></ul></article></section>
+  <section class="about-cycle"><h3>O ciclo operacional</h3><ol class="cycle-steps"><li>Defina a sprint, o escopo, a autonomia e o orçamento.</li><li>Consulte o índice e registre fontes que sustentam a decisão.</li><li>Implemente uma mudança pequena e deixe o estado no plano.</li><li>Execute os guards; se reprovar, corrija o artefato ou a mudança.</li><li>Registre evidência, faça o commit e deixe o CI validar novamente.</li></ol></section>
+</main>
+
+<div popover id="diagrama-arquitetura" class="diagram-modal" role="dialog" aria-label="Diagrama de arquitetura ampliado"><div class="diagram-modal-head"><strong>Como uma mudança vira commit</strong><button type="button" class="diagram-close" popovertarget="diagrama-arquitetura" popovertargetaction="hide">Fechar</button></div><div class="diagram-modal-body">{arquitetura}</div></div>
 
 {janelas}
 <footer>Neural-Flow Framework — gerado por <code>scripts/nf_dashboard.py</code></footer>
