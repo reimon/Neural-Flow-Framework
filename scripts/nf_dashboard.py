@@ -830,7 +830,14 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     if ativa:
         restante = ""
         try:
-            faltam = (date.fromisoformat(ativa.prazo) - date.today()).days
+            # Conta a partir da data de GERACAO, nao de hoje. A pagina afirma
+            # "gerado em X"; um contador relativo a hoje contradiria o proprio
+            # carimbo — e faria a demo versionada mudar sozinha a cada dia.
+            try:
+                referencia = date.fromisoformat(d.gerado_em.split()[0])
+            except (ValueError, IndexError):
+                referencia = date.today()
+            faltam = (date.fromisoformat(ativa.prazo) - referencia).days
             restante = f"{faltam} dias restantes" if faltam >= 0 else f"{-faltam} dias em atraso"
         except (ValueError, TypeError):
             restante = "prazo nao definido"
