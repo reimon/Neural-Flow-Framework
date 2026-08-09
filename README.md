@@ -23,6 +23,8 @@ Sistema de Controle Autonomo para engenharia assistida por IA.
 > Azure ainda usa admin key em vez de Entra ID/RBAC; nenhum protocolo, template ou guard
 > depende dela.
 
+<img src="docs/img/arquitetura.svg" alt="Caminho de uma mudanca no Neural-Flow: os artefatos do projeto sao lidos pelos guards; o hook de pre-commit valida o que esta em stage e barra o commit quando algum reprova; depois do push o CI revalida, porque o hook e opt-in por clone." width="100%">
+
 O Neural-Flow substitui o modelo de documentacao manual reativa por um sistema operacional de governanca orientado a evidencia, autonomia controlada e memoria institucional.
 
 ## Visao
@@ -292,6 +294,7 @@ Para aplicar o Neural-Flow em qualquer projeto, copiar e preencher:
 | templates/githooks/pre-commit             | `.githooks/pre-commit`         | Gates rodando sobre o stage a cada commit                  |
 | scripts/validate_calibration.py           | `scripts/`                     | Guard executavel do protocolo de Calibracao                |
 | scripts/nf_dashboard.py                   | `scripts/`                     | Dashboard HTML auto-contido do estado da governanca        |
+| scripts/nf_diagrama.py                    | `scripts/`                     | Gera o diagrama de arquitetura a partir do registro de guards |
 
 Playbook pronto (nao e template, ja e generico): `docs/playbooks/guardrails-ia-infra-producao.md` — guardrails para IA operar infraestrutura de producao (modos de operacao, gates de plan, sinais de STOP, RACI, prompt padrao).
 

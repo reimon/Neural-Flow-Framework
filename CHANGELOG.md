@@ -32,6 +32,9 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- `scripts/nf_diagrama.py` — diagrama de arquitetura em SVG gerado a partir do mesmo
+  registro de guards do `nf_gate`, com teste de drift. Mostra o mecanismo (o caminho de uma
+  mudanca ate o commit e onde ela e barrada), nao a lista de protocolos redesenhada.
 - Leitor do **Codex** na telemetria (`~/.codex/sessions`), com filtro por projeto via `cwd`
   e normalizacao do vocabulario da OpenAI. Dashboard e CLI mostram a divisao por provedor.
 - Mapa de calor de ritmo (hora x dia), ferramentas mais usadas e sessoes por consumo.

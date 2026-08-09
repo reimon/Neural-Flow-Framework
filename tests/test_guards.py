@@ -942,6 +942,60 @@ class TestTelemetriaDeTokens(unittest.TestCase):
             self.assertEqual(tel.geral.entrada, 10)
 
 
+class TestDiagrama(unittest.TestCase):
+    """O diagrama e gerado do mesmo registro de guards que o `nf_gate` usa.
+
+    Assim, guard novo aparece no desenho sem ninguem lembrar de redesenhar — e o
+    teste garante que a versao commitada nao ficou para tras.
+    """
+
+    SVG = RAIZ / "docs" / "img" / "arquitetura.svg"
+
+    def test_svg_bem_formado_e_autocontido(self) -> None:
+        import xml.etree.ElementTree as ET
+
+        self.assertTrue(self.SVG.is_file(), "docs/img/arquitetura.svg nao existe")
+        ET.parse(self.SVG)  # levanta se malformado
+        texto = self.SVG.read_text(encoding="utf-8")
+        for proibido in ("<script", "<foreignObject", "<image", "xlink:href", "@import"):
+            with self.subTest(proibido=proibido):
+                self.assertNotIn(proibido, texto)
+        # `xmlns="http://www.w3.org/2000/svg"` e identificador de namespace, nao
+        # recurso buscado — proibir a string "http" cegamente reprovaria todo SVG
+        # valido. O que nao pode e URL em atributo que dispara requisicao.
+        import re as _re
+        self.assertIsNone(
+            _re.search(r'(href|src)\s*=\s*"https?:', texto),
+            "SVG referencia recurso externo",
+        )
+
+    def test_todo_guard_aparece_no_diagrama(self) -> None:
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_gate import GUARDS
+
+        texto = self.SVG.read_text(encoding="utf-8")
+        for nome, (_s, protocolo, _o) in GUARDS.items():
+            with self.subTest(guard=nome):
+                self.assertIn(protocolo, texto)
+
+    def test_diagrama_esta_atualizado(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            alvo = Path(t) / "a.svg"
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_diagrama.py"), "--out", str(alvo)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertEqual(
+                self.SVG.read_text(encoding="utf-8"),
+                alvo.read_text(encoding="utf-8"),
+                "docs/img/arquitetura.svg desatualizado. Regenere:\n"
+                "  python3 scripts/nf_diagrama.py",
+            )
+
+
 class TestDemoVersionada(unittest.TestCase):
     """`docs/dashboard-demo.html` nao pode apodrecer.
 
