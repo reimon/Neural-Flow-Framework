@@ -22,6 +22,10 @@ Entidades, campos, tipos e unidades. Regras:
 `<PREFIXO>-INV-NNN` — uma linha cada, testavel. Sao o contrato que nenhum caminho pode
 violar, inclusive os degradados.
 
+**Toda invariante precisa ser citada em outro lugar** — num criterio de aceite, num
+contrato, num teste. Invariante definida e nunca referenciada e spec morta, e o guard
+reprova (P5). O inverso tambem: citar um ID que nao existe e referencia pendurada.
+
 ## 4. Fonte de verdade
 
 Para cada valor, prazo ou regra regulada: de onde vem, com data de verificacao. **Sem
@@ -54,7 +58,11 @@ sem isto esta incompleto** — foi a lacuna mais comum encontrada em inventario 
 
 ## 10. Criterios de aceite
 
-Verificaveis, numerados, sem adjetivo. Sao o que o item do `PLANO.md` vai referenciar.
+Verificaveis, numerados, sem adjetivo. Sao o que o item do `PLANO.md` vai referenciar —
+e onde as invariantes da secao 3 sao citadas:
+
+1. `<criterio>`, conforme `<PREFIXO>-INV-001`.
+2. `<criterio>`, conforme `<PREFIXO>-INV-002`.
 
 ## 11. Fora de escopo
 

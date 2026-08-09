@@ -42,7 +42,8 @@ GUARDS = {
     "budget": ("validate_token_budget.py", {"B3"}),
     "context": ("validate_context_sources.py", {"V1"}),
     "adr": ("validate_adr.py", {"A1", "A3", "A4", "A5", "A6"}),
-    "spec": ("validate_module_spec.py", {"P1", "P2", "P3", "P4"}),
+    "spec": ("validate_module_spec.py",
+             {"P1", "P4", "P5", "P6", "P7", "P8", "P9"}),
     "calibration": ("validate_calibration.py", {"C1", "C2", "C3", "C4", "C5", "C6"}),
 }
 
@@ -152,6 +153,134 @@ class TestRegrasCriticas(unittest.TestCase):
             (destino / "sprint-09.md").write_text(sprint, encoding="utf-8")
             codigo, saida = rodar("validate_token_budget.py", Path(tmp))
             self.assertEqual(codigo, 0, f"B2 falso positivo com crases:\n{saida}")
+
+
+class TestRastreabilidadeDeSpec(unittest.TestCase):
+    """As checagens que separam spec detalhada de spec decorativa.
+
+    Portadas do validador de um projeto real, onde a rigidez foi o que sustentou
+    doze modulos no mesmo nivel. Sem elas o guard aceitava qualquer texto com os
+    titulos certos.
+    """
+
+    def _spec(self, tmp: Path, corpo: str, config: dict | None = None) -> Path:
+        destino = tmp / "docs" / "modulos" / "01-x"
+        destino.mkdir(parents=True, exist_ok=True)
+        (destino / "spec.md").write_text(corpo, encoding="utf-8")
+        if config is not None:
+            (tmp / ".neural-flow.json").write_text(json.dumps(config), encoding="utf-8")
+        return destino / "spec.md"
+
+    def _rodar(self, tmp: Path) -> tuple[int, str]:
+        return rodar("validate_module_spec.py", tmp)
+
+    BASE = "# M\n\n## Proposito\n\n{corpo}\n"
+    CFG = {"spec_sections": ["Proposito"]}
+
+    def test_p5_id_definido_e_nunca_citado_e_spec_morta(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            self._spec(Path(t), self.BASE.format(
+                corpo="- **ACM-INV-001** — saldo nunca fica negativo"), self.CFG)
+            codigo, saida = self._rodar(Path(t))
+            self.assertEqual(codigo, 1)
+            self.assertIn("P5", saida)
+            self.assertIn("spec morta", saida)
+
+    def test_p5_id_citado_e_nunca_definido_e_pendurado(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            self._spec(Path(t), self.BASE.format(
+                corpo="O calculo respeita ACM-INV-042."), self.CFG)
+            codigo, saida = self._rodar(Path(t))
+            self.assertEqual(codigo, 1)
+            self.assertIn("referencia pendurada", saida)
+
+    def test_p5_definido_e_citado_passa(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            self._spec(Path(t), self.BASE.format(
+                corpo="- **ACM-INV-001** — saldo nunca fica negativo\n\n"
+                      "O aceite verifica ACM-INV-001 na escrita."), self.CFG)
+            codigo, saida = self._rodar(Path(t))
+            self.assertEqual(codigo, 0, saida)
+
+    def test_p9_negacao_nao_e_promessa(self) -> None:
+        """"Nunca prometer aprovacao garantida" e o oposto de prometer.
+
+        Sem tratar negacao, o guard reprovaria justamente a linha que estabelece
+        a regra — e o time aprenderia a desligar a checagem.
+        """
+        import tempfile
+
+        cfg = dict(self.CFG, spec_linguagem_proibida=["aprovacao garantida"])
+        with tempfile.TemporaryDirectory() as t:
+            self._spec(Path(t), self.BASE.format(
+                corpo="Nunca prometer aprovacao garantida ao usuario."), cfg)
+            codigo, saida = self._rodar(Path(t))
+            self.assertEqual(codigo, 0, saida)
+
+        with tempfile.TemporaryDirectory() as t:
+            self._spec(Path(t), self.BASE.format(
+                corpo="O usuario recebe aprovacao garantida em 24h."), cfg)
+            codigo, saida = self._rodar(Path(t))
+            self.assertEqual(codigo, 1)
+            self.assertIn("P9", saida)
+
+    def test_p8_fonte_sem_data_de_verificacao(self) -> None:
+        import tempfile
+
+        cfg = dict(self.CFG, spec_fontes=["dados/"])
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            (tmp / "dados").mkdir()
+            (tmp / "dados" / "taxas.json").write_text('{"taxa": 1}', encoding="utf-8")
+            self._spec(tmp, self.BASE.format(corpo="Taxas em `dados/taxas.json`."), cfg)
+            codigo, saida = self._rodar(tmp)
+            self.assertEqual(codigo, 1)
+            self.assertIn("last_verified", saida)
+
+            (tmp / "dados" / "taxas.json").write_text(
+                '{"taxa": 1, "last_verified": "2026-08-01"}', encoding="utf-8")
+            codigo, saida = self._rodar(tmp)
+            self.assertEqual(codigo, 0, saida)
+
+    def test_p10_estrutura_multiarquivo_e_indice(self) -> None:
+        import tempfile
+
+        cfg = dict(self.CFG, spec_estrutura={"arquivos": 2, "readme": True})
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            d = tmp / "docs" / "modulos" / "01-x"
+            d.mkdir(parents=True)
+            (tmp / ".neural-flow.json").write_text(json.dumps(cfg), encoding="utf-8")
+            (d / "01-a.md").write_text("# A\n\n## Proposito\n\nx\n", encoding="utf-8")
+            codigo, saida = self._rodar(tmp)
+            self.assertEqual(codigo, 1)
+            self.assertIn("P10", saida)
+
+            (d / "02-b.md").write_text("# B\n\n## Proposito\n\ny\n", encoding="utf-8")
+            (d / "README.md").write_text("# I\n\n- [a](01-a.md)\n", encoding="utf-8")
+            codigo, saida = self._rodar(tmp)
+            self.assertIn("nao esta linkado no README", saida)
+
+            (d / "README.md").write_text(
+                "# I\n\n- [a](01-a.md)\n- [b](02-b.md)\n", encoding="utf-8")
+            codigo, saida = self._rodar(tmp)
+            self.assertEqual(codigo, 0, saida)
+
+    def test_sem_configuracao_as_checagens_de_dominio_ficam_desligadas(self) -> None:
+        """Projeto que nao configurou nada continua passando como antes."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            self._spec(Path(t), self.BASE.format(
+                corpo="O usuario recebe aprovacao garantida."), self.CFG)
+            codigo, saida = self._rodar(Path(t))
+            self.assertEqual(codigo, 0, saida)
 
 
 class TestProjetoSemArtefato(unittest.TestCase):

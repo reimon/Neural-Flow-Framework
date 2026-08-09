@@ -40,7 +40,8 @@ Nao se aplica: modulo nao chama modelo.
 ## 10. Criterios de aceite
 
 1. Listagem devolve 200 com no maximo 50 itens por pagina.
-2. Produto sem categoria nao aparece na resposta.
+2. Produto sem categoria nao aparece na resposta, conforme CAT-INV-002.
+3. Preco negativo e recusado na escrita, conforme CAT-INV-001.
 
 ## 11. Fora de escopo
 

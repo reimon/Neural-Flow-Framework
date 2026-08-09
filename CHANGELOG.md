@@ -32,6 +32,10 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- Guard `spec` ganha P5–P10: rastreabilidade de IDs (orfao e referencia pendurada), link
+  interno, bloco JSON, fonte com `last_verified`, linguagem proibida com tratamento de
+  negacao, e estrutura multiarquivo com README indexando. As tres ultimas sao configuraveis
+  e ficam desligadas por padrao.
 - `scripts/nf_diagrama.py` — diagrama de arquitetura em SVG gerado a partir do mesmo
   registro de guards do `nf_gate`, com teste de drift. Mostra o mecanismo (o caminho de uma
   mudanca ate o commit e onde ela e barrada), nao a lista de protocolos redesenhada.

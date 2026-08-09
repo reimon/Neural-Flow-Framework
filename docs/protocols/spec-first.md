@@ -51,6 +51,47 @@ Dois detalhes de implementacao que fazem o gate funcionar de verdade:
 
 Ativacao do hook: `git config core.hooksPath .githooks`
 
+## O que o gate consegue checar por maquina
+
+Padrao obrigatorio sem verificacao automatica vira sugestao. Estas sao as checagens que
+separam spec detalhada de spec com os titulos certos:
+
+| Codigo | O que trava | Depende de configuracao? |
+| --- | --- | --- |
+| `P1` `P2` | Secao obrigatoria presente e nao vazia | nao |
+| `P3` `P4` | Invariante com ID, aceite numerado | nao |
+| `P5` | **Rastreabilidade**: ID definido e citado fora da definicao; ID citado existe | nao |
+| `P6` | Link markdown interno resolve | nao |
+| `P7` | Bloco ```json parseia | nao |
+| `P8` | Fonte citada existe e carrega `last_verified` | sim (`spec_fontes`) |
+| `P9` | Linguagem proibida, salvo quando a linha nega | sim (`spec_linguagem_proibida`) |
+| `P10` | Estrutura multiarquivo e README indexando tudo | sim (`spec_estrutura`) |
+
+`P5` e o que mais sustenta detalhamento. Invariante definida e nunca citada e **spec
+morta**: ninguem a verifica, nada quebra quando ela e violada. ID citado e nunca definido
+e referencia pendurada — o leitor procura e nao acha. Nenhum dos dois aparece em revisao
+por leitura; os dois aparecem em varredura.
+
+`P9` trata negacao: "nunca prometer aprovacao garantida" **estabelece** a regra, nao a
+viola. Sem isso o guard reprovaria justamente a linha certa, e o time aprenderia a
+desliga-lo.
+
+As tres ultimas ficam desligadas sem configuracao: a lista de fontes, de termos proibidos
+e o formato de modulo sao de dominio. Projeto que nao configurou nada continua passando
+como antes — o guard trava quem usa o protocolo errado, nao quem ainda nao o usa.
+
+Configuracao em `.neural-flow.json`:
+
+```json
+{
+  "spec_sections": ["Proposito", "Dominio de dados", "Invariantes", "Criterios de aceite"],
+  "spec_globs": ["docs/modulos/*/*.md"],
+  "spec_fontes": ["docs/dados-de-referencia/"],
+  "spec_linguagem_proibida": ["garantido", "aprovacao garantida", "prazo garantido"],
+  "spec_estrutura": {"arquivos": 10, "readme": true}
+}
+```
+
 ## Inventario de reuso antes de construir
 
 Antes de escrever modulo novo, produzir um **mapa de cobertura**: o que cada ativo

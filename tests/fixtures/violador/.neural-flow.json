@@ -1,0 +1,4 @@
+{
+  "spec_fontes": ["dados/"],
+  "spec_linguagem_proibida": ["garantido", "sera aprovado", "aprovacao garantida"]
+}
