@@ -27,6 +27,11 @@ Fontes de dados (todas opcionais — o que faltar aparece como "nao configurado"
 
 from __future__ import annotations
 
+# Assinatura de origem. O `nf_gate` so executa arquivo que a carrega — projeto
+# brownfield pode ter um script homonimo com outra interface, e chama-lo com os
+# nossos argumentos produz erro de uso confuso em vez de diagnostico.
+NF_GUARD_ASSINATURA = "neural-flow-framework"
+
 import argparse
 import base64
 import html

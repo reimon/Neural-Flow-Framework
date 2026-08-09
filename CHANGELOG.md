@@ -32,6 +32,11 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   com sprint ativa, guards, FinOps de tokens, smoke-gate, indice de conhecimento, loop e
   protocolos. Paleta validada por script nos modos claro e escuro; status sempre com
   icone + rotulo. Instalado por padrao.
+- Colisao de nome com validador do proprio projeto (reportado em campo): scripts do
+  framework passam a carregar assinatura de origem; o instalador instala o nosso como
+  `nf_<nome>` quando ja existe homonimo; e `.neural-flow.json` aceita
+  `guards.<nome>.comando` com `{root}`/`{modulo}` e `por_modulo` para o gate executar o
+  validador que o projeto ja tem.
 - Guard `spec` ganha P5–P10: rastreabilidade de IDs (orfao e referencia pendurada), link
   interno, bloco JSON, fonte com `last_verified`, linguagem proibida com tratamento de
   negacao, e estrutura multiarquivo com README indexando. As tres ultimas sao configuraveis

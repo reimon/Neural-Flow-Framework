@@ -177,9 +177,31 @@ def eh_repo_git(alvo: Path) -> bool:
 # ── Blocos de instalacao ───────────────────────────────────────────────────────
 
 
+def _assinado(caminho: Path) -> bool:
+    try:
+        return "NF_GUARD_ASSINATURA" in caminho.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
 def instalar_guards(inst: Instalacao) -> None:
     for nome in GUARDS:
-        inst.copiar(RAIZ_FW / "scripts" / nome, inst.alvo / "scripts" / nome)
+        destino = inst.alvo / "scripts" / nome
+        # Colisao de nome: o projeto ja tem um script homonimo, com outra
+        # interface. Nao sobrescrever e certo; mas deixar so o dele significa
+        # que o guard correspondente nunca roda. Instalamos o nosso ao lado,
+        # com prefixo, e avisamos — o `nf_gate` procura `nf_<nome>` primeiro.
+        if destino.exists() and not _assinado(destino) and not inst.forcar:
+            alternativo = inst.alvo / "scripts" / f"nf_{nome}"
+            inst.copiar(RAIZ_FW / "scripts" / nome, alternativo)
+            inst.avisos.append(
+                f"'scripts/{nome}' ja existe e nao e do framework — o nosso foi "
+                f"instalado como 'scripts/nf_{nome}'. Para o gate rodar TAMBEM o seu, "
+                f'configure {{"guards": {{"...": {{"comando": [...]}}}}}} '
+                f"em .neural-flow.json."
+            )
+            continue
+        inst.copiar(RAIZ_FW / "scripts" / nome, destino)
     inst.copiar(
         RAIZ_FW / "templates" / "githooks" / "pre-commit",
         inst.alvo / ".githooks" / "pre-commit",

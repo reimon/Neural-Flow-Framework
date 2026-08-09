@@ -557,6 +557,30 @@ chmod +x .githooks/pre-commit
 git config core.hooksPath .githooks
 ```
 
+### Projeto que ja tem um validador com o mesmo nome
+
+Se o seu `scripts/` ja tem um `validate_module_spec.py` (ou qualquer homonimo), o
+instalador **nao o sobrescreve** — instala o nosso ao lado, como `nf_validate_module_spec.py`,
+e avisa. O `nf_gate` distingue os dois por uma assinatura de origem no arquivo, entao ele
+nunca chama o script do projeto com os nossos argumentos.
+
+Para o gate rodar **tambem** o seu validador, diga a ele como:
+
+```json
+{
+  "guards": {
+    "spec": {
+      "comando": ["python3", "scripts/validate_module_spec.py", "--module", "{modulo}", "--root", "docs/modulos"],
+      "por_modulo": "docs/modulos/modulo-*"
+    }
+  }
+}
+```
+
+`{root}` vira a raiz do projeto e `{modulo}` o numero extraido do nome do diretorio.
+Sem `por_modulo`, o comando roda uma vez so. Reprovacao do seu validador reprova o gate,
+como qualquer outro.
+
 Ajuste fino por projeto em `.neural-flow.json` (secoes de spec, globs) e via
 `NF_GUARDS="sprint adr"` para rodar um subconjunto no hook.
 

@@ -12,6 +12,11 @@ projeto, qualquer stack, sem instalar nada.
 
 from __future__ import annotations
 
+# Assinatura de origem. O `nf_gate` so executa arquivo que a carrega — projeto
+# brownfield pode ter um script homonimo com outra interface, e chama-lo com os
+# nossos argumentos produz erro de uso confuso em vez de diagnostico.
+NF_GUARD_ASSINATURA = "neural-flow-framework"
+
 import re
 import unicodedata
 from dataclasses import dataclass, field

@@ -1208,6 +1208,123 @@ class TestDemoVersionada(unittest.TestCase):
             self.assertEqual(saidas[0], saidas[1])
 
 
+class TestValidadorDoProjeto(unittest.TestCase):
+    """Colisao de nome com validador que o projeto ja tinha.
+
+    Reportado em campo: um projeto brownfield tinha `scripts/validate_module_spec.py`
+    com interface propria (`--module NN`). O instalador nao sobrescreveu — correto —
+    mas o gate chamou aquele arquivo com os NOSSOS argumentos, e o usuario viu
+    "the following arguments are required: --module" como se fosse defeito do
+    framework. Duas decisoes individualmente certas que juntas quebram.
+    """
+
+    ALHEIO = (
+        "#!/usr/bin/env python3\n"
+        "import argparse, sys\n"
+        "ap = argparse.ArgumentParser()\n"
+        "ap.add_argument('--module', required=True)\n"
+        "a = ap.parse_args()\n"
+        "print('modulo', a.module, 'ok')\n"
+    )
+
+    def _projeto(self, tmp: Path, falha: bool = False) -> Path:
+        raiz = tmp / "p"
+        (raiz / "scripts").mkdir(parents=True)
+        (raiz / "docs" / "modulos" / "modulo-01-x").mkdir(parents=True)
+        corpo = self.ALHEIO + ("sys.exit(1)\n" if falha else "")
+        (raiz / "scripts" / "validate_module_spec.py").write_text(corpo, encoding="utf-8")
+        import shutil
+        for nome in ("nf_gate.py", "nf_guards.py"):
+            shutil.copy(SCRIPTS / nome, raiz / "scripts" / nome)
+        return raiz
+
+    def _gate(self, raiz: Path, *extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(raiz / "scripts" / "nf_gate.py"), "spec",
+             "--root", str(raiz), *extra],
+            capture_output=True, text=True,
+        )
+
+    def test_nao_executa_script_alheio_e_explica(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            proc = self._gate(raiz)
+            saida = proc.stdout + proc.stderr
+            # Nunca o erro de uso do argparse alheio.
+            self.assertNotIn("required: --module", saida)
+            self.assertIn("e do projeto, nao do framework", saida)
+            self.assertIn(".neural-flow.json", saida)
+            # Nao reprova o projeto por causa de uma ferramenta que nao e nossa.
+            self.assertEqual(proc.returncode, 0, saida)
+
+    def test_comando_configurado_roda_por_modulo(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            (raiz / ".neural-flow.json").write_text(json.dumps({"guards": {"spec": {
+                "comando": ["python3", "scripts/validate_module_spec.py",
+                            "--module", "{modulo}"],
+                "por_modulo": "docs/modulos/modulo-*"}}}), encoding="utf-8")
+            proc = self._gate(raiz)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("modulo 01", proc.stdout)
+
+    def test_reprovacao_do_validador_do_projeto_reprova_o_gate(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t), falha=True)
+            (raiz / ".neural-flow.json").write_text(json.dumps({"guards": {"spec": {
+                "comando": ["python3", "scripts/validate_module_spec.py",
+                            "--module", "{modulo}"],
+                "por_modulo": "docs/modulos/modulo-*"}}}), encoding="utf-8")
+            proc = self._gate(raiz)
+            self.assertEqual(proc.returncode, 1, proc.stdout)
+
+    def test_instalador_nao_sobrescreve_e_instala_ao_lado(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t) / "p"
+            (raiz / "scripts").mkdir(parents=True)
+            original = self.ALHEIO
+            alvo = raiz / "scripts" / "validate_module_spec.py"
+            alvo.write_text(original, encoding="utf-8")
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_install.py"), "--target", str(raiz),
+                 "--smoke-gate", "no"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertEqual(alvo.read_text(encoding="utf-8"), original,
+                             "sobrescreveu o validador do projeto")
+            self.assertTrue((raiz / "scripts" / "nf_validate_module_spec.py").is_file(),
+                            "nao instalou o nosso ao lado")
+            self.assertIn("ja existe e nao e do framework", proc.stdout)
+
+    def test_scripts_executados_pelo_gate_carregam_a_assinatura(self) -> None:
+        """So o que o gate executa precisa da assinatura.
+
+        `ingest.py` e `search.py` sao a implementacao de referencia de RAG; o
+        gate nunca os chama, entao exigir a marca deles seria ritual.
+        """
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_gate import GUARDS as REGISTRO
+
+        alvos = {script for script, _p, _o in REGISTRO.values()} | {
+            "nf_gate.py", "nf_guards.py", "nf_install.py"}
+        for nome in sorted(alvos):
+            caminho = SCRIPTS / nome
+            with self.subTest(script=nome):
+                self.assertTrue(caminho.is_file(), f"{nome} nao existe")
+                self.assertIn("NF_GUARD_ASSINATURA",
+                              caminho.read_text(encoding="utf-8"),
+                              "sem assinatura, o gate nao distingue do script do projeto")
+
+
 class TestHelpers(unittest.TestCase):
     """nf_guards e usado por todos os guards — regressao aqui contamina tudo."""
 
