@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#
+# Neural-Flow Framework — hook de gates
+# =====================================
+# Copie para `.githooks/pre-commit` no seu projeto, torne executavel e ative:
+#
+#   chmod +x .githooks/pre-commit
+#   git config core.hooksPath .githooks
+#
+# Roda os guards sobre o que ESTA EM STAGE — nao sobre a arvore de trabalho.
+# Materializa o indice numa arvore temporaria e valida la: o que e checado e
+# exatamente o que entraria no commit, nao o que esta aberto no editor.
+# (Protocolo Spec-First, secao "Gate automatico".)
+
+set -euo pipefail
+
+PYTHON="${PYTHON:-python3}"
+RAIZ="$(git rev-parse --show-toplevel)"
+GATE="$RAIZ/scripts/nf_gate.py"
+
+# Guards nao instalados neste projeto ⇒ nada a fazer.
+[ -f "$GATE" ] || exit 0
+
+# Nada em stage ⇒ nada a validar.
+if git diff --cached --quiet; then
+  exit 0
+fi
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+# Materializa o indice (o commit que esta prestes a acontecer) numa arvore limpa.
+git checkout-index --all --prefix="$TMP/"
+
+# NF_GUARDS permite escolher o subconjunto por projeto:
+#   NF_GUARDS="sprint adr" git commit ...
+if ! "$PYTHON" "$GATE" ${NF_GUARDS:-} --root "$TMP" --quiet; then
+  cat >&2 <<'EOF'
+
+Commit bloqueado pelos gates do Neural-Flow.
+
+Nao use --no-verify. O gate esta certo; corrija o que ele apontou ou, se o
+problema for o que entrou no `git add`, refaca o stage com caminhos explicitos.
+
+Ver os guards disponiveis:  python scripts/nf_gate.py --list
+EOF
+  exit 1
+fi
