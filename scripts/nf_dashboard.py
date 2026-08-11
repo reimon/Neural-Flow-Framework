@@ -143,6 +143,10 @@ class Dados:
     loop: dict = field(default_factory=dict)
     tokens: object = None
     janela_dias: int = 30
+    # Os guards rodam mesmo sem o framework instalado no alvo (fallback para a
+    # arvore deste script). Quando isso acontece, a pagina nao pode instruir a
+    # rodar `scripts/nf_gate.py` — nao existe la.
+    guards_locais: bool = True
 
     @property
     def ativa(self) -> Sprint | None:
@@ -411,6 +415,7 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
         loop=coletar_loop(raiz),
         tokens=coletar_tokens(raiz, dias=dias, diretorio=transcripts),
         janela_dias=dias,
+        guards_locais=(raiz / "scripts" / "nf_gate.py").is_file(),
     )
 
 
@@ -916,6 +921,16 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             f'<code class="guard-c">nf_gate.py {e(g["nome"])}</code>{det}</div>'
         )
     corpo_guards = f'<div class="guards">{"".join(linhas_g)}</div>'
+    if not d.guards_locais:
+        corpo_guards += (
+            '<p class="nota"><strong class="warn-t">Framework nao instalado neste '
+            'projeto.</strong> Os guards acima rodaram a partir da arvore do '
+            'Neural-Flow, sobre este repositorio — o resultado vale, mas '
+            '<code>scripts/nf_gate.py</code> nao existe aqui, entao os comandos '
+            'citados nesta pagina ainda nao rodam. Para instalar: '
+            '<code>python3 CAMINHO/DO/Neural-Flow-Framework/scripts/nf_install.py '
+            f'--target . --name "{e(d.projeto)}"</code>.</p>'
+        )
 
     # ── FinOps ──
     com_budget = [s for s in d.sprints if s.budget]
