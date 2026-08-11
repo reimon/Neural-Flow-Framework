@@ -295,6 +295,9 @@ Para aplicar o Neural-Flow em qualquer projeto, copiar e preencher:
 | scripts/validate_calibration.py           | `scripts/`                     | Guard executavel do protocolo de Calibracao                |
 | scripts/nf_dashboard.py                   | `scripts/`                     | Dashboard HTML auto-contido do estado da governanca        |
 | scripts/nf_diagrama.py                    | `scripts/`                     | Gera o diagrama de arquitetura a partir do registro de guards |
+| scripts/nf_agentes.py                     | `scripts/`                     | Corpo canonico das portas de entrada de agente (uma fonte, muitas portas) |
+| scripts/nf_indice_regras.py               | `scripts/`                     | Gera `.neural-flow/indice-regras.{md,json}` — uma linha por regra, com fonte e guard |
+| scripts/validate_agent_entrypoints.py     | `scripts/`                     | Guard das portas de entrada e do indice de regras |
 
 Playbook pronto (nao e template, ja e generico): `docs/playbooks/guardrails-ia-infra-producao.md` — guardrails para IA operar infraestrutura de producao (modos de operacao, gates de plan, sinais de STOP, RACI, prompt padrao).
 
@@ -370,7 +373,7 @@ stdlib pura (ADR-002).
 
 | Modo | Quando | O que instala |
 | ---- | ------ | ------------- |
-| **brownfield** | O projeto ja tem codigo (`package.json`, `src/`, `pyproject.toml`...) | Guards + hook + CI, `AGENTS.md`, `CLAUDE.md`, `.github/AI_SAFETY.md`, `MEMORY.md`, sprint de adocao e o smoke-gate |
+| **brownfield** | O projeto ja tem codigo (`package.json`, `src/`, `pyproject.toml`...) | Guards + hook + CI, `AGENTS.md`, `CLAUDE.md`, `.github/AI_SAFETY.md`, `MEMORY.md`, **as portas de entrada de todo agente**, o indice de regras, sprint de adocao e o smoke-gate |
 | **greenfield** | O projeto ainda e uma ideia | Tudo do brownfield **mais** o andaime docs-first: `COMECE-AQUI.md`, padrao de especificacao, `docs/modulos/`, `docs/adr/`, e os arquivos de estado do loop em `build/` |
 
 O modo greenfield existe para o caso "tenho uma ideia de aplicativo": o repositorio nasce
@@ -400,6 +403,61 @@ projeto — referencia flutuante faria o mesmo commit auditar diferente em dias 
 ```
 
 Sem rede, cai para a ultima versao conhecida e avisa — instalacao nunca falha por isso.
+
+### Qualquer agente, a mesma diretriz
+
+Cada ferramenta de IA le um arquivo diferente na raiz. Um projeto que so tem `CLAUDE.md`
+esta governado para exatamente um agente — todo o resto entra sem diretriz e reimplementa
+o que ja existe. O instalador escreve **uma porta de entrada por ferramenta**, todas
+geradas do mesmo corpo canonico (`scripts/nf_agentes.py`):
+
+| Arquivo | Quem le |
+| --- | --- |
+| `AGENTS.md` | **Fonte de verdade.** Codex, Jules, Devin e Factory leem direto daqui |
+| `CLAUDE.md` | Claude Code — ancora: carrega os principios de execucao |
+| `GEMINI.md` | Gemini CLI, Gemini Code Assist |
+| `.github/copilot-instructions.md` | GitHub Copilot |
+| `.cursor/rules/neural-flow.mdc` | Cursor (`alwaysApply: true`) |
+| `.clinerules` · `.windsurfrules` | Cline · Windsurf |
+| `AGENT.md` · `CONVENTIONS.md` · `HERMES.md` | Amp/Zed · Aider · Hermes/OpenClaw |
+
+Uma fonte, muitas portas: as portas **nao se editam** — apontam para `AGENTS.md` e
+carregam so as cinco regras que valem antes de qualquer leitura. Nove copias da mesma
+diretriz divergem na terceira edicao, e a partir dai cada agente segue uma versao
+diferente do projeto. O guard `agentes` trava porta ausente, porta divergente e porta que
+aponta para arquivo inexistente. Projeto brownfield que ja tinha instrucoes proprias tem
+as diretrizes **anexadas**, nunca sobrescritas.
+
+Ferramenta nova entra com uma linha em `PORTAS`, em `scripts/nf_agentes.py`. Para regerar
+as portas depois de mudar `AGENTS.md`:
+
+```bash
+python3 scripts/nf_agentes.py --escrever
+```
+
+Este comando toca so as portas — `nf_install.py --force` sobrescreveria tambem o
+`AGENTS.md` e o `MEMORY.md` preenchidos pelo time.
+
+Protocolo: `docs/protocols/agent-entrypoints.md`.
+
+### Indice de regras: o que o agente le antes de tudo
+
+A primeira instrucao de toda porta e consultar o indice antes de ler — regra de entrada do
+Vetor de Contexto. Para que ela nao aponte para o vazio, o instalador gera
+`.neural-flow/indice-regras.md` (e `.json`): **uma linha por regra**, com a fonte
+(`arquivo:linha`) e o guard que a trava, extraidas de `AGENTS.md`, `AI_SAFETY.md`,
+`CLAUDE.md`, `docs/protocols/`, `docs/adr/` e `MEMORY.md`.
+
+Deterministico e em stdlib pura (ADR-002): existe no minuto zero, sem rede e sem LLM, e
+continua valendo quando o grafo do `graphify` nao subiu. Quando o grafo sobe, o indice
+entra como corpus — as regras viram nos com fonte rastreavel, e a consulta passa a ser
+`graphify query`, com o `.md` como fallback. O JSON grava a impressao digital das fontes:
+mudou um documento de governanca e ninguem regerou, o guard trava.
+
+```bash
+python3 scripts/nf_indice_regras.py           # regera
+python3 scripts/nf_indice_regras.py --check   # exit 1 se desatualizado
+```
 
 ### Disciplina do agente: CLAUDE.md
 

@@ -719,6 +719,31 @@ class TestInstalador(unittest.TestCase):
             self.assertIn("nf_gate.py", texto, "deve ensinar a rodar os guards")
             self.assertNotIn("TEMPLATE Neural-Flow", texto, "cabecalho de template vazou")
 
+    def test_nenhum_artefato_nasce_invisivel_para_o_gate(self) -> None:
+        """O cabecalho `> TEMPLATE Neural-Flow` desliga `eh_template()`.
+
+        Copiado tal e qual para o projeto, o artefato nasce permanentemente
+        invisivel para os guards: o gate passa, e nao valida nada. Aconteceu com
+        o `MEMORY.md`, que era lido com `read_text` direto em vez de
+        `copiar_template`.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            self._instalar(destino, "--name", "Projeto Teste", "--mode", "greenfield")
+            for caminho in sorted(destino.rglob("*.md")):
+                # `docs/adr/_template.md` e instalado *como* template, de
+                # proposito: e o modelo que o time copia para criar um ADR.
+                if caminho.name.startswith("_"):
+                    continue
+                with self.subTest(arquivo=caminho.relative_to(destino)):
+                    self.assertNotIn(
+                        "TEMPLATE Neural-Flow",
+                        caminho.read_text(encoding="utf-8"),
+                        "artefato instalado carrega o cabecalho de template",
+                    )
+
     def test_instalacao_e_idempotente(self) -> None:
         import tempfile
 
@@ -1206,6 +1231,229 @@ class TestDemoVersionada(unittest.TestCase):
                 )
                 saidas.append(self._normalizar(alvo.read_text(encoding="utf-8")))
             self.assertEqual(saidas[0], saidas[1])
+
+
+class TestPortasDeAgente(unittest.TestCase):
+    """Cada ferramenta de IA le um arquivo diferente na raiz.
+
+    Instalar so `CLAUDE.md` governa exatamente um agente; o Gemini, o Copilot, o
+    Cursor e o Cline entram sem diretriz nenhuma e reimplementam o que ja existe.
+    O guard trava isso, e estes testes travam o guard.
+    """
+
+    GUARD = SCRIPTS / "validate_agent_entrypoints.py"
+    INSTALADOR = SCRIPTS / "nf_install.py"
+
+    def _projeto(self, tmp: Path) -> Path:
+        destino = tmp / "p"
+        proc = subprocess.run(
+            [sys.executable, str(self.INSTALADOR), "--target", str(destino),
+             "--name", "P", "--smoke-gate", "no"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return destino
+
+    def _rodar(self, raiz: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(self.GUARD), "--root", str(raiz)],
+            capture_output=True, text=True,
+        )
+
+    def test_instalacao_cria_porta_para_toda_ferramenta(self) -> None:
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_agentes import PORTAS, corpo
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            for porta in PORTAS:
+                with self.subTest(porta=porta.caminho):
+                    caminho = raiz / porta.caminho
+                    self.assertTrue(caminho.is_file(), f"{porta.ferramenta} sem porta")
+                    texto = caminho.read_text(encoding="utf-8")
+                    self.assertIn(corpo().strip(), texto, "corpo canonico ausente")
+                    self.assertIn("AGENTS.md", texto)
+            self.assertEqual(self._rodar(raiz).returncode, 0)
+
+    def test_porta_ausente_trava(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            (raiz / "GEMINI.md").unlink()
+            proc = self._rodar(raiz)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("[P1]", proc.stdout)
+
+    def test_porta_editada_a_mao_trava(self) -> None:
+        """Editar a porta cria uma regra que so aquela ferramenta conhece."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            (raiz / "GEMINI.md").write_text(
+                "<!-- neural-flow:entrypoint v1 -->\n# Minhas regras\n", encoding="utf-8"
+            )
+            proc = self._rodar(raiz)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("[P2]", proc.stdout)
+
+    def test_indice_desatualizado_trava(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            with (raiz / "AGENTS.md").open("a", encoding="utf-8") as fh:
+                fh.write("\n## 9. Deploy\n\n- Nunca fazer deploy manual: so via CI.\n")
+            proc = self._rodar(raiz)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("[P5]", proc.stdout)
+
+            subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_indice_regras.py"), "--root", str(raiz)],
+                capture_output=True, text=True, check=True,
+            )
+            self.assertEqual(self._rodar(raiz).returncode, 0, "regerar nao resolveu")
+            self.assertIn(
+                "deploy manual",
+                (raiz / ".neural-flow" / "indice-regras.md").read_text(encoding="utf-8"),
+                "a regra nova nao entrou no indice",
+            )
+
+    def test_regerador_toca_so_as_portas(self) -> None:
+        """`--escrever` conserta a porta sem passar por cima do trabalho do time.
+
+        A alternativa que o guard sugeria antes (`nf_install --force`) sobrescreve
+        `AGENTS.md` e `MEMORY.md` junto — conserto que apaga o conteudo preenchido
+        a mao e pior que o defeito.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            marca_do_time = "\n\n## Mapa de capacidades do time\n\n- Use o repositorio X.\n"
+            with (raiz / "AGENTS.md").open("a", encoding="utf-8") as fh:
+                fh.write(marca_do_time)
+            (raiz / "GEMINI.md").write_text("# lixo\n", encoding="utf-8")
+
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_agentes.py"), "--root", str(raiz),
+                 "--escrever"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn(
+                marca_do_time.strip(),
+                (raiz / "AGENTS.md").read_text(encoding="utf-8"),
+                "o regerador passou por cima do AGENTS.md do time",
+            )
+            self.assertIn("AGENTS.md", (raiz / "GEMINI.md").read_text(encoding="utf-8"))
+
+            # Idempotente: segunda passada nao reescreve nada.
+            de_novo = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_agentes.py"), "--root", str(raiz),
+                 "--escrever"],
+                capture_output=True, text=True,
+            )
+            self.assertIn("0 atualizada(s)", de_novo.stdout)
+
+    def test_reinstalar_libera_o_indice_de_gitignore_antigo(self) -> None:
+        """Projeto instalado por versao anterior ignorava `.neural-flow/` inteiro.
+
+        Sem o conserto, o indice nunca chega ao CI nem a maquina de outra pessoa —
+        e o guard P5 reprova justamente onde ninguem consegue regerar.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            destino.mkdir()
+            subprocess.run(["git", "init", "-q", str(destino)], check=True,
+                           capture_output=True)
+            (destino / ".gitignore").write_text(
+                "# Neural-Flow\n__pycache__/\naudit-report.md\n.neural-flow/*\n",
+                encoding="utf-8",
+            )
+            proc = subprocess.run(
+                [sys.executable, str(self.INSTALADOR), "--target", str(destino),
+                 "--name", "P", "--smoke-gate", "no"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = (destino / ".gitignore").read_text(encoding="utf-8")
+            self.assertIn("!.neural-flow/indice-regras.md", texto)
+            checado = subprocess.run(
+                ["git", "check-ignore", ".neural-flow/indice-regras.md"],
+                cwd=destino, capture_output=True, text=True,
+            )
+            self.assertNotEqual(checado.returncode, 0, "o indice continua ignorado")
+
+    def test_indice_nao_executa_nf_gate_homonimo_do_projeto(self) -> None:
+        """Projeto brownfield pode ter `scripts/nf_gate.py` proprio.
+
+        Ler o registro de guards com `import_module` executaria o modulo do
+        projeto — codigo de terceiro rodando dentro de um guard, no pre-commit.
+        A assinatura decide qual arquivo pode ser carregado.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t) / "p"
+            (raiz / "scripts").mkdir(parents=True)
+            bomba = raiz / "scripts" / "nf_gate.py"
+            bomba.write_text(
+                "raise SystemExit('o nf_gate do projeto foi executado')\n", encoding="utf-8"
+            )
+            (raiz / "AGENTS.md").write_text(
+                "# AGENTS\n\n## Regras\n\n- Nunca commitar sem autorizacao explicita.\n",
+                encoding="utf-8",
+            )
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_indice_regras.py"), "--root", str(raiz)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertNotIn("foi executado", proc.stdout + proc.stderr)
+            import json as _json
+
+            dados = _json.loads(
+                (raiz / ".neural-flow" / "indice-regras.json").read_text(encoding="utf-8")
+            )
+            self.assertTrue(dados["guards"], "caiu para lista vazia em vez do nosso registro")
+            self.assertIn("agentes", [g["guard"] for g in dados["guards"]])
+
+    def test_projeto_sem_governanca_nao_e_cobrado(self) -> None:
+        """Sem `AGENTS.md` nao ha fonte de verdade para apontar — nada a validar."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            vazio = Path(t) / "vazio"
+            vazio.mkdir()
+            proc = self._rodar(vazio)
+            self.assertEqual(proc.returncode, 0, proc.stdout)
+
+    def test_instrucoes_do_projeto_nao_sao_apagadas(self) -> None:
+        """Brownfield com `GEMINI.md` proprio: anexar, nunca sobrescrever."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            destino.mkdir()
+            (destino / "GEMINI.md").write_text(
+                "# Regras do time\n\nNao mexer no diretorio legacy/.\n", encoding="utf-8"
+            )
+            proc = subprocess.run(
+                [sys.executable, str(self.INSTALADOR), "--target", str(destino),
+                 "--name", "P", "--smoke-gate", "no"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = (destino / "GEMINI.md").read_text(encoding="utf-8")
+            self.assertIn("legacy/", texto, "instrucao do time foi apagada")
+            self.assertIn("AGENTS.md", texto, "diretrizes nao foram anexadas")
+            self.assertEqual(self._rodar(destino).returncode, 0)
 
 
 class TestValidadorDoProjeto(unittest.TestCase):

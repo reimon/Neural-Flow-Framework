@@ -40,7 +40,8 @@ GUARDS = [
     "nf_gate.py", "nf_guards.py", "validate_sprint_state.py",
     "validate_token_budget.py", "validate_context_sources.py",
     "validate_adr.py", "validate_module_spec.py", "validate_calibration.py",
-    "nf_dashboard.py", "nf_tokens.py",
+    "validate_agent_entrypoints.py",
+    "nf_dashboard.py", "nf_tokens.py", "nf_agentes.py", "nf_indice_regras.py",
 ]
 
 SMOKE_GATE_REPO = "reimon/smoke-gate"
@@ -222,9 +223,93 @@ def instalar_governanca(inst: Instalacao, nome_projeto: str) -> None:
     inst.copiar_template(
         "templates/AI_SAFETY-template.md", inst.alvo / ".github" / "AI_SAFETY.md"
     )
-    memoria = (RAIZ_FW / "templates" / "MEMORY-template.md").read_text(encoding="utf-8")
-    memoria = memoria.replace("<Nome do Projeto>", nome_projeto)
-    inst.escrever(inst.alvo / "MEMORY.md", memoria)
+    # Via `copiar_template`, e nao `read_text` direto: o cabecalho
+    # "> TEMPLATE Neural-Flow" faz `eh_template()` desligar todos os guards sobre
+    # o arquivo. Copiado tal e qual, o `MEMORY.md` do projeto nasceria
+    # permanentemente invisivel para o gate.
+    inst.copiar_template("templates/MEMORY-template.md", inst.alvo / "MEMORY.md")
+    if not inst.dry_run and (inst.alvo / "MEMORY.md").is_file():
+        alvo = inst.alvo / "MEMORY.md"
+        texto = alvo.read_text(encoding="utf-8")
+        if "<Nome do Projeto>" in texto:
+            alvo.write_text(texto.replace("<Nome do Projeto>", nome_projeto), encoding="utf-8")
+    instalar_portas_de_agente(inst)
+
+
+def instalar_portas_de_agente(inst: Instalacao) -> None:
+    """Uma porta de entrada por ferramenta de IA, todas geradas do mesmo corpo.
+
+    Cada ferramenta le um arquivo diferente: `CLAUDE.md`, `GEMINI.md`,
+    `.github/copilot-instructions.md`, `.cursor/rules/*.mdc`... Instalar so o do
+    Claude significa que qualquer outro agente opera sem diretriz — que e
+    exatamente o custo que este framework existe para evitar.
+
+    As portas sao geradas, nao escritas a mao: o guard `agentes` compara com o
+    corpo canonico de `nf_agentes.py`, entao nenhuma copia envelhece sozinha.
+    Por isso, aqui, `--force` e o caminho normal de atualizacao — diferente dos
+    artefatos que o time preenche, estes nao carregam conteudo do projeto.
+    """
+    sys.path.insert(0, str(RAIZ_FW / "scripts"))
+    from nf_agentes import PORTAS, conteudo, corpo  # import tardio: stdlib primeiro
+
+    for porta in PORTAS:
+        destino = inst.alvo / porta.caminho
+        texto = conteudo(porta)
+        if destino.is_file() and not inst.forcar:
+            atual = destino.read_text(encoding="utf-8", errors="replace")
+            if corpo().strip() in atual:
+                inst.mantidos.append(inst.rel(destino))
+                continue
+            # O time ja tinha instrucoes para esta ferramenta. Sobrescrever
+            # apagaria trabalho deles; deixar como esta faria a ferramenta rodar
+            # sem as diretrizes. Acrescentamos as nossas ao fim, preservando o
+            # que havia — e avisamos, porque a ordem importa se as duas
+            # instrucoes se contradisserem.
+            inst.criados.append(f"{inst.rel(destino)} (anexado ao existente)")
+            inst.avisos.append(
+                f"'{porta.caminho}' ja existia com instrucoes do projeto — as "
+                f"diretrizes Neural-Flow foram anexadas ao fim, nada foi removido. "
+                f"Revise se as duas se contradizem."
+            )
+            if not inst.dry_run:
+                destino.write_text(
+                    atual.rstrip("\n") + "\n\n---\n\n" + texto, encoding="utf-8"
+                )
+            continue
+        inst.escrever(destino, texto)
+
+
+def gerar_indice_de_regras(inst: Instalacao) -> None:
+    """Semeia o indice de regras — o que o agente consulta antes de ler.
+
+    Deterministico e em stdlib pura (ADR-002): existe no minuto zero, sem rede e
+    sem LLM. Quando o `graphify` rodar, este arquivo entra como corpus e as
+    regras viram nos do grafo com fonte rastreavel.
+    """
+    artefatos = [".neural-flow/indice-regras.md", ".neural-flow/indice-regras.json"]
+    if inst.dry_run:
+        inst.criados.extend(artefatos)
+        return
+    # Reinstalar sobre um projeto ja instalado nao muda o indice se nenhuma fonte
+    # mudou. Relatar "criado" nesse caso e mentira barata que faz o operador
+    # procurar uma mudanca que nao houve.
+    antes = {a: (inst.alvo / a).is_file() and (inst.alvo / a).read_text(encoding="utf-8")
+             for a in artefatos}
+    proc = subprocess.run(
+        [sys.executable, "scripts/nf_indice_regras.py", "--quiet"],
+        cwd=inst.alvo, capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        saida = (proc.stderr or proc.stdout).strip().splitlines()
+        motivo = saida[-1] if saida else "erro desconhecido"
+        inst.avisos.append(
+            f"nao consegui gerar o indice de regras ({motivo}); "
+            "rode `python3 scripts/nf_indice_regras.py` manualmente."
+        )
+        return
+    for a in artefatos:
+        depois = (inst.alvo / a).read_text(encoding="utf-8")
+        (inst.mantidos if antes[a] == depois else inst.criados).append(a)
 
 
 def instalar_sprint(inst: Instalacao, nome_projeto: str, modo: str) -> None:
@@ -648,10 +733,30 @@ def configurar_git(inst: Instalacao, iniciar: bool) -> None:
     gitignore = alvo / ".gitignore"
     marca = "# Neural-Flow"
     conteudo = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
-    if marca not in conteudo and not inst.dry_run:
+    # Projeto instalado por uma versao anterior tem `.neural-flow/` ignorado por
+    # inteiro — o indice de regras nunca chegaria ao CI nem a maquina de outra
+    # pessoa, e o guard `agentes` reprovaria justamente onde ninguem pode
+    # regerar. Reinstalar precisa consertar isso, e a marca sozinha nao detecta.
+    if marca in conteudo and ".neural-flow/indice-regras" not in conteudo and not inst.dry_run:
+        gitignore.write_text(
+            conteudo.rstrip("\n")
+            + "\n\n# Neural-Flow — o indice de regras e versionado de proposito\n"
+            "!.neural-flow/indice-regras.md\n!.neural-flow/indice-regras.json\n",
+            encoding="utf-8",
+        )
+        inst.avisos.append(
+            ".gitignore ignorava `.neural-flow/` por inteiro; o indice de regras foi "
+            "liberado. Se a sua linha for `.neural-flow/` (com barra final), troque "
+            "para `.neural-flow/*` — o git nao reinclui arquivo de diretorio excluido."
+        )
+    elif marca not in conteudo and not inst.dry_run:
         gitignore.write_text(
             conteudo.rstrip("\n") + "\n\n# Neural-Flow\n__pycache__/\nscripts/__pycache__/\n"
-            "audit-report.md\n.neural-flow/\n",
+            "audit-report.md\n.neural-flow/*\n"
+            # O indice de regras e versionado de proposito: e o primeiro arquivo
+            # que qualquer agente le, inclusive no CI e na maquina de outra
+            # pessoa. Ignora-lo tornaria a governanca local.
+            "!.neural-flow/indice-regras.md\n!.neural-flow/indice-regras.json\n",
             encoding="utf-8",
         )
 
@@ -713,6 +818,9 @@ def main() -> int:
         print(f"  smoke-gate: {ref}")
         instalar_smoke_gate(inst, ref)
     configurar_git(inst, args.git_init or modo == "greenfield")
+    # Por ultimo: o indice le os artefatos de governanca que os passos acima
+    # acabaram de escrever.
+    gerar_indice_de_regras(inst)
 
     print(f"\nCriados ({len(inst.criados)}):")
     for c in inst.criados:

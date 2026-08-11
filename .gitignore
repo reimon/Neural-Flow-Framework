@@ -27,10 +27,23 @@ venv/
 tests/**/__pycache__/
 
 # Dashboard gerado (derivado dos artefatos)
-.neural-flow/
+.neural-flow/*
+# O indice de regras e a excecao: e o primeiro arquivo que qualquer agente le,
+# inclusive no CI e na maquina de outra pessoa. Ignora-lo tornaria a governanca
+# local a um clone.
+!.neural-flow/indice-regras.md
+!.neural-flow/indice-regras.json
 
 # Imagens de tema do dashboard: licenciamento e do dono do projeto.
 # O gerador as embute como data URI em toda pagina, entao elas se propagariam
 # para o repositorio de cada projeto que adotar o framework.
 docs/img/theme-*.jpg
 docs/img/theme-*.png
+
+# Neural-Flow
+__pycache__/
+scripts/__pycache__/
+audit-report.md
+.neural-flow/*
+!.neural-flow/indice-regras.md
+!.neural-flow/indice-regras.json

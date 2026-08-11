@@ -126,6 +126,7 @@ def gerar() -> str:
     codigos = {
         "sprint": "S1–S6", "budget": "B1–B4", "context": "V1–V3",
         "adr": "A1–A6", "spec": "P1–P4", "calibration": "C1–C6",
+        "agentes": "P1–P5",
     }
     artefatos = [
         ("docs/sprints/", "sprint validada, escopo, autonomia", "S1–S6 · B1–B4"),
@@ -133,6 +134,7 @@ def gerar() -> str:
         ("docs/adr/", "decisao numerada e imutavel", "A1–A6"),
         ("build/", "plano, diario, divergencias", "C1–C6"),
         ("graphify-out/", "indice consultado antes de ler", "V1–V3"),
+        ("AGENTS.md + portas", "toda IA entra pela mesma diretriz", "P1–P5"),
     ]
 
     p = [

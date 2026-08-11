@@ -63,6 +63,12 @@ GUARDS: dict[str, tuple[str, str, str]] = {
         "calibration",
         "confianca declarada, BAIXA nao fecha item, irreversivel nao vira registro",
     ),
+    "agentes": (
+        "validate_agent_entrypoints.py",
+        "agent-entrypoints",
+        "toda ferramenta de IA tem porta de entrada apontando para AGENTS.md; "
+        "indice de regras em dia",
+    ),
 }
 
 

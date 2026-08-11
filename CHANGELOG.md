@@ -21,6 +21,31 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
 
 ### Adicionado
 
+- **Portas de entrada de agente** — o instalador escreve `GEMINI.md`,
+  `copilot-instructions.md`, `neural-flow.mdc` (Cursor), `.clinerules`,
+  `.windsurfrules`, `AGENT.md`, `CONVENTIONS.md` e `HERMES.md`, todas geradas do mesmo
+  corpo canonico (`scripts/nf_agentes.py`) e apontando para `AGENTS.md`. Antes, so o
+  Claude Code recebia diretriz; Gemini, Copilot, Cursor, Cline, Windsurf, Amp, Aider e
+  Hermes entravam sem nenhuma. Projeto que ja tinha instrucoes proprias tem as diretrizes
+  anexadas, nunca sobrescritas. Protocolo: `docs/protocols/agent-entrypoints.md`.
+- **Guard `agentes`** (`scripts/validate_agent_entrypoints.py`, codigos P1–P5) — trava
+  porta ausente, porta divergente do corpo canonico, porta apontando para arquivo
+  inexistente, `CLAUDE.md` que nao cita `AGENTS.md`, e indice de regras desatualizado.
+  Ausencia de `AGENTS.md` = nada a validar (exit 0), como nos demais guards.
+- `python3 scripts/nf_agentes.py --escrever` — regera **so** as portas de entrada.
+  Existe porque a orientacao anterior (`nf_install --force`) sobrescreve todo artefato,
+  inclusive o `AGENTS.md` e o `MEMORY.md` preenchidos a mao: conserto que apaga trabalho
+  e pior que o defeito.
+- **Indice de regras** (`scripts/nf_indice_regras.py`) — gera
+  `.neural-flow/indice-regras.md` e `.json`: uma linha por regra, com fonte
+  (`arquivo:linha`) e guard que a trava, extraidas de `AGENTS.md`, `AI_SAFETY.md`,
+  `CLAUDE.md`, protocolos, ADRs e `MEMORY.md`. Deterministico e em stdlib pura (ADR-002):
+  atende a regra "indice antes de leitura" sem depender de rede nem de LLM, e serve de
+  corpus para o `graphify`. O JSON grava a impressao digital das fontes — mudou a fonte e
+  ninguem regerou, o gate trava. Reinstalar sobre projeto de versao anterior libera o
+  indice do `.gitignore`, que ignorava `.neural-flow/` por inteiro — sem isso o indice
+  nunca chegaria ao CI e o guard reprovaria onde ninguem pode regerar.
+
 - `install.sh` + `scripts/nf_install.py` — instalador com deteccao de modo
   (greenfield/brownfield), idempotente, que nao sobrescreve nada e se auto-valida
   rodando `nf_gate` no projeto gerado.
@@ -61,6 +86,12 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
   divergir do gerador.
 
 ### Corrigido
+
+- `MEMORY.md` instalado carregava o cabecalho `> TEMPLATE Neural-Flow`, que faz
+  `eh_template()` desligar **todos** os guards sobre o arquivo: a memoria do projeto
+  nascia permanentemente invisivel para o gate. Passa a ser copiado via
+  `copiar_template`, como os demais. Achado ao instalar o framework nele mesmo; coberto
+  por `test_nenhum_artefato_nasce_invisivel_para_o_gate`.
 
 - `scripts/setup-hooks.sh`: interpretador `python` fixo, mascaramento de falha e
   instalacao em `.git/hooks` com `core.hooksPath` ativo (hook morto).
