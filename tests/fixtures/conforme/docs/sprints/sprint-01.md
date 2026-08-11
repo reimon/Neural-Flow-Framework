@@ -1,6 +1,6 @@
 # Sprint 1: Base do catalogo
 
-## Snapshot Operacional
+## 🧭 Snapshot Operacional
 
 - App/Escopo: `catalogo de produtos`
 - Status: `em andamento`

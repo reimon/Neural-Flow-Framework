@@ -118,8 +118,16 @@ def campos(linhas: list[str], inicio: int = 0, fim: int | None = None) -> dict[s
 _RE_ENUMERACAO = re.compile(r"^\s*(?:§\s*)?\d{1,3}\s*[.)\-–—:]?\s+")
 
 
+# "## 🧭 Snapshot Operacional" → "Snapshot Operacional". Emoji em heading e
+# convencao comum em docs, e `sem_acento` so remove diacritico — o simbolo
+# sobrevivia e o `startswith` de `secao` falhava, reportando como ausente uma
+# secao que esta la. Roda antes da enumeracao para tolerar "🧭 1. Titulo".
+_RE_ORNAMENTO = re.compile(r"^\W+", re.UNICODE)
+
+
 def titulo_normalizado(texto: str) -> str:
-    return chave(_RE_ENUMERACAO.sub("", texto.strip()))
+    limpo = _RE_ORNAMENTO.sub("", texto.strip())
+    return chave(_RE_ENUMERACAO.sub("", limpo))
 
 
 def secao(linhas: list[str], titulo: str) -> tuple[int, int] | None:
