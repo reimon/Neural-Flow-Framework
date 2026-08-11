@@ -7,7 +7,7 @@ Consulte este indice **antes** de ler os arquivos. Cada linha traz a fonte
 (`arquivo:linha`) — leia so o que a resposta exigir.
 
 - regras indexadas: **64**
-- impressao digital das fontes: `b19d63171a1685d9`
+- impressao digital das fontes: `501aeb0980f87f35`
 
 ## Guards executaveis
 

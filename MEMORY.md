@@ -131,8 +131,10 @@ Regras deste log:
 
 ## 5. Pendencias ativas
 
-- [ ] Medir e registrar o consumo real de tokens da Sprint 2 - exigido por B4 antes de
-      marcar `concluida` - sprint alvo: 2
+- [ ] Dimensionar o budget da Sprint 3 em 2.5M - a Sprint 2 consumiu 2.2M faturaveis
+      contra um budget de 500k, que era o default do instalador - sprint alvo: 3
+- [ ] Avaliar recorte de telemetria por sprint - hoje `nf_tokens.py` agrega por dia, e dia
+      com duas sprints so permite registrar limite superior - sprint alvo: a definir
 - [ ] Migrar `ingest.py`, `search.py` e o servidor MCP para `DefaultAzureCredential`
       (ADR-003) - sprint alvo: a definir
 - [ ] Avaliar subir o grafo do `graphify` sobre este repositorio - sprint alvo: a definir
