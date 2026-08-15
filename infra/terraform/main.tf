@@ -143,3 +143,48 @@ resource "azurerm_key_vault_secret" "openai_key" {
 
   depends_on = [azurerm_key_vault_access_policy.deployer]
 }
+
+# ──────────────────────────────────────────────
+# RBAC — acesso keyless (ADR-003)
+# ──────────────────────────────────────────────
+# O protocolo Aegis prega "zero segredo em prompt, memoria ou artefato"; a admin
+# key contradizia isso. Estas atribuicoes sao o que permite `ingest.py`,
+# `search.py` e o servidor MCP rodarem com DefaultAzureCredential.
+#
+# Nao removemos a admin key do Key Vault nem desabilitamos `local_authentication`
+# aqui: seria mudanca de comportamento em recurso existente, e este projeto nao
+# tem backend remoto nem prevent_destroy. Desativar a chave e passo separado,
+# depois de a via keyless estar verificada em execucao.
+
+locals {
+  # O principal que roda o Terraform sempre entra: sem ele, quem aplicou fica
+  # sem acesso ao que acabou de criar.
+  rbac_principals = toset(concat(
+    [data.azurerm_client_config.current.object_id],
+    var.rbac_principal_ids,
+  ))
+}
+
+# Escrita no indice — exigido por ingest.py (cria indice e sobe documentos).
+resource "azurerm_role_assignment" "search_index_data_contributor" {
+  for_each             = local.rbac_principals
+  scope                = azurerm_search_service.main.id
+  role_definition_name = "Search Index Data Contributor"
+  principal_id         = each.value
+}
+
+# Gerencia a definicao do indice (create/update do schema).
+resource "azurerm_role_assignment" "search_service_contributor" {
+  for_each             = local.rbac_principals
+  scope                = azurerm_search_service.main.id
+  role_definition_name = "Search Service Contributor"
+  principal_id         = each.value
+}
+
+# Embeddings — exigido por search.py e pelo servidor MCP.
+resource "azurerm_role_assignment" "openai_user" {
+  for_each             = local.rbac_principals
+  scope                = azurerm_cognitive_account.openai.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = each.value
+}

@@ -44,3 +44,12 @@ variable "embedding_model_capacity" {
   type        = number
   default     = 1
 }
+
+variable "rbac_principal_ids" {
+  description = <<-EOT
+    Principals que recebem acesso keyless (Entra ID/RBAC) ao Search e ao OpenAI.
+    Vazio = so o principal que roda o Terraform. Ver ADR-003.
+  EOT
+  type        = list(string)
+  default     = []
+}

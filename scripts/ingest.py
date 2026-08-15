@@ -11,10 +11,9 @@ Usage:
 
 Environment (load from .env or set in shell):
   AZURE_SEARCH_ENDPOINT             https://<name>.search.windows.net
-  AZURE_SEARCH_ADMIN_KEY            <admin-key>  (or use DefaultAzureCredential)
+  (keyless por padrao: Entra ID/RBAC. NF_AZURE_AUTH=key volta a admin key — ADR-003)
   AZURE_SEARCH_INDEX_NAME           neural-memory
   AZURE_OPENAI_ENDPOINT             https://<name>.openai.azure.com/
-  AZURE_OPENAI_API_KEY              <key>         (or use DefaultAzureCredential)
   AZURE_OPENAI_EMBEDDING_DEPLOYMENT text-embedding-3-small
 """
 
@@ -32,13 +31,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
 
 # ── Azure SDK imports ──────────────────────────────────────────────────────────
 
-from azure.core.credentials import AzureKeyCredential
+from nf_azure_auth import credencial_search, descricao, kwargs_openai
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
@@ -63,11 +64,9 @@ from openai import APITimeoutError, APIConnectionError, AzureOpenAI, RateLimitEr
 REPO_ROOT = Path(__file__).parent.parent
 
 SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_ENDPOINT"]
-SEARCH_KEY = os.environ["AZURE_SEARCH_ADMIN_KEY"]
 INDEX_NAME = os.environ.get("AZURE_SEARCH_INDEX_NAME", "neural-memory")
 
 OPENAI_ENDPOINT = os.environ["AZURE_OPENAI_ENDPOINT"]
-OPENAI_KEY = os.environ["AZURE_OPENAI_API_KEY"]
 EMBEDDING_DEPLOYMENT = os.environ.get(
     "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
 )
@@ -342,10 +341,12 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Parse and show chunks without uploading")
     args = parser.parse_args()
 
-    credential = AzureKeyCredential(SEARCH_KEY)
+    print(f"[nf] autenticacao: {descricao()}")
+    credential = credencial_search()
     index_client = SearchIndexClient(endpoint=SEARCH_ENDPOINT, credential=credential)
     search_client = SearchClient(endpoint=SEARCH_ENDPOINT, index_name=INDEX_NAME, credential=credential)
-    openai_client = AzureOpenAI(azure_endpoint=OPENAI_ENDPOINT, api_key=OPENAI_KEY, api_version="2024-02-01")
+    openai_client = AzureOpenAI(azure_endpoint=OPENAI_ENDPOINT, api_version="2024-02-01",
+                                **kwargs_openai())
 
     if not args.dry_run:
         ensure_index(index_client)

@@ -22,6 +22,7 @@ Environment (mirrors scripts/.env):
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -30,7 +31,9 @@ from dotenv import load_dotenv
 _scripts_env = Path(__file__).parent.parent.parent / "scripts" / ".env"
 load_dotenv(_scripts_env)
 
-from azure.core.credentials import AzureKeyCredential
+sys.path.insert(0, str(_scripts_env.parent))
+
+from nf_azure_auth import credencial_search, kwargs_openai
 from azure.core.exceptions import HttpResponseError
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
@@ -40,10 +43,8 @@ from openai import AzureOpenAI
 # ── Config ─────────────────────────────────────────────────────────────────────
 
 SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_ENDPOINT"]
-SEARCH_KEY = os.environ["AZURE_SEARCH_ADMIN_KEY"]
 INDEX_NAME = os.environ.get("AZURE_SEARCH_INDEX_NAME", "neural-memory")
 OPENAI_ENDPOINT = os.environ["AZURE_OPENAI_ENDPOINT"]
-OPENAI_KEY = os.environ["AZURE_OPENAI_API_KEY"]
 EMBEDDING_DEPLOYMENT = os.environ.get(
     "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
 )
@@ -64,7 +65,7 @@ def _get_search_client() -> SearchClient:
         _search_client = SearchClient(
             endpoint=SEARCH_ENDPOINT,
             index_name=INDEX_NAME,
-            credential=AzureKeyCredential(SEARCH_KEY),
+            credential=credencial_search(),
         )
     return _search_client
 
@@ -74,8 +75,8 @@ def _get_openai_client() -> AzureOpenAI:
     if _openai_client is None:
         _openai_client = AzureOpenAI(
             azure_endpoint=OPENAI_ENDPOINT,
-            api_key=OPENAI_KEY,
             api_version="2024-02-01",
+            **kwargs_openai(),
         )
     return _openai_client
 
