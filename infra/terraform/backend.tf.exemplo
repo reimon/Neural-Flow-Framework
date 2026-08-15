@@ -1,0 +1,42 @@
+# Backend remoto com lock — MODELO, deliberadamente NAO ativo
+# ============================================================
+# Este arquivo tem extensao `.exemplo` de proposito: o Terraform ignora. Ativar
+# backend nao e editar um arquivo, e uma migracao de state — e o state deste
+# projeto e local, sem copia, com 10 recursos reais atras dele. Fazer isso pelo
+# caminho errado orfana a infra.
+#
+# Ordem para ativar (uma unica vez, com o humano presente):
+#
+#   1. Provisione o storage de state FORA deste state — ele nao pode se
+#      gerenciar. Num resource group separado, com a CLI:
+#
+#        az group create -n rg-tfstate -l brazilsouth
+#        az storage account create -n sttfstate<sufixo> -g rg-tfstate \
+#             --sku Standard_LRS --encryption-services blob \
+#             --min-tls-version TLS1_2 --allow-blob-public-access false
+#        az storage container create -n tfstate --account-name sttfstate<sufixo>
+#
+#      Ative versionamento no blob: e o que permite voltar um state corrompido.
+#
+#        az storage account blob-service-properties update \
+#             -n sttfstate<sufixo> -g rg-tfstate --enable-versioning true
+#
+#   2. COPIE `terraform.tfstate` para fora do repositorio antes de qualquer
+#      coisa. Este e o unico passo sem volta se der errado.
+#
+#   3. Renomeie este arquivo para `backend.tf`, preencha o `storage_account_name`
+#      e rode `terraform init -migrate-state`. Confira o plan depois: precisa
+#      sair "No changes". Plan com destroy = migracao errada, PARE.
+#
+# O lock vem de graca com o backend azurerm (blob lease) — e o que impede duas
+# pessoas aplicando ao mesmo tempo, hoje impossivel de evitar com state local.
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "rg-tfstate"
+    storage_account_name = "<preencher>"
+    container_name       = "tfstate"
+    key                  = "neural-flow.tfstate"
+    use_azuread_auth     = true # keyless, coerente com o ADR-003
+  }
+}

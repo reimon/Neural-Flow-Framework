@@ -39,6 +39,13 @@ resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
+
+  # Todo nome de recurso deriva daqui. Recriar este valor recria a infra
+  # inteira de uma vez — e o incidente que o AI_SAFETY registra como proibicao
+  # numero 2. `prevent_destroy` transforma a regra escrita em erro de plan.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # ──────────────────────────────────────────────
@@ -46,6 +53,11 @@ resource "random_string" "suffix" {
 # ──────────────────────────────────────────────
 
 resource "azurerm_resource_group" "main" {
+  # Destruir o grupo leva junto tudo que esta dentro dele.
+  lifecycle {
+    prevent_destroy = true
+  }
+
   name     = var.resource_group_name
   location = var.location
   tags     = local.tags
@@ -56,6 +68,11 @@ resource "azurerm_resource_group" "main" {
 # ──────────────────────────────────────────────
 
 resource "azurerm_search_service" "main" {
+  # Recriar o servico apaga o indice: a memoria institucional inteira.
+  lifecycle {
+    prevent_destroy = true
+  }
+
   name                = "srch-neuralflow-${local.suffix}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
@@ -75,6 +92,11 @@ resource "azurerm_search_service" "main" {
 # ──────────────────────────────────────────────
 
 resource "azurerm_cognitive_account" "openai" {
+  # Recriar muda o endpoint e o subdominio, quebrando todo cliente configurado.
+  lifecycle {
+    prevent_destroy = true
+  }
+
   name                = "oai-neuralflow-${local.suffix}"
   location            = var.openai_location
   resource_group_name = azurerm_resource_group.main.name
@@ -109,6 +131,11 @@ resource "azurerm_cognitive_deployment" "embedding" {
 data "azurerm_client_config" "current" {}
 
 resource "azurerm_key_vault" "main" {
+  # purge_protection_enabled = false e soft delete de 7 dias: destruir aqui e perda real.
+  lifecycle {
+    prevent_destroy = true
+  }
+
   name                = "kv-neuralflow-${local.suffix}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
@@ -152,9 +179,9 @@ resource "azurerm_key_vault_secret" "openai_key" {
 # `search.py` e o servidor MCP rodarem com DefaultAzureCredential.
 #
 # Nao removemos a admin key do Key Vault nem desabilitamos `local_authentication`
-# aqui: seria mudanca de comportamento em recurso existente, e este projeto nao
-# tem backend remoto nem prevent_destroy. Desativar a chave e passo separado,
-# depois de a via keyless estar verificada em execucao.
+# aqui: seria mudanca de comportamento em recurso existente. Desativar a chave e
+# passo separado, depois de a via keyless estar verificada em execucao
+# (`python3 scripts/nf_azure_smoke.py`).
 
 locals {
   # O principal que roda o Terraform sempre entra: sem ele, quem aplicou fica
