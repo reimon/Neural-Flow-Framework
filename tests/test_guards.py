@@ -982,6 +982,100 @@ class TestTelemetriaDeTokens(unittest.TestCase):
             self.assertEqual(set(tel.por_modelo), {"claude-opus-5", "claude-fable-5"})
             self.assertAlmostEqual(tel.geral.aproveitamento_cache, 7900 / 11000, places=3)
 
+    def _sprint(self, raiz: Path, numero: int, inicio: str, fim: str,
+                status: str = "em andamento") -> None:
+        pasta = raiz / "docs" / "sprints"
+        pasta.mkdir(parents=True, exist_ok=True)
+        (pasta / f"sprint-0{numero}-teste.md").write_text(
+            f"# Sprint {numero}: Teste\n\n"
+            "## Snapshot Operacional\n\n"
+            f"- App/Escopo: `teste`\n- Status: `{status}`\n"
+            f"- Data de inicio: `{inicio}`\n"
+            f"- Data planejada de conclusao: `{fim}`\n"
+            f"- Data real de conclusao: `{fim if status == 'concluida' else 'a definir'}`\n",
+            encoding="utf-8",
+        )
+
+    def test_recorte_por_sprint_filtra_o_intervalo(self) -> None:
+        """Dia fora do intervalo da sprint nao entra na conta."""
+        import tempfile
+        from datetime import datetime, timezone
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import coletar_tokens, janela_da_sprint
+
+        with tempfile.TemporaryDirectory() as t:
+            base, proj = Path(t) / "tr", Path(t) / "proj"
+            proj.mkdir()
+            self._sprint(proj, 1, "2026-08-01", "2026-08-05", status="concluida")
+            self._sprint(proj, 2, "2026-08-06", "2026-08-10", status="concluida")
+
+            def req(dia: str, saida: int) -> dict:
+                return {"timestamp": f"2026-08-{dia}T10:00:00.000Z", "sessionId": "s1",
+                        "message": {"model": "claude-opus-5",
+                                    "usage": {"input_tokens": 0, "output_tokens": saida,
+                                              "cache_creation_input_tokens": 0,
+                                              "cache_read_input_tokens": 0}}}
+
+            self._transcript(base, proj, [req("03", 100), req("08", 700), req("20", 5000)])
+
+            janela = janela_da_sprint(proj, "2")
+            self.assertEqual(janela["inicio"].isoformat(), "2026-08-06")
+            self.assertEqual(janela["sobrepostas"], [], "sprints sequenciais nao se sobrepoem")
+
+            tel = coletar_tokens(
+                proj, dias=36500, base=base,
+                desde=datetime(2026, 8, 6, tzinfo=timezone.utc),
+                ate=datetime(2026, 8, 10, 23, 59, 59, tzinfo=timezone.utc),
+            )
+            self.assertEqual(tel.geral.saida, 700, "vazou consumo de fora do intervalo")
+            self.assertEqual(tel.geral.requisicoes, 1)
+
+    def test_sprints_que_dividem_dia_sao_denunciadas(self) -> None:
+        """O caso que obrigou a Sprint 2 a registrar limite superior.
+
+        O recorte nao resolve dia partilhado — nao ha como repartir sem inventar
+        rateio. O que ele nao pode fazer e deixar o numero com cara de exato.
+        """
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_tokens import janela_da_sprint
+
+        with tempfile.TemporaryDirectory() as t:
+            proj = Path(t) / "proj"
+            proj.mkdir()
+            self._sprint(proj, 1, "2026-08-01", "2026-08-12", status="concluida")
+            self._sprint(proj, 2, "2026-08-10", "2026-08-20", status="concluida")
+
+            janela = janela_da_sprint(proj, "2")
+            self.assertEqual(len(janela["sobrepostas"]), 1)
+            self.assertIn("sprint-01", janela["sobrepostas"][0])
+
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_tokens.py"), "--root", str(proj),
+                 "--sprint", "2", "--json"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            recorte = json.loads(proc.stdout)["recorte"]
+            self.assertFalse(recorte["exato"], "dia partilhado foi dado como exato")
+
+    def test_sprint_inexistente_e_erro_de_uso(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            proj = Path(t) / "proj"
+            proj.mkdir()
+            self._sprint(proj, 1, "2026-08-01", "2026-08-05")
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_tokens.py"), "--root", str(proj),
+                 "--sprint", "9"],
+                capture_output=True, text=True,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("disponiveis: 1", proc.stdout + proc.stderr)
+
     def _rollout_codex(self, base: Path, cwd: str, registros: list[dict]) -> None:
         destino = base / "2026" / "08" / "08"
         destino.mkdir(parents=True, exist_ok=True)

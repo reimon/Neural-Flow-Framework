@@ -36,6 +36,7 @@ NF_GUARD_ASSINATURA = "neural-flow-framework"
 
 import argparse
 import json
+import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -130,6 +131,10 @@ class Telemetria:
     primeiro: str = ""
     ultimo: str = ""
     arquivos: int = 0
+    # Como a janela foi recortada: sprint de origem, intervalo e — o que mais
+    # importa — se outra sprint dividiu algum dia com esta. Sem isso o numero
+    # sai com cara de exato quando e teto.
+    recorte: dict = field(default_factory=dict)
 
     def como_dict(self) -> dict:
         return {
@@ -142,7 +147,93 @@ class Telemetria:
             "por_provedor": {k: v.como_dict() for k, v in self.por_provedor.items()},
             "sessoes": self.sessoes, "primeiro": self.primeiro,
             "ultimo": self.ultimo, "arquivos": self.arquivos,
+            "recorte": self.recorte,
         }
+
+
+# ── Recorte por sprint ─────────────────────────────────────────────────────────
+# A telemetria nasceu agregando por dia. Dia nao e unidade de trabalho: uma
+# sprint termina no meio da tarde e a seguinte comeca em seguida, entao o
+# consumo de um dia pode pertencer a duas. Foi por isso que a Sprint 2 so pode
+# registrar um limite superior (ver `docs/sprints/sprint-02-autogovernanca.md`).
+#
+# O recorte por sprint le as datas do proprio arquivo de sprint. Onde ele nao
+# resolve — dia partilhado por duas sprints — ele **avisa**, em vez de deixar o
+# numero com cara de exato. Um teto declarado como teto e honesto; um teto
+# apresentado como medida nao e.
+
+CAMPO_INICIO = "data de inicio"
+CAMPOS_FIM = ("data real de conclusao", "data planejada de conclusao")
+RE_DATA = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+
+
+def _data(valor: str) -> date | None:
+    m = RE_DATA.search(valor or "")
+    if not m:
+        return None
+    try:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def sprints_do_projeto(raiz: Path) -> list[dict]:
+    """Todas as sprints com intervalo resolvido, ordenadas por inicio."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from nf_guards import campos, eh_template, ler, secao  # noqa: E402
+
+    achadas = []
+    for caminho in sorted(raiz.glob("docs/sprints/*.md")):
+        linhas = ler(caminho)
+        if linhas is None or eh_template(linhas):
+            continue
+        faixa = secao(linhas, "Snapshot Operacional")
+        dados = campos(linhas, *(faixa or (0, len(linhas))))
+        inicio = _data(dados.get(CAMPO_INICIO, ""))
+        if not inicio:
+            continue
+        fim = None
+        for chave_fim in CAMPOS_FIM:
+            fim = _data(dados.get(chave_fim, ""))
+            if fim:
+                break
+        m = re.search(r"(\d{1,3})", caminho.stem)
+        achadas.append({
+            "arquivo": str(caminho.relative_to(raiz)),
+            "numero": int(m.group(1)) if m else None,
+            "titulo": linhas[0].lstrip("# ").strip() if linhas else caminho.stem,
+            "inicio": inicio,
+            "fim": fim or date.today(),
+            "status": dados.get("status", "").strip("`"),
+        })
+    return sorted(achadas, key=lambda s: s["inicio"])
+
+
+def janela_da_sprint(raiz: Path, alvo: str) -> dict:
+    """Intervalo de uma sprint, mais as sprints que dividem dia com ela.
+
+    `alvo` e o numero (`3`) ou um caminho de arquivo.
+    """
+    todas = sprints_do_projeto(raiz)
+    if not todas:
+        raise SystemExit("nenhuma sprint com 'Data de inicio' em docs/sprints/")
+
+    escolhida = None
+    if alvo.isdigit():
+        escolhida = next((s for s in todas if s["numero"] == int(alvo)), None)
+    else:
+        pedido = Path(alvo).name
+        escolhida = next((s for s in todas if Path(s["arquivo"]).name == pedido), None)
+    if escolhida is None:
+        disponiveis = ", ".join(str(s["numero"]) for s in todas if s["numero"])
+        raise SystemExit(f"sprint '{alvo}' nao encontrada (disponiveis: {disponiveis})")
+
+    sobrepostas = [
+        s["arquivo"] for s in todas
+        if s is not escolhida
+        and s["inicio"] <= escolhida["fim"] and escolhida["inicio"] <= s["fim"]
+    ]
+    return {**escolhida, "sobrepostas": sobrepostas}
 
 
 def slug_do_projeto(raiz: Path) -> str:
@@ -152,7 +243,8 @@ def slug_do_projeto(raiz: Path) -> str:
 
 
 def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
-                   diretorio: Path | None = None) -> Telemetria:
+                   diretorio: Path | None = None, desde: datetime | None = None,
+                   ate: datetime | None = None) -> Telemetria:
     """`diretorio` le aquela pasta diretamente, sem derivar o slug do caminho.
 
     O slug vem do caminho absoluto do projeto, entao muda de maquina para
@@ -186,7 +278,7 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
         tel.motivo = f"nenhuma sessao registrada para {raiz.name}"
         return tel
 
-    corte = datetime.now(timezone.utc) - timedelta(days=dias)
+    corte = desde or (datetime.now(timezone.utc) - timedelta(days=dias))
     sessoes: set[str] = tel.sessoes_ids
     carimbos: list[str] = tel.carimbos
     prov_cc = tel.por_provedor.setdefault("claude-code", Consumo())
@@ -231,7 +323,7 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
                             quando = datetime.fromisoformat(carimbo.replace("Z", "+00:00"))
                         except ValueError:
                             quando = None
-                    if quando and quando < corte:
+                    if quando and (quando < corte or (ate and quando > ate)):
                         continue
 
                     tel.geral.somar(uso)
@@ -260,13 +352,13 @@ def coletar_tokens(raiz: Path, dias: int = 30, base: Path | None = None,
     if prov_cc.requisicoes == 0:
         tel.por_provedor.pop("claude-code", None)
 
-    _finalizar(tel, raiz, dias, corte, len(arquivos))
+    _finalizar(tel, raiz, dias, corte, len(arquivos), ate)
     return tel
 
 
 def _finalizar(tel: Telemetria, raiz: Path, dias: int, corte: datetime,
-               arquivos: int) -> None:
-    ler_codex(raiz, corte, tel)
+               arquivos: int, ate: datetime | None = None) -> None:
+    ler_codex(raiz, corte, tel, ate=ate)
     tel.arquivos = arquivos
     tel.sessoes = len(tel.sessoes_ids)
     if tel.carimbos:
@@ -327,7 +419,8 @@ def _pertence(caminhos: list[str], raiz: Path) -> bool:
 
 
 def ler_codex(raiz: Path, corte: datetime, tel: Telemetria,
-              base: Path | None = None, diretorio: Path | None = None) -> None:
+              base: Path | None = None, diretorio: Path | None = None,
+              ate: datetime | None = None) -> None:
     origem = diretorio or base or BASE_CODEX
     if not origem.is_dir():
         return
@@ -376,7 +469,7 @@ def ler_codex(raiz: Path, corte: datetime, tel: Telemetria,
 
                     carimbo = registro.get("timestamp") or ""
                     quando = _instante(carimbo)
-                    if quando and quando < corte:
+                    if quando and (quando < corte or (ate and quando > ate)):
                         continue
 
                     tel.geral.somar(uso)
@@ -427,11 +520,48 @@ def main() -> int:
     )
     ap.add_argument("--root", default=".")
     ap.add_argument("--dias", type=int, default=30, help="janela em dias (default: 30)")
+    ap.add_argument("--sprint", help="recorta pelo intervalo de uma sprint (numero ou arquivo)")
+    ap.add_argument("--desde", help="inicio do recorte (AAAA-MM-DD)")
+    ap.add_argument("--ate", help="fim do recorte, inclusive (AAAA-MM-DD)")
     ap.add_argument("--json", action="store_true", help="saida em JSON")
     args = ap.parse_args()
 
     raiz = Path(args.root).resolve()
-    tel = coletar_tokens(raiz, args.dias)
+
+    desde = ate = None
+    recorte: dict = {}
+    if args.sprint:
+        janela = janela_da_sprint(raiz, args.sprint)
+        desde, fim = janela["inicio"], janela["fim"]
+        ate = fim
+        recorte = {
+            "sprint": janela["arquivo"], "titulo": janela["titulo"],
+            "desde": desde.isoformat(), "ate": ate.isoformat(),
+            "sobrepostas": janela["sobrepostas"],
+            # Dia e a menor unidade que os transcripts datam de forma confiavel;
+            # sprint que divide dia com outra so admite teto, nunca medida.
+            "exato": not janela["sobrepostas"],
+        }
+    if args.desde:
+        desde = _data(args.desde) or desde
+    if args.ate:
+        ate = _data(args.ate) or ate
+    if (args.desde or args.ate) and not args.sprint:
+        recorte = {
+            "desde": desde.isoformat() if desde else "",
+            "ate": ate.isoformat() if ate else "",
+            "sobrepostas": [], "exato": True,
+        }
+
+    # Data vira instante: o intervalo e fechado nos dois extremos, entao o fim e
+    # o ultimo segundo do dia. Sem isso, `--ate` cortaria o dia inteiro.
+    d_ini = (datetime.combine(desde, datetime.min.time(), tzinfo=timezone.utc)
+             if desde else None)
+    d_fim = (datetime.combine(ate, datetime.max.time(), tzinfo=timezone.utc)
+             if ate else None)
+
+    tel = coletar_tokens(raiz, args.dias, desde=d_ini, ate=d_fim)
+    tel.recorte = recorte
 
     if args.json:
         print(json.dumps(tel.como_dict(), indent=2, ensure_ascii=False))
@@ -442,7 +572,16 @@ def main() -> int:
         return 0
 
     g = tel.geral
-    print(f"Consumo real — {raiz.name} (ultimos {args.dias} dias)")
+    if tel.recorte.get("sprint"):
+        print(f"Consumo real — {tel.recorte['titulo']}")
+        print(f"  recorte:      {tel.recorte['desde']} a {tel.recorte['ate']}  "
+              f"({tel.recorte['sprint']})")
+    elif tel.recorte:
+        print(f"Consumo real — {raiz.name}")
+        print(f"  recorte:      {tel.recorte.get('desde') or 'inicio'} a "
+              f"{tel.recorte.get('ate') or 'hoje'}")
+    else:
+        print(f"Consumo real — {raiz.name} (ultimos {args.dias} dias)")
     print(f"  periodo:      {tel.primeiro} a {tel.ultimo}")
     print(f"  requisicoes:  {g.requisicoes}  em {tel.sessoes} sessao(oes)")
     print(f"  entrada:      {fmt(g.entrada)}")
@@ -463,6 +602,17 @@ def main() -> int:
     print("\n  por modelo:")
     for modelo, c in sorted(tel.por_modelo.items(), key=lambda kv: -kv[1].faturavel):
         print(f"    {modelo:<28} {fmt(c.faturavel):>7}  ({c.requisicoes} req)")
+
+    if tel.recorte.get("sobrepostas"):
+        print("\n  ATENCAO — este numero e LIMITE SUPERIOR, nao medida exata.")
+        print("  O intervalo desta sprint divide dia(s) com:")
+        for outra in tel.recorte["sobrepostas"]:
+            print(f"    - {outra}")
+        print("  Os transcripts datam por instante, mas a atribuicao a uma sprint")
+        print("  so e confiavel ate o dia: consumo de um dia partilhado nao tem")
+        print("  como ser repartido sem inventar rateio. Registre como teto.")
+    elif tel.recorte.get("sprint"):
+        print("\n  Recorte exclusivo: nenhuma outra sprint divide dia com esta.")
     return 0
 
 
