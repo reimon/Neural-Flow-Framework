@@ -21,6 +21,17 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
 
 ### Adicionado
 
+- **Recorte de telemetria por sprint** — `nf_tokens.py --sprint N` le o intervalo do
+  proprio arquivo de sprint; `--desde/--ate` recortam a mao. Quando duas sprints dividem
+  um dia, a saida marca `exato: false` e explica que o numero e teto: o recorte melhora a
+  atribuicao, nao elimina a sobreposicao, e teto apresentado como medida e pior que teto
+  declarado.
+- **Autenticacao Azure keyless** (`scripts/nf_azure_auth.py`) — `DefaultAzureCredential`
+  por padrao em `ingest.py`, `search.py` e no servidor MCP, com `NF_AZURE_AUTH=key` como
+  opt-in explicito e ruidoso para a admin key. Sem fallback automatico. Role assignments
+  correspondentes no Terraform (`var.rbac_principal_ids`). Paga a divida do ADR-003 no
+  codigo; a supersecao do ADR so entra depois de execucao verificada.
+
 - **Portas de entrada de agente** — o instalador escreve `GEMINI.md`,
   `copilot-instructions.md`, `neural-flow.mdc` (Cursor), `.clinerules`,
   `.windsurfrules`, `AGENT.md`, `CONVENTIONS.md` e `HERMES.md`, todas geradas do mesmo

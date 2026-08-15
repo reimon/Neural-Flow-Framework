@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "impressao_digital": "501aeb0980f87f35",
+  "impressao_digital": "0146459e2144aaec",
   "fontes": [
     ".github/AI_SAFETY.md",
     "AGENTS.md",
@@ -10,6 +10,7 @@
     "docs/adr/ADR-002-guards-em-stdlib-pura.md",
     "docs/adr/ADR-003-divida-admin-key-vs-rbac.md",
     "docs/adr/ADR-004-protocolo-de-calibracao.md",
+    "docs/adr/ADR-005-grafo-do-graphify-neste-repositorio.md",
     "docs/protocols/README.md",
     "docs/protocols/adr-governance.md",
     "docs/protocols/aegis-security.md",
@@ -570,7 +571,7 @@
       "id": "MEM-008",
       "categoria": "memoria",
       "regra": "Sempre datar (data absoluta, nunca relativa).",
-      "fonte": "MEMORY.md:127",
+      "fonte": "MEMORY.md:135",
       "secao": "4. Solutions Log and Lessons Learned",
       "guard": null
     }

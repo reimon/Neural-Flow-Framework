@@ -73,6 +73,14 @@
 - **A instalacao se auto-valida:** o instalador roda o gate ao final e sai 1 se o que ele
   proprio escreveu nao passa.
 
+### Autenticacao Azure (implementacao de referencia)
+
+- **Keyless por padrao, chave so por opt-in explicito.** `scripts/nf_azure_auth.py`
+  centraliza a decisao para `ingest.py`, `search.py` e o servidor MCP. `NF_AZURE_AUTH=key`
+  volta a admin key e avisa em toda execucao. **Sem fallback automatico**: cair na chave
+  sozinho quando o RBAC falha converteria um erro de permissao, que se conserta, em
+  dependencia permanente de segredo, que ninguem mais ve. ADR-003.
+
 ### Escrita
 
 - **Portugues sem acento** em codigo, comentarios e artefatos de governanca — os guards
@@ -85,7 +93,7 @@
 | Modulo | Onde vive | Estado |
 | --- | --- | --- |
 | Protocolos | `docs/protocols/` (10 nucleares + `agent-entrypoints`) | versionados |
-| Guards | `scripts/nf_gate.py` + 7 validadores | 7 guards, 74 testes verdes |
+| Guards | `scripts/nf_gate.py` + 7 validadores | 7 guards, 80 testes verdes |
 | Kit de adocao | `templates/` | AGENTS, CLAUDE, AI_SAFETY, MEMORY, ADR, sprint, spec, loop, hook |
 | Instalador | `install.sh`, `scripts/nf_install.py` | greenfield + brownfield, auto-validado |
 | Portas de agente | `scripts/nf_agentes.py` | 8 portas geradas + `AGENTS.md` + `CLAUDE.md` |
@@ -131,13 +139,12 @@ Regras deste log:
 
 ## 5. Pendencias ativas
 
-- [ ] Dimensionar o budget da Sprint 3 em 2.5M - a Sprint 2 consumiu 2.2M faturaveis
-      contra um budget de 500k, que era o default do instalador - sprint alvo: 3
-- [ ] Avaliar recorte de telemetria por sprint - hoje `nf_tokens.py` agrega por dia, e dia
-      com duas sprints so permite registrar limite superior - sprint alvo: a definir
-- [ ] Migrar `ingest.py`, `search.py` e o servidor MCP para `DefaultAzureCredential`
-      (ADR-003) - sprint alvo: a definir
-- [ ] Avaliar subir o grafo do `graphify` sobre este repositorio - sprint alvo: a definir
+- [ ] Rodar a ingestao keyless num ambiente com Entra ID - o codigo esta pronto
+      (`scripts/nf_azure_auth.py`), falta a execucao que fecha o item 2.1 - sprint alvo: 4
+- [ ] Superar o ADR-003 depois que a ingestao keyless for verificada - sprint alvo: 4
+- [ ] Desabilitar `local_authentication` no Search e remover a admin key do Key Vault,
+      depois da via keyless verificada - sprint alvo: 4
+- [ ] Aceitar ou rejeitar o ADR-005 (grafo do graphify) - decisao humana - sprint alvo: 3
 - [ ] Avaliar traducao do framework para ingles - sprint alvo: a definir
 
 ## 6. Documentos de referencia

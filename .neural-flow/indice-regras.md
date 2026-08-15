@@ -7,7 +7,7 @@ Consulte este indice **antes** de ler os arquivos. Cada linha traz a fonte
 (`arquivo:linha`) — leia so o que a resposta exigir.
 
 - regras indexadas: **64**
-- impressao digital das fontes: `501aeb0980f87f35`
+- impressao digital das fontes: `0146459e2144aaec`
 
 ## Guards executaveis
 
@@ -115,4 +115,4 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | `MEM-005` | NFGUARDASSINATURA em todo script instalavel. Sem a assinatura o nfgate se recusa a executar o arquivo: projeto brownfield pode ter homonimo com outra interface. Referencia: nfgate.ehnosso(). | `MEMORY.md:47` | — |
 | `MEM-006` | Nunca sobrescrever trabalho do adotante. Colisao de script vira instalacao lado a lado (nf<nome>); porta de entrada que ja existia recebe as diretrizes anexadas. Sempre com aviso no relatorio. | `MEMORY.md:65` | — |
 | `MEM-007` | Template vai para o projeto via copiartemplate, nunca readtext direto: o cabecalho > TEMPLATE Neural-Flow desliga ehtemplate() e faz o artefato nascer invisivel para o gate. | `MEMORY.md:68` | — |
-| `MEM-008` | Sempre datar (data absoluta, nunca relativa). | `MEMORY.md:127` | — |
+| `MEM-008` | Sempre datar (data absoluta, nunca relativa). | `MEMORY.md:135` | — |

@@ -10,7 +10,7 @@
 - Ultima atualizacao: `2026-08-11`
 - Nivel de autonomia: `A1`
 - Blocker principal: `nenhum`
-- Proxima acao: `dimensionar o budget da Sprint 3 a partir da medicao registrada abaixo`
+- Proxima acao: `revisao humana do escopo da Sprint 3`
 
 > A1 e obrigatoria: o escopo altera o instalador, que escreve na arvore de projetos
 > de terceiros. Erro aqui se propaga para todo adotante.
@@ -166,10 +166,11 @@ simulado.
 
 ## Pendencias para a Proxima Sprint
 
-- Dimensionar o budget da Sprint 3 em 2.5M, a partir da medicao desta sprint - sprint alvo: 3
-- Avaliar recorte de telemetria por sprint (hoje e por dia) para o consumo parar de ser
-  limite superior - sprint alvo: a definir
-- Avaliar subir o grafo do `graphify` sobre o repositorio - sprint alvo: a definir
+- [feito] Budget da Sprint 3 dimensionado em 2.5M a partir desta medicao - ver
+  `docs/sprints/sprint-03-divida-de-auth-e-telemetria.md`
+- Recorte de telemetria por sprint (hoje e por dia) para o consumo parar de ser limite
+  superior - sprint alvo: 3, item 1.1
+- Decidir se o grafo do `graphify` sobe sobre o repositorio - sprint alvo: 3, item 3.1
 
 ## Regras
 
