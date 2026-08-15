@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "impressao_digital": "0146459e2144aaec",
+  "impressao_digital": "51f2f502740bc9d5",
   "fontes": [
     ".github/AI_SAFETY.md",
     "AGENTS.md",
@@ -571,8 +571,16 @@
       "id": "MEM-008",
       "categoria": "memoria",
       "regra": "Sempre datar (data absoluta, nunca relativa).",
-      "fonte": "MEMORY.md:135",
+      "fonte": "MEMORY.md:145",
       "secao": "4. Solutions Log and Lessons Learned",
+      "guard": null
+    },
+    {
+      "id": "MEM-009",
+      "categoria": "memoria",
+      "regra": "[ ] Rodar python3 scripts/nfazuresmoke.py num ambiente autenticado - trava o bloco 2 inteiro da Sprint 4; exige az login, nao ha como agente sem tenant fechar",
+      "fonte": "MEMORY.md:152",
+      "secao": "5. Pendencias ativas",
       "guard": null
     }
   ]

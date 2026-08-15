@@ -81,6 +81,16 @@
   sozinho quando o RBAC falha converteria um erro de permissao, que se conserta, em
   dependencia permanente de segredo, que ninguem mais ve. ADR-003.
 
+### Terraform
+
+- **`prevent_destroy` nos cinco recursos que nao se recriam sem perda:**
+  `random_string.suffix` (todo nome deriva dele), resource group, Search (recriar apaga o
+  indice), OpenAI (muda endpoint) e Key Vault (`purge_protection` desligado). Transforma
+  a proibicao escrita no `AI_SAFETY` em erro de plan.
+- **State local, sem copia e sem lock** e o risco aberto mais serio da infra. O caminho
+  para o backend remoto esta em `infra/terraform/backend.tf.exemplo`, com extensao inerte
+  de proposito: ativar backend nao e editar arquivo, e migrar state.
+
 ### Escrita
 
 - **Portugues sem acento** em codigo, comentarios e artefatos de governanca — os guards
@@ -139,11 +149,14 @@ Regras deste log:
 
 ## 5. Pendencias ativas
 
-- [ ] Rodar a ingestao keyless num ambiente com Entra ID - o codigo esta pronto
-      (`scripts/nf_azure_auth.py`), falta a execucao que fecha o item 2.1 - sprint alvo: 4
-- [ ] Superar o ADR-003 depois que a ingestao keyless for verificada - sprint alvo: 4
+- [ ] **Rodar `python3 scripts/nf_azure_smoke.py` num ambiente autenticado** - trava o
+      bloco 2 inteiro da Sprint 4; exige `az login`, nao ha como agente sem tenant fechar
+      - sprint alvo: 4, item 1.2
+- [ ] Superar o ADR-003 depois da verificacao - sprint alvo: 4, item 2.2
 - [ ] Desabilitar `local_authentication` no Search e remover a admin key do Key Vault,
-      depois da via keyless verificada - sprint alvo: 4
+      depois da via keyless verificada - sprint alvo: 4, item 2.3
+- [ ] Migrar o state do Terraform para backend remoto - runbook em
+      `infra/terraform/backend.tf.exemplo`; operacao com o humano presente - sprint alvo: 4
 - [ ] Aceitar ou rejeitar o ADR-005 (grafo do graphify) - decisao humana - sprint alvo: 3
 - [ ] Avaliar traducao do framework para ingles - sprint alvo: a definir
 

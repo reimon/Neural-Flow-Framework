@@ -21,6 +21,15 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
 
 ### Adicionado
 
+- `scripts/nf_azure_smoke.py` — verifica em um comando se a via keyless funciona no
+  ambiente: token do Entra ID, leitura do indice e um embedding de ~1 token. Nao escreve
+  nada, nao imprime segredo, e traduz `403`/`401` em qual role falta em vez de devolver
+  stack trace. Existe para o criterio de aceite do ADR-003 nao exigir rodar a ingestao
+  inteira.
+- `prevent_destroy` nos cinco recursos Terraform que nao se recriam sem perda, e runbook
+  do backend remoto em `infra/terraform/backend.tf.exemplo` (extensao inerte de proposito:
+  ativar backend e migrar state, nao editar arquivo).
+
 - **Recorte de telemetria por sprint** — `nf_tokens.py --sprint N` le o intervalo do
   proprio arquivo de sprint; `--desde/--ate` recortam a mao. Quando duas sprints dividem
   um dia, a saida marca `exato: false` e explica que o numero e teto: o recorte melhora a
