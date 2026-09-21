@@ -1,31 +1,101 @@
 # Neural-Flow Framework
 
-**v0.1.0** · 10 protocolos · 7 guards executaveis · dashboard · MIT
+<div align="center">
 
-Sistema de Controle Autonomo para engenharia assistida por IA.
+**Governanca operacional para equipes que constroem software com IA.**
 
-> **Instale num projeto:**
->
-> ```bash
-> bash /caminho/do/neural-flow/install.sh          # detecta o modo sozinho
-> ```
->
-> Funciona nos dois cenarios: projeto que **ja tem codigo** (instala guards, hooks, CI,
-> governanca de agente e liga o smoke-gate, sem sobrescrever nada) e projeto que ainda e
-> **so uma ideia** (monta o andaime docs-first, onde a especificacao vem antes da primeira
-> linha de codigo). Detalhes em [Instalacao](#instalacao).
->
-> **Ou entenda primeiro:** [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) — os mesmos
-> passos na mao, em 5 minutos, terminando com um gate bloqueando um commit de verdade.
->
-> Mudancas entre versoes: [`CHANGELOG.md`](CHANGELOG.md). Divida conhecida:
-> [`ADR-003`](docs/adr/ADR-003-divida-admin-key-vs-rbac.md) — a implementacao de referencia
-> Azure ainda usa admin key em vez de Entra ID/RBAC; nenhum protocolo, template ou guard
-> depende dela.
+Transforme intencao em mudanca verificavel, sem perder contexto, controle ou memoria.
+
+`v0.1.0` · `10 protocolos` · `7 guards executaveis` · `dashboard` · `MIT`
+
+[Instalar em 5 minutos](#comece-em-5-minutos) · [Ver beneficios](#o-que-voce-ganha) · [Abrir o dashboard](#dashboard) · [Ler os protocolos](docs/protocols/README.md)
+
+</div>
 
 <img src="docs/img/arquitetura.svg" alt="Caminho de uma mudanca no Neural-Flow: os artefatos do projeto sao lidos pelos guards; o hook de pre-commit valida o que esta em stage e barra o commit quando algum reprova; depois do push o CI revalida, porque o hook e opt-in por clone." width="100%">
 
-O Neural-Flow substitui o modelo de documentacao manual reativa por um sistema operacional de governanca orientado a evidencia, autonomia controlada e memoria institucional.
+> **Em uma frase:** o Neural-Flow transforma governanca em parte executavel do produto.
+> A documentacao registra a intencao, os guards bloqueiam desvios e a evidencia mostra o
+> que realmente aconteceu.
+
+## O que voce ganha
+
+Construir com IA acelera a escrita de codigo. O risco aparece quando o contexto se perde,
+o agente preenche lacunas com suposicoes ou uma decisao importante fica apenas no chat.
+O Neural-Flow fecha esse espaco com artefatos versionados, limites claros e verificacao
+automatizada.
+
+| Beneficio | Na pratica | Resultado para o time |
+| --- | --- | --- |
+| **Contexto que sobrevive** | Sprint, plano, diario, divergencias, ADRs e memoria ficam no repositorio | Qualquer pessoa ou agente retoma o trabalho sem reconstruir tudo do zero |
+| **Autonomia com limite** | Cada tarefa declara escopo, nivel de autonomia e criterio de parada | A IA avanca onde pode e para antes de uma decisao sensivel ou irreversivel |
+| **Evidencia antes da conclusao** | Testes, guards, logs e comandos executados sustentam o status do item | "Pronto" deixa de ser opiniao e passa a ser uma afirmacao verificavel |
+| **Custo de IA sob controle** | Budget, consumo observado, cache e escolha de tier entram no mesmo ciclo | O time enxerga desperdicio antes que ele vire custo recorrente |
+| **Decisoes auditaveis** | ADRs numerados e imutaveis registram o por que das escolhas | O projeto preserva criterio, nao apenas o codigo que sobrou |
+| **Onboarding mais rapido** | Indice de regras, busca semantica e gestao por deltas priorizam o contexto relevante | Menos tempo lendo historico e mais tempo tomando a proxima decisao certa |
+| **Adocao sem reescrita** | Instalacao brownfield ou greenfield, sem sobrescrever arquivos existentes por padrao | O framework entra no projeto no ritmo que o produto comporta |
+
+### O problema que ele resolve
+
+Sem um sistema operacional de governanca, projetos assistidos por IA tendem a acumular
+quatro dividas:
+
+- contexto espalhado em conversas que ninguem consegue recuperar;
+- decisoes plausiveis, mas sem fonte, criterio ou dono;
+- automacao que continua executando depois de um sinal de risco;
+- custo de tokens medido tarde demais para permitir correcao.
+
+O Neural-Flow transforma cada uma em um contrato que pode ser lido, executado e auditado.
+
+### O que muda para quem trabalha no projeto
+
+| Antes | Com Neural-Flow |
+| --- | --- |
+| "O agente disse que terminou." | O item fecha com comando verde e evidencia registrada. |
+| "A decisao estava em alguma conversa." | A decisao esta em um ADR, com fonte e relacao com a sprint. |
+| "Vamos reler o repositorio para entender." | O indice aponta a estrutura e o delta aponta o que mudou. |
+| "O budget estourou quando a sprint acabou." | O consumo observado aparece ao lado do declarado. |
+| "Cada ferramenta segue uma regra diferente." | Todas as portas de entrada apontam para a mesma diretriz. |
+
+## Comece em 5 minutos
+
+Requer apenas `git` e `python3` 3.10 ou superior. Os guards usam somente a biblioteca
+padrao do Python.
+
+```bash
+# no diretorio do projeto que voce quer governar
+bash /caminho/do/neural-flow/install.sh
+
+# conferir o estado inicial
+python3 scripts/nf_gate.py
+
+# abrir o painel local de governanca
+python3 scripts/nf_dashboard.py --open
+```
+
+O instalador detecta o caminho mais seguro:
+
+- **Brownfield:** o projeto ja tem codigo; recebe guards, hook, CI, portas de entrada,
+  memoria e indice sem sobrescrever o que ja existe.
+- **Greenfield:** o projeto ainda e uma ideia; recebe o mesmo controle mais o andaime
+  docs-first, para que a especificacao venha antes da primeira linha de codigo.
+
+O guia [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) percorre o mesmo fluxo com
+mais contexto e termina com um gate bloqueando um commit de verdade.
+
+<details>
+<summary><strong>Se voce quer entender antes de instalar</strong></summary>
+
+Comece por [`docs/Manifest-Dev-AI.md`](docs/Manifest-Dev-AI.md), depois leia a matriz dos
+[`10 protocolos`](docs/protocols/README.md). Para ver o resultado visual sem gerar nada,
+abra [`docs/dashboard-demo.html`](docs/dashboard-demo.html).
+
+</details>
+
+Mudancas entre versoes: [`CHANGELOG.md`](CHANGELOG.md). Divida conhecida:
+[`ADR-003`](docs/adr/ADR-003-divida-admin-key-vs-rbac.md) — a implementacao de referencia
+Azure ainda usa admin key em vez de Entra ID/RBAC; nenhum protocolo, template ou guard
+depende dela.
 
 ## Visao
 
@@ -530,8 +600,12 @@ estimado seria inventar precisao que nao temos. Tokens sao o que o sistema mede 
 
 **Ajuda contextual.** Cada quadro, cada um dos 10 protocolos e cada indicador do topo tem
 um botao **?** que abre uma janela explicando o que aquilo e, o que representa e o que fazer
-quando reprova. Usa o `popover` nativo do HTML — janela de verdade, com `Esc` e clique-fora,
-**sem uma linha de JavaScript**. Um modal com script quebraria a garantia de auto-contencao.
+quando reprova. Usa o `popover` nativo do HTML — janela de verdade, com `Esc` e clique-fora.
+O seletor de idioma alterna entre portugues e ingles com um pequeno script inline; nao ha
+JavaScript externo nem chamada a CDN.
+
+O dashboard abre em portugues e pode ser alternado para ingles pelo seletor `PT / EN`. A
+preferencia fica salva no navegador, e o arquivo continua abrindo offline.
 
 O card do indice de conhecimento **linka os artefatos do graphify** — `graph.html`
 (grafo interativo, force-directed, com filtro por comunidade), a wiki e o
@@ -713,3 +787,27 @@ O manifesto e vivo. Toda melhoria de governanca deve registrar:
 2. regra proposta
 3. impacto esperado
 4. data de adocao
+
+## Contribuindo
+
+Melhorias sao bem-vindas quando deixam o sistema mais verificavel e nao apenas mais
+complexo. Antes de abrir uma mudanca:
+
+1. leia o indice em `.neural-flow/indice-regras.md` e o protocolo relacionado;
+2. confirme se ja existe um guard, helper ou template que resolve o caso;
+3. para uma regra nova, entregue o protocolo, o guard, os testes nas duas direcoes e a
+   entrada no diagrama no mesmo commit;
+4. rode typecheck quando aplicavel, os testes do dominio alterado e a suite completa;
+5. descreva no PR a evidencia executada, o que ficou fora do escopo e qualquer limite
+   conhecido.
+
+Comandos minimos antes de propor uma mudanca:
+
+```bash
+python3 -m unittest discover -s tests
+python3 scripts/nf_gate.py
+git diff --check
+```
+
+O padrao de commit do repositorio e `Sprint N - <descricao>`. Mudancas geradas, como o
+dashboard, o diagrama e o indice de regras, devem ser regeneradas pelo script de origem.
