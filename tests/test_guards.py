@@ -848,6 +848,8 @@ class TestDashboard(unittest.TestCase):
             texto = saida.read_text(encoding="utf-8")
             self.assertTrue(texto.startswith("<!doctype html>"))
             self.assertIn("</html>", texto)
+            self.assertIn('name="language"', texto)
+            self.assertIn('id="nf-dashboard-i18n"', texto)
             for secao in ("Sprint ativa", "Guards", "FinOps", "smoke-gate",
                           "Protocolos", "Loop autonomo"):
                 with self.subTest(secao=secao):
@@ -859,6 +861,9 @@ class TestDashboard(unittest.TestCase):
         A garantia e sobre RECURSO BUSCADO, nao sobre a palavra "https". Um
         hyperlink nao dispara requisicao ao abrir a pagina — proibi-lo tiraria a
         capacidade de linkar o grafo do graphify, que e justamente o ponto.
+
+        O seletor de idioma usa um script inline e os textos ficam no proprio
+        documento. Nenhum script, folha de estilo ou frame externo e aceito.
         """
         import tempfile
 
@@ -866,7 +871,7 @@ class TestDashboard(unittest.TestCase):
             saida = Path(t) / "d.html"
             self._gerar(CONFORME, saida)
             texto = saida.read_text(encoding="utf-8")
-            for proibido in ("<script", "src=", "@import", "<iframe", "<link "):
+            for proibido in ("src=", "@import", "<iframe", "<link "):
                 with self.subTest(proibido=proibido):
                     self.assertNotIn(
                         proibido, texto,
@@ -904,8 +909,8 @@ class TestDashboard(unittest.TestCase):
         """Cada quadro e cada protocolo explica o que representa.
 
         A ajuda usa o `popover` nativo do HTML: janela de verdade, com Esc e
-        clique-fora, **sem uma linha de JavaScript**. Isso preserva a garantia de
-        auto-contencao, que um modal com script quebraria.
+        clique-fora. O seletor de idioma e o unico comportamento em JavaScript
+        e fica inline, preservando a garantia de auto-contencao.
         """
         import tempfile
 
@@ -936,8 +941,7 @@ class TestDashboard(unittest.TestCase):
             ids = set(_re.findall(r'<div popover id="([^"]+)"', texto))
             self.assertFalse(alvos - ids, f"botao sem janela: {sorted(alvos - ids)}")
 
-            # E continua sem script.
-            self.assertNotIn("<script", texto)
+            self.assertIn('<script id="nf-dashboard-i18n">', texto)
             self.assertIn("popover", texto)
 
     def test_projeto_vazio_nao_quebra(self) -> None:
