@@ -69,6 +69,10 @@ RE_CONFIANCA = re.compile(
 )
 RE_TITULO_DIVERGENCIA = re.compile(r"^\s*##\s+(?P<titulo>.+?)\s*$")
 RE_CAMPO = re.compile(r"^\s*[-*]\s*\*\*(?P<campo>[^:*]+?)\s*:?\*\*\s*:?\s*(?P<valor>.*)$")
+RE_VERIFICACAO = re.compile(
+    r"\bverificar\s*:\s*(?!a\s+preencher|tbd|n/?a\b|\.\.\.)\S+",
+    re.IGNORECASE,
+)
 
 # ── Verificacoes ───────────────────────────────────────────────────────────────
 
@@ -121,6 +125,16 @@ def checar_diario(diario: Path, concluidos: dict[str, int], res: Resultado) -> N
 
         nivel = conf.group("nivel").upper()
         vistos[item_id] = nivel
+
+        # C7 — confianca so pode ser ALTA/MEDIA quando a entrada tambem registra
+        # o que foi executado e qual resultado foi observado. O nivel sozinho e
+        # uma declaracao, nao evidencia.
+        if not RE_VERIFICACAO.search(normal):
+            res.erro(
+                diario, n, "C7",
+                f"entrada '{item_id}' sem evidencia de verificacao — registre "
+                "'verificar: <comando ou artefato> <resultado observado>'",
+            )
 
         # C2 — item concluido nunca fecha com BAIXA.
         if nivel == "BAIXA" and item_id in concluidos:

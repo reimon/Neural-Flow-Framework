@@ -7,7 +7,7 @@ Consulte este indice **antes** de ler os arquivos. Cada linha traz a fonte
 (`arquivo:linha`) — leia so o que a resposta exigir.
 
 - regras indexadas: **65**
-- impressao digital das fontes: `51f2f502740bc9d5`
+- impressao digital das fontes: `d9442ca86d0d7f89`
 
 ## Guards executaveis
 
@@ -29,15 +29,15 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | --- | --- | --- | --- |
 | `SEG-001` | 1. NUNCA executar apply/destroy de Terraform | `.github/AI_SAFETY.md:22` | — |
 | `SEG-002` | 2. NUNCA alterar randomstring.suffix | `.github/AI_SAFETY.md:34` | — |
-| `SEG-003` | 3. NUNCA versionar segredo | `.github/AI_SAFETY.md:44` | — |
-| `SEG-004` | 4. NUNCA relaxar um guard para fazer o gate passar | `.github/AI_SAFETY.md:58` | — |
-| `SEG-005` | 5. NUNCA marcar item de sprint como [x] sem execucao verificada | `.github/AI_SAFETY.md:66` | — |
-| `SEG-006` | 6. NUNCA editar artefato gerado a mao | `.github/AI_SAFETY.md:72` | — |
-| `SEG-007` | 7. NUNCA commitar as imagens de tema | `.github/AI_SAFETY.md:78` | — |
-| `SEG-008` | Commit ou push. Regra fixa do usuario: nunca sem autorizacao explicita. | `.github/AI_SAFETY.md:89` | — |
-| `SEG-009` | Remover ou renomear um guard, um codigo de verificacao (S1, V3, P2...) ou um campo obrigatorio de template — e mudanca MAJOR: quebra projeto que ja adotou. | `.github/AI_SAFETY.md:94` | — |
-| `SEG-010` | Nomes de recursos derivados em runtime, nunca fixos em docs/scripts — sufixos mudam e invalidam tudo de uma vez. | `.github/AI_SAFETY.md:128` | — |
-| `SEG-011` | Operacao critica imprime evidencia do que realmente fez — nunca afirmar limpeza, remocao ou execucao que nao aconteceu. | `.github/AI_SAFETY.md:130` | — |
+| `SEG-003` | 3. NUNCA versionar segredo | `.github/AI_SAFETY.md:45` | — |
+| `SEG-004` | 4. NUNCA relaxar um guard para fazer o gate passar | `.github/AI_SAFETY.md:59` | — |
+| `SEG-005` | 5. NUNCA marcar item de sprint como [x] sem execucao verificada | `.github/AI_SAFETY.md:67` | — |
+| `SEG-006` | 6. NUNCA editar artefato gerado a mao | `.github/AI_SAFETY.md:73` | — |
+| `SEG-007` | 7. NUNCA commitar as imagens de tema | `.github/AI_SAFETY.md:79` | — |
+| `SEG-008` | Commit ou push. Regra fixa do usuario: nunca sem autorizacao explicita. | `.github/AI_SAFETY.md:90` | — |
+| `SEG-009` | Remover ou renomear um guard, um codigo de verificacao (S1, V3, P2...) ou um campo obrigatorio de template — e mudanca MAJOR: quebra projeto que ja adotou. | `.github/AI_SAFETY.md:95` | — |
+| `SEG-010` | Nomes de recursos derivados em runtime, nunca fixos em docs/scripts — sufixos mudam e invalidam tudo de uma vez. | `.github/AI_SAFETY.md:129` | — |
+| `SEG-011` | Operacao critica imprime evidencia do que realmente fez — nunca afirmar limpeza, remocao ou execucao que nao aconteceu. | `.github/AI_SAFETY.md:131` | — |
 
 ## Arquitetura
 
@@ -90,8 +90,8 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | `PRO-022` | Continua BAIXA apos os dois degraus: a lacuna e real. Registrar como divergencia (em loop) ou pendencia de contexto (em sprint) com a decisao mais conservadora tomada para seguir — nunca preencher com o valor plausivel. | `docs/protocols/calibration.md:52` | — |
 | `PRO-023` | Evidencia Sintetica: define se ha prova; este protocolo define quanto ela prova. Item so fecha com ALTA quando o criterio de aceite exige execucao. | `docs/protocols/calibration.md:93` | — |
 | `PRO-024` | Loop Autonomo: BAIXA + reversivel ⇒ DIVERGENCIAS.md; BAIXA + irreversivel ⇒ parar e perguntar. Item nunca e marcado [x] com BAIXA. | `docs/protocols/calibration.md:97` | — |
-| `PRO-025` | Toda conclusao tecnica do periodo carrega nivel de confianca e classe de evidencia | `docs/protocols/calibration.md:147` | — |
-| `PRO-026` | Toda combinacao BAIXA + irreversivel resultou em pergunta ao humano | `docs/protocols/calibration.md:151` | — |
+| `PRO-025` | Toda conclusao tecnica do periodo carrega nivel de confianca, verificacao executada e resultado observado | `docs/protocols/calibration.md:148` | — |
+| `PRO-026` | Toda combinacao BAIXA + irreversivel resultou em pergunta ao humano | `docs/protocols/calibration.md:152` | — |
 | `PRO-027` | nunca prosseguir com acao estrutural sem contexto verificado | `docs/protocols/context-vector.md:155` | — |
 | `PRO-028` | Rearme exige revisão e aprovação humana explícita. | `docs/protocols/neural-memory.md:89` | — |
 | `PRO-029` | Toda tarefa relevante precedida de chamada a queryneuralmemory | `docs/protocols/neural-memory.md:95` | — |

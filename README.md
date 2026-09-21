@@ -1,6 +1,6 @@
 # Neural-Flow Framework
 
-**v0.1.0** · 10 protocolos · 6 guards executaveis · dashboard · MIT
+**v0.1.0** · 10 protocolos · 7 guards executaveis · dashboard · MIT
 
 Sistema de Controle Autonomo para engenharia assistida por IA.
 
@@ -491,7 +491,7 @@ python3 scripts/nf_dashboard.py --open
 ```
 
 Le os artefatos do repositorio e gera **um HTML auto-contido** com o estado da governanca:
-sprint ativa e progresso, os 6 guards executados na hora, FinOps de tokens (orcamento x
+sprint ativa e progresso, os 7 guards executados na hora, FinOps de tokens (orcamento x
 consumo por sprint), smoke-gate (versao e ultimo audit), o indice de conhecimento (nos,
 arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias pendentes,
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
@@ -602,7 +602,7 @@ python scripts/nf_gate.py --list     # o que existe e o que cada um garante
 | `nf_gate.py context` | Vetor de Contexto (V1-V3) | Referencia pendurada, decisao sem fonte citada, sprint concluida sem evidencia real |
 | `nf_gate.py adr` | ADR Governance (A1-A6) | Numero duplicado, supersecao apontando para ADR inexistente, **ciclo de supersecao**, ADR aceito sem sprint de origem ou sem guard declarado |
 | `nf_gate.py spec` | Spec-First (P1-P4) | Spec sem secao obrigatoria, secao so com placeholder, invariante sem ID, aceite nao numerado |
-| `nf_gate.py calibration` | Calibracao (C1-C6) | Conclusao sem confianca declarada, item fechado com BAIXA, divergencia irreversivel registrada em vez de perguntada |
+| `nf_gate.py calibration` | Calibracao (C1-C7) | Conclusao sem confianca ou verificacao observada, item fechado com BAIXA, divergencia irreversivel registrada em vez de perguntada |
 | `smoke-gate audit` / Action | Evidencia Sintetica | Drift SQL, IDOR, error leak, endpoint sem cobertura |
 
 Instalacao num projeto (qualquer stack — os guards sao Python stdlib puro, sem `pip install`):

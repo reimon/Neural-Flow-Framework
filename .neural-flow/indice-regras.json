@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "impressao_digital": "51f2f502740bc9d5",
+  "impressao_digital": "d9442ca86d0d7f89",
   "fontes": [
     ".github/AI_SAFETY.md",
     "AGENTS.md",
@@ -83,7 +83,7 @@
       "id": "SEG-003",
       "categoria": "seguranca",
       "regra": "3. NUNCA versionar segredo",
-      "fonte": ".github/AI_SAFETY.md:44",
+      "fonte": ".github/AI_SAFETY.md:45",
       "secao": "2. NUNCA alterar randomstring.suffix",
       "guard": null
     },
@@ -91,7 +91,7 @@
       "id": "SEG-004",
       "categoria": "seguranca",
       "regra": "4. NUNCA relaxar um guard para fazer o gate passar",
-      "fonte": ".github/AI_SAFETY.md:58",
+      "fonte": ".github/AI_SAFETY.md:59",
       "secao": "3. NUNCA versionar segredo",
       "guard": null
     },
@@ -99,7 +99,7 @@
       "id": "SEG-005",
       "categoria": "seguranca",
       "regra": "5. NUNCA marcar item de sprint como [x] sem execucao verificada",
-      "fonte": ".github/AI_SAFETY.md:66",
+      "fonte": ".github/AI_SAFETY.md:67",
       "secao": "4. NUNCA relaxar um guard para fazer o gate passar",
       "guard": null
     },
@@ -107,7 +107,7 @@
       "id": "SEG-006",
       "categoria": "seguranca",
       "regra": "6. NUNCA editar artefato gerado a mao",
-      "fonte": ".github/AI_SAFETY.md:72",
+      "fonte": ".github/AI_SAFETY.md:73",
       "secao": "5. NUNCA marcar item de sprint como [x] sem execucao verificada",
       "guard": null
     },
@@ -115,7 +115,7 @@
       "id": "SEG-007",
       "categoria": "seguranca",
       "regra": "7. NUNCA commitar as imagens de tema",
-      "fonte": ".github/AI_SAFETY.md:78",
+      "fonte": ".github/AI_SAFETY.md:79",
       "secao": "6. NUNCA editar artefato gerado a mao",
       "guard": null
     },
@@ -123,7 +123,7 @@
       "id": "SEG-008",
       "categoria": "seguranca",
       "regra": "Commit ou push. Regra fixa do usuario: nunca sem autorizacao explicita.",
-      "fonte": ".github/AI_SAFETY.md:89",
+      "fonte": ".github/AI_SAFETY.md:90",
       "secao": "REQUEREM CONFIRMACAO DO USUARIO",
       "guard": null
     },
@@ -131,7 +131,7 @@
       "id": "SEG-009",
       "categoria": "seguranca",
       "regra": "Remover ou renomear um guard, um codigo de verificacao (S1, V3, P2...) ou um campo obrigatorio de template — e mudanca MAJOR: quebra projeto que ja adotou.",
-      "fonte": ".github/AI_SAFETY.md:94",
+      "fonte": ".github/AI_SAFETY.md:95",
       "secao": "REQUEREM CONFIRMACAO DO USUARIO",
       "guard": null
     },
@@ -139,7 +139,7 @@
       "id": "SEG-010",
       "categoria": "seguranca",
       "regra": "Nomes de recursos derivados em runtime, nunca fixos em docs/scripts — sufixos mudam e invalidam tudo de uma vez.",
-      "fonte": ".github/AI_SAFETY.md:128",
+      "fonte": ".github/AI_SAFETY.md:129",
       "secao": "Licoes operacionais",
       "guard": null
     },
@@ -147,7 +147,7 @@
       "id": "SEG-011",
       "categoria": "seguranca",
       "regra": "Operacao critica imprime evidencia do que realmente fez — nunca afirmar limpeza, remocao ou execucao que nao aconteceu.",
-      "fonte": ".github/AI_SAFETY.md:130",
+      "fonte": ".github/AI_SAFETY.md:131",
       "secao": "Licoes operacionais",
       "guard": null
     },
@@ -450,8 +450,8 @@
     {
       "id": "PRO-025",
       "categoria": "protocolo",
-      "regra": "Toda conclusao tecnica do periodo carrega nivel de confianca e classe de evidencia",
-      "fonte": "docs/protocols/calibration.md:147",
+      "regra": "Toda conclusao tecnica do periodo carrega nivel de confianca, verificacao executada e resultado observado",
+      "fonte": "docs/protocols/calibration.md:148",
       "secao": "Criterio PASS",
       "guard": null
     },
@@ -459,7 +459,7 @@
       "id": "PRO-026",
       "categoria": "protocolo",
       "regra": "Toda combinacao BAIXA + irreversivel resultou em pergunta ao humano",
-      "fonte": "docs/protocols/calibration.md:151",
+      "fonte": "docs/protocols/calibration.md:152",
       "secao": "Criterio PASS",
       "guard": null
     },

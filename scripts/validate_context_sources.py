@@ -48,6 +48,16 @@ RE_PARECE_CAMINHO = re.compile(
     r"^[\w./@-]+(?:/[\w./@-]+)*\.(md|py|ts|tsx|js|jsx|sql|ya?ml|json|tf|sh|toml|txt)$"
 )
 
+# Uma secao de evidencias precisa registrar uma prova observavel, nao apenas uma
+# frase de encerramento. O par comando/artefato + resultado cobre testes, lint,
+# validacao de infraestrutura e smoke checks sem exigir uma ferramenta
+# especifica do projeto adotante.
+RE_EVIDENCIA_EXEC = re.compile(
+    r"`[^`\n]+`.*(?:verde|sucesso|pass|conforme|executad|valid|limpo|"
+    r"diagnostico|bloquead|funcionando|medid|confirm|teste|saiu|ok)",
+    re.IGNORECASE,
+)
+
 IGNORAR_PREFIXO = ("http://", "https://", "mailto:", "#", "$", "npm ", "python ", "git ")
 
 
@@ -162,6 +172,13 @@ def validar(raiz: Path, caminho: Path, res: Resultado) -> None:
                 res.erro(
                     caminho, faixa_ev[0], "V3",
                     "sprint concluida com secao de evidencias vazia ou so com placeholder",
+                )
+            elif not any(RE_EVIDENCIA_EXEC.search(l) for l in uteis):
+                res.erro(
+                    caminho, faixa_ev[0], "V3",
+                    "sprint concluida sem evidencia executada: registre um comando ou "
+                    "artefato em crases e o resultado observado (por exemplo, verde, "
+                    "PASS, sucesso ou validacao)",
                 )
 
 

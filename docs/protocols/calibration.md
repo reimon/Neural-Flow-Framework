@@ -120,6 +120,7 @@ Sem dependencia externa, de proposito: roda em qualquer projeto, qualquer stack.
 | `C4` | Divergencia sem campo obrigatorio, ou com placeholder de template nao preenchido |
 | `C5` | Divergencia **irreversivel** ainda pendente — devia ter sido pergunta ao humano, nao registro autonomo |
 | `C6` | Divergencia sem as consultas ao indice tentadas (escada de verificacao nao percorrida) |
+| `C7` | Entrada do `DIARIO.md` com confianca declarada, mas sem verificacao e resultado observados |
 
 Arquivos ainda no estado de template e projetos sem loop sao ignorados (exit 0) — o guard
 nao atrapalha quem nao usa o protocolo, e trava quem usa errado.
@@ -144,7 +145,7 @@ git config core.hooksPath .githooks
 
 ## Criterio PASS
 
-- Toda conclusao tecnica do periodo carrega nivel de confianca e classe de evidencia
+- Toda conclusao tecnica do periodo carrega nivel de confianca, verificacao executada e resultado observado
 - Nenhum item fechado com confianca `BAIXA`
 - Escada de verificacao percorrida antes de registrar lacuna (fonte buscada, execucao tentada)
 - Reconsulta registrada quando o indice devolveu resultado fraco

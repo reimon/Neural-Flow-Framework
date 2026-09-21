@@ -227,7 +227,7 @@ Rodar tudo: `python scripts/nf_gate.py` · listar: `python scripts/nf_gate.py --
 | Vetor de Contexto | `nf_gate.py context` | V1-V3 | Executavel — pre-commit + CI |
 | ADR Governance | `nf_gate.py adr` | A1-A6 | Executavel — pre-commit + CI |
 | Spec-First | `nf_gate.py spec` | P1-P4 | Executavel — pre-commit + CI |
-| Calibracao | `nf_gate.py calibration` | C1-C6 | Executavel — pre-commit + CI |
+| Calibracao | `nf_gate.py calibration` | C1-C7 | Executavel — pre-commit + CI |
 | Evidencia Sintetica | `smoke-gate audit` + Action `fail-on: critical` | — | Executavel — PR + CI |
 | Loop Autonomo | Coberto por C1-C3 (coerencia plano x diario) | — | Parcial |
 | Neural-Memory | Reindex no CI (`.github/workflows/reindex.yml`) | — | Parcial — uso efetivo do MCP nao e verificavel automaticamente |

@@ -179,10 +179,13 @@ def main() -> int:
 
     falhas: list[str] = []
     externos: list[str] = []
+    executados: list[str] = []
+    inativos: list[str] = []
     for nome in escolhidos:
         script, protocolo, _ = GUARDS[nome]
         caminho, nosso = resolver(raiz, script)
         if caminho is None:
+            inativos.append(nome)
             continue  # guard nao instalado neste projeto — pula sem reclamar
         if not args.quiet:
             print(f"\n═══ {nome} ({protocolo}) " + "═" * max(0, 40 - len(nome)))
@@ -193,6 +196,7 @@ def main() -> int:
             codigo = rodar_externo(raiz, nome, cfg, args.quiet)
             if codigo is None:
                 externos.append(nome)
+                inativos.append(nome)
                 print(f"  externo: '{caminho.name}' e do projeto, nao do framework "
                       f"(sem a assinatura de origem).")
                 print(f"  O gate nao adivinha a interface dele. Configure em "
@@ -205,6 +209,8 @@ def main() -> int:
                 continue
             if codigo != 0:
                 falhas.append(nome)
+            else:
+                executados.append(nome)
             continue
 
         cmd = [sys.executable, str(caminho), "--root", args.root]
@@ -212,6 +218,8 @@ def main() -> int:
             cmd.append("--quiet")
         if subprocess.run(cmd).returncode != 0:
             falhas.append(nome)
+        else:
+            executados.append(nome)
 
     print()
     if externos:
@@ -221,7 +229,11 @@ def main() -> int:
         print(f"nf_gate: FAIL — {len(falhas)} guard(s): {', '.join(falhas)}")
         print("Nao use --no-verify. Corrija o que os guards apontaram.")
         return 1
-    print(f"nf_gate: PASS — {len(escolhidos)} guard(s) conforme")
+    if inativos:
+        print(f"nf_gate: PASS — {len(executados)} guard(s) conforme; "
+              f"{len(inativos)} inativo(s): {', '.join(inativos)}")
+    else:
+        print(f"nf_gate: PASS — {len(executados)} guard(s) conforme")
     return 0
 
 

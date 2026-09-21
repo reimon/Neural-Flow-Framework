@@ -38,8 +38,9 @@ Todo nome de recurso deriva de `local.suffix` (`srch-neuralflow-${local.suffix}`
 `random_string` forca recriacao de **toda** a infraestrutura de uma vez — inclusive o Key
 Vault, que tem `purge_protection_enabled = false` e apenas 7 dias de soft delete.
 
-**Nao existe `prevent_destroy` em nenhum recurso deste projeto.** Nao ha rede de
-protecao; a unica protecao e nao rodar apply.
+`prevent_destroy` ja esta ativo nos recursos criticos de `infra/terraform/main.tf`.
+Ele reduz o risco de um `plan` destrutivo, mas nao substitui a proibicao de executar
+`apply` ou `destroy`: o state continua local, sem backend remoto nem lock.
 
 ### 3. NUNCA versionar segredo
 
@@ -120,8 +121,8 @@ Antes de executar, **pergunte**:
   violadora, prova de aprovacao na conforme, e dogfood: o gate sobre este repositorio) e
   `reindex.yml` (ingestao Neural-Memory, usa segredos).
 - **Hook local:** `core.hooksPath=.githooks`; o pre-commit roda o gate sobre o **stage**.
-- Camadas de protecao que este projeto **nao** tem: `prevent_destroy`, backend remoto com
-  lock, gate de plan, aprovacao manual de infra. Trate `infra/` como frágil.
+- Camadas de protecao que este projeto **nao** tem: backend remoto com lock, gate de
+  plan e aprovacao manual de infra. Trate `infra/` como fragil.
 
 ## Licoes operacionais
 

@@ -154,6 +154,59 @@ class TestRegrasCriticas(unittest.TestCase):
             codigo, saida = rodar("validate_token_budget.py", Path(tmp))
             self.assertEqual(codigo, 0, f"B2 falso positivo com crases:\n{saida}")
 
+    def test_alerta_sem_mitigacao_reprova_sem_traceback(self) -> None:
+        """B3 precisa reprovar 70%+ sem alerta e emitir diagnostico, nao NameError."""
+        import tempfile
+
+        sprint = """# Sprint 9
+## Snapshot Operacional
+- Status: `em andamento`
+## FinOps de Tokens
+- Token budget: `1000`
+- Consumo observado: `800`
+- Mitigacao aplicada: `nenhuma`
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            destino = Path(tmp) / "docs" / "sprints"
+            destino.mkdir(parents=True)
+            (destino / "sprint-09.md").write_text(sprint, encoding="utf-8")
+            codigo, saida = rodar("validate_token_budget.py", Path(tmp))
+            self.assertEqual(codigo, 1, saida)
+            self.assertIn("B3", saida)
+            self.assertNotIn("NameError", saida)
+
+    def test_calibracao_exige_resultado_de_verificacao(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            build = Path(tmp) / "build"
+            build.mkdir()
+            (build / "PLANO.md").write_text("# Plano\n- [x] E1 — tarefa\n", encoding="utf-8")
+            (build / "DIARIO.md").write_text(
+                "# Diario\n- E1 — tarefa concluida — confianca: ALTA\n",
+                encoding="utf-8",
+            )
+            codigo, saida = rodar("validate_calibration.py", Path(tmp))
+            self.assertEqual(codigo, 1, saida)
+            self.assertIn("C7", saida)
+
+    def test_evidencia_de_sprint_precisa_de_resultado_observado(self) -> None:
+        import tempfile
+
+        sprint = """# Sprint 9
+## Snapshot Operacional
+- Status: `concluida`
+## Evidencias de Implementacao
+- Tudo funcionou.
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            destino = Path(tmp) / "docs" / "sprints"
+            destino.mkdir(parents=True)
+            (destino / "sprint-09.md").write_text(sprint, encoding="utf-8")
+            codigo, saida = rodar("validate_context_sources.py", Path(tmp))
+            self.assertEqual(codigo, 1, saida)
+            self.assertIn("V3", saida)
+
 
 class TestRastreabilidadeDeSpec(unittest.TestCase):
     """As checagens que separam spec detalhada de spec decorativa.
@@ -1738,6 +1791,24 @@ class TestOrquestrador(unittest.TestCase):
             capture_output=True, text=True,
         )
         self.assertEqual(proc.returncode, 2)
+
+    def test_nf_gate_informa_guards_inativos(self) -> None:
+        import contextlib
+        import io
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            import nf_gate
+
+            saida = io.StringIO()
+            with patch.object(sys, "argv", ["nf_gate.py", "--root", tmp, "--quiet"]), \
+                 patch.object(nf_gate, "resolver", return_value=(None, False)), \
+                 contextlib.redirect_stdout(saida):
+                codigo = nf_gate.main()
+            self.assertEqual(codigo, 0, saida.getvalue())
+            self.assertIn("0 guard(s) conforme", saida.getvalue())
+            self.assertIn("inativo(s)", saida.getvalue())
 
 
 if __name__ == "__main__":

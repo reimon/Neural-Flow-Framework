@@ -52,6 +52,6 @@ Fora de escopo nesta etapa:
 ## Evidencia (Neural-Flow)
 
 - Sprint de origem: `Sprint 1`
-- Guard associado: `python scripts/nf_gate.py calibration` (C1-C6), coberto por
+- Guard associado: `python scripts/nf_gate.py calibration` (C1-C7), coberto por
   `tests/test_guards.py`
 - Artefatos: `docs/protocols/calibration.md`, `scripts/validate_calibration.py`

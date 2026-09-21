@@ -71,6 +71,11 @@ def validar(caminho: Path, alerta_pct: float, res: Resultado) -> None:
     if linhas is None or eh_template(linhas):
         return
     res.verificado(caminho)
+    # O alerta pode ser registrado na narrativa da sprint, mas a decisao de
+    # bloquear precisa continuar baseada nos campos e no texto real do arquivo.
+    # Manter o corpo normalizado aqui tambem evita que uma variavel inexistente
+    # transforme um caso legitimo de 70%+ em traceback.
+    corpo = sem_acento("\n".join(linhas)).lower()
 
     faixa = secao(linhas, "Snapshot Operacional")
     dados = campos(linhas, *(faixa or (0, len(linhas))))
