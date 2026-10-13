@@ -59,6 +59,18 @@ hardcode de senha/chave em codigo
 commit de .env, *.tfvars com secrets
 ```
 
+### 7. NUNCA executar acao fora do Action Gateway
+
+Toda acao precisa existir em `.neural-flow/action-policy.json` e ser chamada por:
+
+```text
+python3 scripts/nf_action_gateway.py --action <id> --sprint <arquivo> -- <comando>
+```
+
+Acoes `sensitive` e `irreversible` exigem aprovacao humana interativa para o
+comando exato e devem ser bloqueadas fora de A0/A1. Quando a politica declarar
+sandbox obrigatoria, a ausencia do isolamento no host deve bloquear a execucao.
+
 ---
 
 ## REQUEREM CONFIRMACAO DO USUARIO

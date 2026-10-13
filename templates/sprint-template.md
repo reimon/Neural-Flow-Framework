@@ -4,6 +4,9 @@
 
 - App/Escopo: `a preencher`
 - Status: `planejada`
+- Tipo de trabalho: `a definir`
+- Versao do produto: `a definir`
+- Plano mestre: `a definir`
 - Data de inicio: `YYYY-MM-DD`
 - Data planejada de conclusao: `YYYY-MM-DD`
 - Data real de conclusao: `a preencher`
@@ -52,7 +55,7 @@ Descrever em 1 ou 2 paragrafos o resultado esperado da sprint.
 
 ### Bloco 1: Tema
 
-- [ ] 1.1 Acao detalhada
+- [ ] 1.1 Acao detalhada (IMP-001; REQ-001; CA-001)
   - Arquivo(s): `path/to/file.ts`
   - Validacao: `npm run check`
   - Evidencia: a preencher

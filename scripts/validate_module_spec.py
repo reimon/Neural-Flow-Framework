@@ -65,6 +65,7 @@ from nf_guards import (  # noqa: E402
     Resultado, arquivos, eh_placeholder, eh_template, ler, relatar, secao,
     sem_acento,
 )
+from nf_product_docs import diagnostico as diagnosticar_documentos_produto  # noqa: E402
 
 PROTOCOLO = "docs/protocols/spec-first.md"
 
@@ -352,6 +353,17 @@ def main() -> int:
     if res.verificados:
         checar_ids(definidos, citados, res)
         checar_estrutura(raiz, modulos, estrutura, res)
+
+    # P11 — quando a base esta preenchida, validar IDs de requisitos e a ordem
+    # do plano mestre antes de permitir que uma sprint a consuma.
+    documentos = diagnosticar_documentos_produto(raiz)
+    if documentos["enabled"] and all(
+        d["estrutura"] in {"completo", "nao_se_aplica"}
+        for d in documentos["documents"]
+    ):
+        for issue in documentos.get("issues", []):
+            res.verificado(".neural-flow.json")
+            res.erro(".neural-flow.json", None, "P11", issue)
 
     return relatar("spec-first", res, PROTOCOLO, args.quiet)
 

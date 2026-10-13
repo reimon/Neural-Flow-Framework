@@ -27,6 +27,7 @@ erro mais caro (e mais comum) de agentes.
 | Telemetria de tokens por provedor | `scripts/nf_tokens.py` | novo leitor de transcript |
 | Pagina de estado da governanca | `scripts/nf_dashboard.py` | segundo gerador de HTML |
 | Diagrama de arquitetura | `scripts/nf_diagrama.py` (le o registro de guards) | SVG editado a mao |
+| Executar acao do agente | `scripts/nf_action_gateway.py` + `nf_sandbox.py` + `.neural-flow/action-policy.json` | shell direto ou comando fora da allowlist |
 
 Em duvida sobre se algo ja existe: comece por `.neural-flow/indice-regras.md`, depois
 `README.md` (tabela do kit de adocao) e `docs/protocols/README.md`.
@@ -36,6 +37,7 @@ Em duvida sobre se algo ja existe: comece por `.neural-flow/indice-regras.md`, d
 ```text
 nf_gate.py  →  validate_*.py  →  nf_guards.py
 nf_install.py  →  templates/ + nf_agentes.py + nf_indice_regras.py
+nf_action_gateway.py  →  nf_action_policy.py  →  validate_sprint_state.py
 ```
 
 - **Guard nao importa guard.** Logica compartilhada desce para `nf_guards.py` — duplicar
@@ -44,6 +46,9 @@ nf_install.py  →  templates/ + nf_agentes.py + nf_indice_regras.py
   `tests/test_guards.py` roda os validadores num ambiente limpo.
 - **Todo script instalavel carrega `NF_GUARD_ASSINATURA`** — sem ela o `nf_gate` se recusa
   a executar o arquivo, para nao chamar um homonimo do projeto com os nossos argumentos.
+- **Toda acao do agente passa pelo gateway**: a politica e uma allowlist versionada; risco
+  sensivel ou irreversivel para em A0/A1 e pede aprovacao humana para o comando exato.
+  O gateway registra hash, decisao e resultado, nunca o comando cru.
 - O instalador **nunca sobrescreve** artefato existente sem `--force`; colisao vira
   instalacao lado a lado (`nf_<nome>`) ou anexo, sempre com aviso.
 
@@ -112,6 +117,8 @@ tokens que a consulta ao indice.
 - **`docs/img/arquitetura.svg` e `docs/dashboard-demo.html` sao gerados** — regenere com
   `nf_diagrama.py` / `nf_dashboard.py` → guard: testes de "esta atualizado".
 - **Imagem de tema nao entra no repositorio** (licenciamento) — ver `.gitignore`.
+- **Acoes sensiveis e irreversiveis nao sao aprovadas por texto natural**: use
+  `python3 scripts/nf_action_gateway.py --action <id> --sprint <arquivo> -- <comando>`.
 
 ## 6. Git (regra fixa do usuario)
 

@@ -63,6 +63,11 @@ GUARDS: dict[str, tuple[str, str, str]] = {
         "calibration",
         "confianca declarada, BAIXA nao fecha item, irreversivel nao vira registro",
     ),
+    "action": (
+        "validate_action_policy.py",
+        "action-gateway",
+        "allowlist de comandos, risco declarado e aprovacao humana para acoes sensiveis",
+    ),
     "agentes": (
         "validate_agent_entrypoints.py",
         "agent-entrypoints",

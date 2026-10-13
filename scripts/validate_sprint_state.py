@@ -36,6 +36,11 @@ from nf_guards import (  # noqa: E402
     Resultado, arquivos, campos, chave, eh_placeholder, eh_template, ler,
     relatar, secao, sem_acento,
 )
+from nf_product_docs import (  # noqa: E402
+    carregar_config as carregar_config_documentos,
+    diagnostico as diagnosticar_documentos_produto,
+    validar_rastreabilidade_sprint,
+)
 
 PROTOCOLO = "docs/protocols/state-protocol.md"
 
@@ -68,7 +73,7 @@ TERMOS_SENSIVEIS = (
 RE_ITEM_CHECKLIST = re.compile(r"^\s*[-*]\s*\[(?P<marca>[ xX])\]\s*(?P<num>\d+(\.\d+)*)\s")
 
 
-def validar(caminho: Path, res: Resultado) -> None:
+def validar(caminho: Path, res: Resultado, raiz: Path) -> None:
     linhas = ler(caminho)
     if linhas is None or eh_template(linhas):
         return
@@ -160,6 +165,32 @@ def validar(caminho: Path, res: Resultado) -> None:
                 f"{', '.join(abertos[:5])}",
             )
 
+    # S7 — sprint de implementacao nao entra em execucao sem a base aprovada.
+    tipo = chave(campos(linhas).get("tipo de trabalho", "").strip("`"))
+    if status == "em andamento" and tipo in {"implementacao", "implementation"}:
+        cfg, erro_cfg = carregar_config_documentos(raiz)
+        produto = cfg.get("product_docs")
+        habilitado = isinstance(produto, dict) and produto.get("enabled") is True
+        if erro_cfg:
+            res.erro(caminho, None, "S7", f"nao foi possivel verificar a base documental: {erro_cfg}")
+        elif not isinstance(produto, dict):
+            if "product_docs" in cfg:
+                res.erro(caminho, None, "S7", "product_docs invalido em .neural-flow.json")
+        elif habilitado:
+            diagnostico = diagnosticar_documentos_produto(raiz)
+            if not diagnostico["ready"]:
+                pendentes = [f"{d['titulo']}: {d['status']}" for d in diagnostico["documents"]
+                             if d["status"] != "aprovado"]
+                pendentes.extend(diagnostico.get("issues", []))
+                detalhe = "; ".join(pendentes[:6]) or "verifique os documentos e as aprovacoes"
+                res.erro(caminho, None, "S7",
+                         f"base documental incompleta ou desatualizada: {detalhe}; "
+                         "rode `python3 scripts/nf_product_docs.py --root .` para diagnosticar")
+            else:
+                erros_rastreio = validar_rastreabilidade_sprint(linhas, raiz)
+                for erro in erros_rastreio:
+                    res.erro(caminho, None, "S8", f"rastreabilidade da sprint: {erro}")
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Guard do State Protocol (Neural-Flow).")
@@ -179,7 +210,7 @@ def main() -> int:
 
     res = Resultado()
     for caminho in arquivos(raiz, *padroes):
-        validar(caminho, res)
+        validar(caminho, res, raiz)
     return relatar("state-protocol", res, PROTOCOLO, args.quiet)
 
 

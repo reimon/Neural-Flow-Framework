@@ -29,7 +29,7 @@ python scripts/nf_gate.py sprint          # so este protocolo
 python scripts/nf_gate.py                  # todos os guards
 ```
 
-Verifica: S1 snapshot completo · S2 status sem ambiguidade · S3 autonomia valida · S4 escopo sensivel em A0/A1 · S5 fronteira de escopo · S6 checklist numerado e coerente com o status.
+Verifica: S1 snapshot completo · S2 status sem ambiguidade · S3 autonomia valida · S4 escopo sensivel em A0/A1 · S5 fronteira de escopo · S6 checklist numerado e coerente com o status · S7 base documental aprovada · S8 rastreabilidade das acoes para o plano mestre.
 
 Roda no **pre-commit** (sobre o que esta em stage, nao sobre a arvore de trabalho) e no
 **CI** (autoritativo — hook local e opt-in por clone). Instalacao em

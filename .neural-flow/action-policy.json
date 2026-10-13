@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "enabled": true,
+  "execution": {
+    "sandbox": "required",
+    "network": false
+  },
+  "actions": [
+    {
+      "id": "run-tests",
+      "description": "Executar a suite de testes do framework",
+      "risk": "safe",
+      "argv_prefix": ["python3", "-m", "unittest"],
+      "requires_human_approval": false,
+      "max_runtime_seconds": 300,
+      "sprint": "docs/sprints/sprint-05-gateway-de-acoes.md",
+      "item": "3.1"
+    },
+    {
+      "id": "run-gates",
+      "description": "Executar todos os guards do framework",
+      "risk": "safe",
+      "argv_prefix": ["python3", "scripts/nf_gate.py"],
+      "requires_human_approval": false,
+      "max_runtime_seconds": 120,
+      "sprint": "docs/sprints/sprint-05-gateway-de-acoes.md",
+      "item": "3.1"
+    },
+    {
+      "id": "git-commit",
+      "description": "Criar commit versionado apos aprovacao humana",
+      "risk": "sensitive",
+      "argv_prefix": ["git", "commit"],
+      "requires_human_approval": true,
+      "max_runtime_seconds": 120,
+      "sprint": "docs/sprints/sprint-05-gateway-de-acoes.md",
+      "item": "3.2"
+    },
+    {
+      "id": "git-push",
+      "description": "Publicar mudancas no repositorio remoto apos aprovacao humana",
+      "risk": "irreversible",
+      "argv_prefix": ["git", "push"],
+      "requires_human_approval": true,
+      "max_runtime_seconds": 300,
+      "sprint": "docs/sprints/sprint-05-gateway-de-acoes.md",
+      "item": "3.2",
+      "network": true
+    }
+  ],
+  "audit_path": ".neural-flow/action-audit.jsonl"
+}

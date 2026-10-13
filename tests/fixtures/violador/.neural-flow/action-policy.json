@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "enabled": true,
+  "actions": [
+    {
+      "id": "dup",
+      "description": "",
+      "risk": "safe",
+      "argv_prefix": ["sh", "-c", "rm -rf"],
+      "requires_human_approval": true,
+      "max_runtime_seconds": 0,
+      "sprint": "docs/sprints/sprint-05-gateway-de-acoes.md",
+      "item": "99.9"
+    },
+    {
+      "id": "dup",
+      "description": "acao invalida",
+      "risk": "unknown",
+      "argv_prefix": [],
+      "requires_human_approval": false,
+      "max_runtime_seconds": 99999,
+      "sprint": "../fora.md",
+      "item": "1"
+    }
+  ],
+  "audit_path": "../secret.log"
+}

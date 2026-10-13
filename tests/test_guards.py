@@ -45,6 +45,7 @@ GUARDS = {
     "spec": ("validate_module_spec.py",
              {"P1", "P4", "P5", "P6", "P7", "P8", "P9"}),
     "calibration": ("validate_calibration.py", {"C1", "C2", "C3", "C4", "C5", "C6"}),
+    "action": ("validate_action_policy.py", {"G1", "G2", "G3", "G4", "G5"}),
 }
 
 RE_CODIGO = re.compile(r"^\s*\[([A-Z]\d)\]", re.MULTILINE)
@@ -832,6 +833,120 @@ class TestDashboard(unittest.TestCase):
 
     DASH = SCRIPTS / "nf_dashboard.py"
 
+    def _dados(self, **campos):
+        from nf_dashboard import Dados
+
+        padrao = dict(projeto="Projeto", gerado_em="2026-10-12 12:00",
+                      adrs={"total": 0, "por_status": {}},
+                      smoke={"configurado": False}, loop={"ativo": False})
+        padrao.update(campos)
+        return Dados(**padrao)
+
+    def _sprint(self, numero="1", **campos):
+        from nf_dashboard import Sprint
+
+        padrao = dict(arquivo=f"docs/sprints/sprint-{numero}.md", numero=numero,
+                      titulo=f"Sprint {numero}: Trabalho", status="em andamento",
+                      autonomia="A1", inicio="2026-10-01", prazo="2026-10-20",
+                      budget=1000, consumo=None, feitos=1, total=3, bloqueados=0)
+        padrao.update(campos)
+        return Sprint(**padrao)
+
+    def test_sprint_em_destaque_e_a_mais_recente_em_andamento(self) -> None:
+        antiga = self._sprint("1")
+        recente = self._sprint("10")
+        concluida = self._sprint("11", status="concluida")
+        dados = self._dados(sprints=[concluida, recente, antiga])
+        self.assertIs(dados.ativa, recente)
+        for status in ("planejada", "bloqueada", "concluida", "cancelada"):
+            with self.subTest(status=status):
+                self.assertIsNone(self._dados(sprints=[self._sprint(status=status)]).ativa)
+
+    def test_sem_guard_ativo_nao_afirma_conformidade(self) -> None:
+        from nf_dashboard import render
+
+        for estado in ("inativo", "ausente"):
+            with self.subTest(estado=estado):
+                dados = self._dados(guards=[dict(nome="sprint", protocolo="State Protocol",
+                                                estado=estado, achados=[], o_que="Sprint")])
+                texto = render(dados).split("<script", 1)[0]
+                self.assertIn("Nenhum controle ativo para avaliar este projeto.", texto)
+                self.assertNotIn("Os controles ativos deste retrato estao conformes.", texto)
+                self.assertNotIn("0/0", texto)
+
+    def test_pendencias_respeitam_data_status_e_orcamento(self) -> None:
+        from nf_dashboard import prioridades
+
+        sprints = [self._sprint("1", prazo="2026-10-10", consumo=850),
+                   self._sprint("2", prazo="2026-10-10", status="concluida"),
+                   self._sprint("3", prazo="2026-10-12"),
+                   self._sprint("4", prazo="invalido")]
+        dados = self._dados(sprints=sprints)
+        achados = prioridades(dados)
+        titulos = [a[0] for a in achados]
+        self.assertIn("Sprint 1: 2 dias em atraso", titulos)
+        self.assertIn("Sprint 1: 85% do budget", titulos)
+        self.assertFalse(any("Sprint 2" in t or "Sprint 3:" in t or "Sprint 4:" in t for t in titulos))
+        dados.gerado_em = "2026-10-09 12:00"
+        self.assertFalse(any("em atraso" in a[0] for a in prioridades(dados)))
+        dados.gerado_em = "data invalida"
+        self.assertFalse(any("em atraso" in a[0] for a in prioridades(dados)))
+
+    def test_base_opcional_ausente_nao_e_tratada_como_bloqueio(self) -> None:
+        from nf_dashboard import prioridades
+
+        docs = {"enabled": False, "ready": False}
+        self.assertEqual(prioridades(self._dados(documentos_produto=docs)), [])
+        docs["enabled"] = True
+        self.assertTrue(prioridades(self._dados(documentos_produto=docs)))
+        docs["ready"] = True
+        self.assertEqual(prioridades(self._dados(documentos_produto=docs)), [])
+
+    def test_blocker_do_snapshot_aparece_mesmo_em_sprint_em_andamento(self) -> None:
+        from nf_dashboard import prioridades
+
+        sprint = self._sprint(blocker="Aguardando revisao visual")
+        self.assertIn(("Sprint 1 com bloqueio", "Aguardando revisao visual", "historico"),
+                      prioridades(self._dados(sprints=[sprint])))
+        for valor in ("", "nenhum", "nenhuma", "nao se aplica", "a preencher"):
+            with self.subTest(valor=valor):
+                sprint.blocker = valor
+                self.assertFalse(prioridades(self._dados(sprints=[sprint])))
+
+    def test_atalhos_e_pendencias_possuem_destinos_e_ids_unicos(self) -> None:
+        from html.parser import HTMLParser
+        from nf_dashboard import render
+
+        class Links(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.ids = []
+                self.destinos = set()
+
+            def handle_starttag(self, tag, attrs):
+                valores = dict(attrs)
+                if "id" in valores:
+                    self.ids.append(valores["id"])
+                href = valores.get("href", "")
+                if href.startswith("#"):
+                    self.destinos.add(href[1:])
+
+        for sprints in ([], [self._sprint("1", prazo="2026-10-01")]):
+            with self.subTest(sprints=len(sprints)):
+                parser = Links()
+                parser.feed(render(self._dados(sprints=sprints)))
+                self.assertEqual(len(parser.ids), len(set(parser.ids)))
+                self.assertFalse(parser.destinos - set(parser.ids))
+
+    def test_proxima_acao_e_blocker_nao_injetam_html(self) -> None:
+        from nf_dashboard import render
+
+        dado = '<script>alert("x")</script>'
+        sprint = self._sprint(proxima_acao=dado, blocker=dado, bloqueados=1)
+        texto = render(self._dados(sprints=[sprint]))
+        self.assertIn("&lt;script&gt;", texto)
+        self.assertNotIn(dado, texto)
+
     def _gerar(self, raiz: Path, saida: Path) -> subprocess.CompletedProcess:
         return subprocess.run(
             [sys.executable, str(self.DASH), "--root", str(raiz), "--out", str(saida)],
@@ -909,8 +1024,8 @@ class TestDashboard(unittest.TestCase):
         """Cada quadro e cada protocolo explica o que representa.
 
         A ajuda usa o `popover` nativo do HTML: janela de verdade, com Esc e
-        clique-fora. O seletor de idioma e o unico comportamento em JavaScript
-        e fica inline, preservando a garantia de auto-contencao.
+        clique-fora. Os scripts de idioma e navegacao ficam inline,
+        preservando a garantia de auto-contencao.
         """
         import tempfile
 
@@ -957,19 +1072,213 @@ class TestDashboard(unittest.TestCase):
             texto = saida.read_text(encoding="utf-8")
             self.assertIn("Nenhuma sprint encontrada", texto)
 
-    def test_estouro_de_budget_aparece_como_critico(self) -> None:
-        """A leitura visual tem de bater com o veredito do guard."""
+    def test_seis_exemplos_offline_e_com_html_escapado(self) -> None:
+        import tempfile
+        from nf_product_docs import DOCUMENTOS
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t) / "projeto"
+            (raiz / ".neural-flow" / "product-examples").mkdir(parents=True)
+            for _papel, (_titulo, _desc, modelo, _secoes) in DOCUMENTOS.items():
+                (raiz / ".neural-flow" / "product-examples" /
+                 f"{Path(modelo).stem}.md.example").write_text(
+                    "# Modelo\n<script>alert(1)</script>\n", encoding="utf-8")
+            saida = Path(t) / "dashboard.html"
+            proc = self._gerar(raiz, saida)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = saida.read_text(encoding="utf-8")
+            self.assertEqual(texto.count("Ver exemplo</button>"), 6)
+            self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", texto)
+            self.assertNotIn("<script>alert(1)</script>", texto)
+            self.assertIn("popover", texto)
+
+
+class TestProductDocs(unittest.TestCase):
+    def _base_aprovada(self, raiz: Path) -> dict:
+        from nf_product_docs import DOCUMENTOS, hash_documento
+
+        produto = {"enabled": True, "documents": {}, "approvals": {}}
+        for papel, (titulo, _desc, modelo, secoes) in DOCUMENTOS.items():
+            caminho = raiz / "docs/product" / modelo
+            caminho.parent.mkdir(parents=True, exist_ok=True)
+            partes = [f"# {titulo}"]
+            for secao in secoes:
+                corpo = "Conteudo sintetico da fixture."
+                if papel == "prd" and secao == "Requisitos funcionais":
+                    corpo = "| REQ-001 | Entrada da fixture | atual |"
+                elif papel == "prd" and secao == "Criterios de aceite":
+                    corpo = "- **CA-001:** Entrada verificada na fixture."
+                elif papel == "implementation_plan" and secao == "Sequencia de implementacao":
+                    corpo = "| 1 | IMP-001 | Entrada | nenhuma | REQ-001 | CA-001 |"
+                partes.extend((f"## {secao}", corpo))
+            caminho.write_text("\n\n".join(partes) + "\n", encoding="utf-8")
+            mapa = {"path": str(caminho.relative_to(raiz))}
+            produto["documents"][papel] = mapa
+            produto["approvals"][papel] = {
+                "sha256": hash_documento(caminho, raiz, mapa), "reviewer": "fixture",
+                "evidence": "registro sintetico para teste do guard", "date": "2026-10-12",
+            }
+        (raiz / ".neural-flow.json").write_text(
+            json.dumps({"product_docs": produto}), encoding="utf-8")
+        return produto
+
+    def test_guard_sprint_exige_aprovacao_atual_e_tolera_preparacao(self) -> None:
         import tempfile
 
         with tempfile.TemporaryDirectory() as t:
-            saida = Path(t) / "d.html"
-            self._gerar(VIOLADOR, saida)
-            texto = saida.read_text(encoding="utf-8")
-            self.assertIn("130%", texto)
-            self.assertIn("--st-critical", texto)
+            raiz = Path(t)
+            produto = self._base_aprovada(raiz)
+            sprint = raiz / "docs/sprints/sprint-01.md"
+            sprint.parent.mkdir(parents=True)
+            texto = (CONFORME / "docs/sprints/sprint-01.md").read_text(encoding="utf-8")
+            texto = texto.replace("- App/Escopo:", "- Tipo de trabalho: `implementacao`\n- App/Escopo:")
+            texto = re.sub(r"^(\s*[-*]\s*\[[ xX]\]\s*\d+(?:\.\d+)*\s+.+)$",
+                           r"\1 (IMP-001; REQ-001; CA-001)", texto, flags=re.MULTILINE)
+            sprint.write_text(texto, encoding="utf-8")
+            code, output = rodar("validate_sprint_state.py", raiz)
+            self.assertEqual(code, 0, output)
 
-    def test_dados_sao_escapados(self) -> None:
-        """Titulo de sprint com HTML nao pode injetar marcacao na pagina."""
+            produto["approvals"].pop("prd")
+            (raiz / ".neural-flow.json").write_text(json.dumps({"product_docs": produto}), encoding="utf-8")
+            code, output = rodar("validate_sprint_state.py", raiz)
+            self.assertEqual(code, 1, output)
+            self.assertIn("S7", output)
+            sprint.write_text(texto.replace("`implementacao`", "`preparacao-documental`"), encoding="utf-8")
+            code, output = rodar("validate_sprint_state.py", raiz)
+            self.assertEqual(code, 0, output)
+
+            self._base_aprovada(raiz)
+            prd = raiz / "docs/product/prd.md"
+            prd.write_text(prd.read_text(encoding="utf-8").replace("Entrada da fixture", "Entrada alterada"), encoding="utf-8")
+            sprint.write_text(texto, encoding="utf-8")
+            code, output = rodar("validate_sprint_state.py", raiz)
+            self.assertEqual(code, 1, output)
+            self.assertIn("S7", output)
+
+    def test_guard_spec_reprova_referencia_e_dependencia_invalidas(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t)
+            self._base_aprovada(raiz)
+            code, output = rodar("validate_module_spec.py", raiz)
+            self.assertEqual(code, 0, output)
+            plano = raiz / "docs/product/implementation-plan.md"
+            original = plano.read_text(encoding="utf-8")
+            for antigo, novo in (("REQ-001", "REQ-999"), ("nenhuma", "IMP-001")):
+                with self.subTest(caso=novo):
+                    plano.write_text(original.replace(antigo, novo), encoding="utf-8")
+                    code, output = rodar("validate_module_spec.py", raiz)
+                    self.assertEqual(code, 1, output)
+                    self.assertIn("P11", output)
+
+    def test_instalacao_preserva_configuracao_existente_sem_force(self) -> None:
+        import tempfile
+        from nf_install import Instalacao, instalar_documentos_produto
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t)
+            config = raiz / ".neural-flow.json"
+            original = '{ "custom": { "keep": true } }\n'
+            config.write_text(original, encoding="utf-8")
+            inst = Instalacao(raiz, dry_run=False, forcar=False)
+            instalar_documentos_produto(inst, framework_existente=True)
+            self.assertEqual(config.read_text(encoding="utf-8"), original)
+            self.assertTrue(any("preservado" in aviso for aviso in inst.avisos))
+            self.assertEqual(len(list((raiz / ".neural-flow/product-examples").glob("*.example"))), 6)
+
+            inst = Instalacao(raiz, dry_run=False, forcar=True)
+            instalar_documentos_produto(inst, framework_existente=True)
+            dados = json.loads(config.read_text(encoding="utf-8"))
+            self.assertEqual(dados["custom"], {"keep": True})
+            self.assertFalse(dados["product_docs"]["enabled"])
+
+    def test_instalacao_inicial_e_dry_run_usam_o_contrato_de_escrita(self) -> None:
+        import tempfile
+        from nf_install import Instalacao, instalar_documentos_produto
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t)
+            instalar_documentos_produto(Instalacao(raiz, True, False), False)
+            self.assertFalse((raiz / ".neural-flow.json").exists())
+            self.assertFalse((raiz / ".neural-flow/product-examples").exists())
+            instalar_documentos_produto(Instalacao(raiz, False, False), False)
+            config = raiz / ".neural-flow.json"
+            antes = config.read_bytes()
+            self.assertTrue(json.loads(antes)["product_docs"]["enabled"])
+            instalar_documentos_produto(Instalacao(raiz, False, False), True)
+            self.assertEqual(config.read_bytes(), antes)
+
+    def _gerar(self, raiz: Path, saida: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(SCRIPTS / "nf_dashboard.py"), "--root", str(raiz), "--out", str(saida)],
+            capture_output=True, text=True,
+        )
+
+    def test_modelos_existem_e_sao_mostrados_quando_documentos_estao_ausentes(self) -> None:
+        import tempfile
+        from nf_product_docs import DOCUMENTOS, diagnostico
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t)
+            destino = raiz / ".neural-flow" / "product-examples"
+            destino.mkdir(parents=True)
+            for _papel, (_titulo, _descricao, modelo, _secoes) in DOCUMENTOS.items():
+                origem = RAIZ / "templates" / "product-docs" / modelo
+                self.assertTrue(origem.is_file(), origem)
+                (destino / f"{Path(modelo).stem}.md.example").write_text(
+                    origem.read_text(encoding="utf-8"), encoding="utf-8")
+            relatorio = diagnostico(raiz)
+            self.assertEqual(len(relatorio["documents"]), 6)
+            self.assertTrue(all(d["status"] == "ausente" for d in relatorio["documents"]))
+            self.assertTrue(all(d["exemplo"] for d in relatorio["documents"]))
+
+    def test_mapeamento_customizado_detecta_lacunas_sem_mover_arquivo(self) -> None:
+        import tempfile
+        from nf_product_docs import diagnostico
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t)
+            arquivo = raiz / "produto.md"
+            arquivo.write_text("# PRD\n\n## Visao geral\nProduto de teste.\n", encoding="utf-8")
+            (raiz / ".neural-flow.json").write_text(json.dumps({
+                "product_docs": {"enabled": True, "documents": {
+                    "prd": {"path": "produto.md", "sections": {"Visao geral": "Visao geral"}}
+                }}
+            }), encoding="utf-8")
+            relatorio = diagnostico(raiz)
+            prd = next(d for d in relatorio["documents"] if d["id"] == "prd")
+            self.assertEqual(prd["arquivo"], "produto.md")
+            self.assertEqual(prd["status"], "incompleto")
+            self.assertTrue(arquivo.is_file())
+
+    def test_rastreabilidade_da_sprint_exige_referencias_existentes(self) -> None:
+        import tempfile
+        from nf_product_docs import validar_rastreabilidade_sprint
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = Path(t)
+            plano = raiz / "plano.md"
+            plano.write_text("## Sequencia de implementacao\n\n"
+                             "| 1 | IMP-001 | Tela inicial | nenhuma | REQ-001 | CA-001 |\n",
+                             encoding="utf-8")
+            prd = raiz / "prd.md"
+            prd.write_text("# PRD\n\n| REQ-001 | Login | atual |\n| CA-001 | Login valido |\n",
+                           encoding="utf-8")
+            (raiz / ".neural-flow.json").write_text(json.dumps({
+                "product_docs": {"enabled": True, "documents": {
+                    "implementation_plan": {"path": "plano.md"}, "prd": {"path": "prd.md"}
+                }}
+            }), encoding="utf-8")
+            sprint = ["## Checklist de Acoes", "", "- [ ] 1.1 Construir tela (IMP-001; REQ-001; CA-001)"]
+            self.assertEqual(validar_rastreabilidade_sprint(sprint, raiz), [])
+            sprint[-1] = "- [ ] 1.1 Construir tela (IMP-999; REQ-009; CA-999)"
+            erros = validar_rastreabilidade_sprint(sprint, raiz)
+            self.assertTrue(any("IMP-999" in erro for erro in erros))
+            self.assertTrue(any("REQ-009" in erro for erro in erros))
+            self.assertTrue(any("CA-999" in erro for erro in erros))
+
+    def test_html_de_sprint_e_escapado(self) -> None:
         import tempfile
 
         with tempfile.TemporaryDirectory() as t:
@@ -977,15 +1286,12 @@ class TestDashboard(unittest.TestCase):
             (raiz / "docs" / "sprints").mkdir(parents=True)
             (raiz / "docs" / "sprints" / "s.md").write_text(
                 "# Sprint 1: <script>alert(1)</script>\n"
-                "## Snapshot Operacional\n- Status: `em andamento`\n",
-                encoding="utf-8",
-            )
-            saida = Path(t) / "d.html"
+                "## Snapshot Operacional\n- Status: `em andamento`\n", encoding="utf-8")
+            saida = Path(t) / "dashboard.html"
             self._gerar(raiz, saida)
             texto = saida.read_text(encoding="utf-8")
             self.assertNotIn("<script>alert", texto)
             self.assertIn("&lt;script&gt;", texto)
-
 
 class TestTelemetriaDeTokens(unittest.TestCase):
     """Consumo REAL, lido dos transcripts locais — nao o declarado na sprint.
