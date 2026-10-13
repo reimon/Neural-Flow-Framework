@@ -72,9 +72,9 @@ secoes e ajudas existentes.
   - Arquivo(s): `scripts/nf_install.py`, `tests/test_guards.py`
   - Validacao: suite completa com instalacoes greenfield e brownfield descartaveis
   - Evidencia: suite completa com 102 testes PASS; preservacao sem --force, dry-run e reinstalacao verificados.
-- [ ] 2.2 Commitar e publicar o conjunto completo em branch com PR
+- [x] 2.2 Commitar e publicar o conjunto completo em branch com PR
   - Validacao: hook sobre o stage, commit, push e checks do PR
-  - Evidencia: a preencher apos execucao
+  - Evidencia: commit 20f61ba publicado em codex/dashboard-sprint7; PR #1 aberto; 3 checks PASS no run 38329075984.
 
 ## Contexto e autorizacao
 
@@ -100,6 +100,13 @@ secoes e ajudas existentes.
 - `2026-10-12`: validacao do conjunto consolidado PASS: 102 testes em 357,761 s,
   mais 2 testes focados positivos/negativos de S7 e P11; 8 guards PASS.
 - `2026-10-12`: refs atualizadas do origin confirmaram base alinhada com main (0/0).
+- `2026-10-12`: commit `20f61ba` criado com 45 arquivos; hook sobre o stage PASS
+  com 8 guards. Push da branch `codex/dashboard-sprint7` confirmado.
+- `2026-10-12`: PR https://github.com/reimon/Neural-Flow-Framework/pull/1 publicado.
+  CI https://github.com/reimon/Neural-Flow-Framework/actions/runs/38329075984 PASS:
+  testes em Python 3.10 e 3.12 e dogfood dos protocolos.
+- Integracao na main depende do review humano obrigatorio. Revisao visual do painel,
+  adaptadores de sandbox e consumo especifico da Sprint 6 continuam pendentes.
 - Confianca: ALTA - execucoes acima e HTML gerado inspecionado.
 - Confianca: MEDIA - responsividade e interacoes avaliadas pelo codigo; revisao
   visual e uso real por teclado/celular ainda pendentes. A ferramenta de navegador
