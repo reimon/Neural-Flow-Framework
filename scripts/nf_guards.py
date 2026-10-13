@@ -117,6 +117,16 @@ def campos(linhas: list[str], inicio: int = 0, fim: int | None = None) -> dict[s
 # guard nao acha nenhuma delas.
 _RE_ENUMERACAO = re.compile(r"^\s*(?:§\s*)?\d{1,3}\s*[.)\-–—:]?\s+")
 
+# "- [x] 1.2 Contrato" / "* [ ] 1.2 Contrato" → "1.2".
+# O formato e compartilhado pelo guard de politica de acoes e por qualquer
+# outro validador que precise relacionar um artefato a uma sprint.
+_RE_CHECKLIST_ITEM = re.compile(r"^\s*[-*]\s*\[(?: |x|X)\]\s*(\d+(?:\.\d+)*)\b")
+
+
+def checklist_itens(linhas: list[str]) -> set[str]:
+    """Extrai IDs de itens numerados de checklists Markdown."""
+    return {m.group(1) for linha in linhas if (m := _RE_CHECKLIST_ITEM.match(linha))}
+
 
 # "## 🧭 Snapshot Operacional" → "Snapshot Operacional". Emoji em heading e
 # convencao comum em docs, e `sem_acento` so remove diacritico — o simbolo

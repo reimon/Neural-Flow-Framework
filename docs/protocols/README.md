@@ -1,12 +1,12 @@
 # Protocolos Operacionais Neural-Flow
 
-Este diretorio contem a implementacao operacional dos 10 protocolos nucleares do framework.
+Este diretorio contem a implementacao operacional dos 11 protocolos nucleares do framework.
 
 ## Objetivo
 
 Transformar principios de governanca em controles executaveis, auditaveis e repetiveis.
 
-Os 10 protocolos nucleares governam o **trabalho**; `agent-entrypoints.md` governa a
+Os 11 protocolos nucleares governam o **trabalho**; `agent-entrypoints.md` governa a
 **porta**: de nada adianta a regra existir se o agente que abriu o projeto nunca chegou
 ate ela.
 
@@ -24,6 +24,7 @@ ate ela.
 | Spec-First          | Especificar e passar em gate antes de codificar | Gate de Escopo   | Codigo sem spec; dado inventado     |
 | Loop Autonomo       | Execucao prolongada com estado em disco        | Gate de Evidencia | Estado so na conversa; item pronto sem verde |
 | Calibracao          | Tornar grau de certeza explicito e auditavel   | Gate de Confianca | Inferencia afirmada como verificacao |
+| Action Gateway      | Impedir execucao fora da politica e parar antes de risco alto | Gateway de Acoes | Comando sensivel sem aprovacao humana |
 | Portas de Entrada   | Levar toda ferramenta de IA a mesma diretriz   | Gate de Contexto  | Agente operando sem ter lido `AGENTS.md` |
 
 ## Ordem de aplicacao recomendada
@@ -38,7 +39,8 @@ ate ela.
 8. spec-first.md
 9. autonomous-loop.md
 10. calibration.md
-11. agent-entrypoints.md
+11. action-gateway.md
+12. agent-entrypoints.md
 
 ### Ordem de execucao num projeto novo (a ordem importa mais que a ferramenta)
 
@@ -58,7 +60,7 @@ para ser revisado.
 
 ## Regra de auditoria
 
-Uma sprint e considerada aderente quando todos os 10 protocolos estao em estado `PASS` ou possuem excecao formal registrada com data e aprovador.
+Uma sprint e considerada aderente quando todos os 11 protocolos estao em estado `PASS` ou possuem excecao formal registrada com data e aprovador.
 
 ## Template oficial de auditoria mensal
 

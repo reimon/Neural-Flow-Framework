@@ -154,6 +154,33 @@ h2{font-size:11.5px;font-weight:660;letter-spacing:.1em;text-transform:uppercase
   padding:2px 9px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
 .pill.ok{color:var(--st-good)} .pill.bad{color:var(--st-critical)}
 .pill.idle{color:var(--muted)}
+/* Base documental */
+.doc-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:12px}
+.doc-card{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;
+  padding:15px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.doc-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;width:100%}
+.doc-card-head h3{margin:0;font-size:15px;font-weight:630}
+.doc-card-head p{margin:3px 0 0;color:var(--muted);font-size:12.5px}
+.doc-path{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted);max-width:100%}
+.doc-path code{overflow-wrap:anywhere}
+.doc-gaps{margin:0;padding-left:18px;color:var(--text-2);font-size:12px}
+.doc-gaps li+li{margin-top:3px}
+.doc-next{margin:0;color:var(--text-2);font-size:12px}
+.doc-example-trigger{margin-top:auto;border:1px solid var(--line-forte);border-radius:7px;
+  background:var(--surface);color:var(--text);padding:7px 11px;font:inherit;font-size:12px;
+  font-weight:600;cursor:pointer}
+.doc-example-trigger:hover{border-color:var(--series-1);color:var(--series-1)}
+.doc-example-trigger:focus-visible{outline:2px solid var(--series-1);outline-offset:2px}
+.doc-pop{width:min(920px,calc(100vw - 28px));max-width:unset;max-height:88vh;
+  border:1px solid var(--line);border-radius:var(--radius);padding:0;overflow:hidden;
+  background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+@supports selector(:popover-open) {.doc-pop::backdrop{background:rgba(11,11,11,.52)}}
+.doc-pop-head{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:15px 18px;border-bottom:1px solid var(--line)}
+.doc-pop-head h3{margin:3px 0 0;font-size:18px}
+.doc-pop-body{max-height:calc(88vh - 72px);overflow:auto;padding:16px 20px}
+.doc-example{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-2);
+  font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}
 /* FinOps */
 .fin{display:grid;grid-template-columns:88px 1fr auto;align-items:center;gap:12px;
   margin:8px 0}
@@ -308,25 +335,97 @@ h2{font-size:10px;margin-bottom:7px;letter-spacing:.12em}.sub{font-size:12px;mar
 @media (max-width:960px){.about-hero{grid-template-columns:1fr}.architecture-figure{max-width:780px}.cycle-steps{grid-template-columns:repeat(3,1fr)}}
 @media (prefers-reduced-motion:reduce){.architecture-trigger svg,.architecture-trigger svg line,.architecture-trigger svg path[stroke],.diagram-modal:popover-open{animation:none;transition:none}}
 @media (max-width:640px){body:has(#theme-giyu:checked){--character-position:right -7rem top 6rem;--character-size:330px auto;--character-opacity:.48}body:has(#theme-tanjiro:checked){--character-position:center top 10rem;--character-size:470px auto;--character-opacity:.38}.wrap{padding:16px 14px 38px}header{align-items:flex-start}.header-meta{font-size:10.5px}.header-tools{width:100%;justify-content:space-between}.view-tab{padding:0 7px;font-size:10.5px}.command-bar{align-items:flex-start;flex-direction:column;gap:10px;padding:14px}.command-actions{width:100%;justify-content:space-between}.tiles,.grid,.about-grid,.about-principles{grid-template-columns:1fr}.card.wide,.card:nth-of-type(n){grid-column:1}.tile{min-height:96px}.brand-lockup p{font-size:10.5px}.about-copy,.about-block,.about-cycle{padding:19px}.about-copy h2{font-size:23px}.cycle-steps{grid-template-columns:1fr 1fr}}
+/* Leitura e navegacao: dimensoes seguem o conteudo, sem depender da ordem dos cards. */
+html{scroll-behavior:smooth;scroll-padding-top:96px}
+.wrap{max-width:1320px;padding:32px 28px 64px}
+h1{font-size:clamp(20px,2.4vw,28px);overflow-wrap:anywhere}
+h2{font-size:16px;font-weight:650;letter-spacing:-.02em;text-transform:none;margin-bottom:10px;color:var(--text)}
+.card>h2::after{display:none}
+.card{min-width:0;padding:24px;border-radius:12px}
+.grid>.card{grid-column:span 6;align-self:start}
+.grid>.wide{grid-column:1/-1}
+.grid>.layout-sprint{grid-column:span 7}
+.grid>.layout-guards{grid-column:span 5}
+.tiles{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.tile{min-width:0;padding:20px;min-height:126px}
+.tile-k{text-transform:none;letter-spacing:0;font-size:12px;color:var(--text-2)}
+.tile-s{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.tile-v,.hero-n{font-variant-numeric:tabular-nums}
+.sub,.nota,.snapshot-note{color:var(--text-2);line-height:1.6}
+.header-meta .live-dot{background:var(--muted);box-shadow:none}
+.sub{font-size:13px;margin-bottom:16px}
+.snapshot-note{font-size:12px;margin:12px 2px 20px;max-width:75ch}
+.section-nav{position:sticky;top:12px;z-index:3;display:flex;flex-wrap:wrap;gap:4px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow)}
+.section-nav a{display:inline-flex;gap:7px;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;color:var(--text-2);text-decoration:none;transition:background .18s,color .18s}
+.section-nav a:hover,.section-nav a[aria-current]{background:var(--acao-hover);color:var(--marca)}
+.section-nav a span,.section-count{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--muted-fill);color:var(--text-2);border-radius:4px;padding:1px 6px}
+.section-count{margin-left:10px}
+.priority-list{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;list-style:none;margin:0;padding:0}
+.priority-list li{border-top:1px solid var(--line)}
+.priority-list a{display:grid;grid-template-columns:24px minmax(0,1fr) 16px;gap:12px;padding:16px 2px;color:var(--text);text-decoration:none;border-radius:4px;transition:background .18s}
+.priority-list a:hover{background:var(--acao-hover)}
+.priority-list strong{display:block;font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.priority-index{font:11px/1.8 ui-monospace,monospace;color:var(--marca)}
+.priority-detail{display:block;font-size:12px;line-height:1.55;color:var(--text-2);margin-top:3px;overflow-wrap:anywhere}
+.priority-arrow{color:var(--marca);font-size:16px}
+.command-copy strong{font-size:20px;line-height:1.35}
+.command-copy>span:last-child{max-width:64ch;margin-top:4px;font-size:13px}
+.command-bar.neutral{border-color:var(--line);border-left-color:var(--marca);background:var(--surface)}
+.command-bar.neutral .eyebrow,.risk-badge.neutral{color:var(--text-2)}
+.risk-badge.neutral i{background:var(--muted)}
+.sprint-title{font-size:19px;font-weight:600;line-height:1.4;letter-spacing:-.02em;margin:0 0 22px}
+.next-step{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.next-step>span{font-size:12px;color:var(--text-2)}
+.next-step p{margin:4px 0 0;font-size:14px;overflow-wrap:anywhere}
+.section-details summary{cursor:pointer;min-height:44px;padding:10px 0;color:var(--marca);font-size:13px;font-weight:600}
+.section-details[open] summary{margin-bottom:12px}
+.doc-card-head{flex-wrap:wrap}
+.kv dd,.guard-c,.achados,.vazio,.mono{overflow-wrap:anywhere}
+.grow{min-width:min(230px,100%)}
+.tbl-scroll{max-width:100%}
+.tbl td:nth-child(2){min-width:180px;max-width:36ch;white-space:normal;overflow-wrap:anywhere}
+.help{position:relative;width:24px;height:24px;font-size:12px;flex:none}
+.help::after{content:"";position:absolute;inset:-5px}
+.help-sm{width:22px;height:22px}
+.view-tab,.theme-option,.action-link,.doc-example-trigger,.pop-x,.diagram-close{min-height:40px}
+.theme-option{width:40px}
+.pop-x{display:inline-flex;align-items:center;justify-content:center;min-width:40px}
+.skip-link{position:absolute;left:16px;top:12px;z-index:5;transform:translateY(-180%);background:var(--surface);color:var(--marca);padding:12px 16px;border:1px solid var(--marca);border-radius:6px}
+.skip-link:focus{transform:none}
+a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--marca);outline-offset:4px}
+@media(max-width:960px){.wrap{padding:24px 20px 48px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.grid>.card{grid-column:span 1}.grid>.wide,.grid>.layout-sprint,.grid>.layout-guards{grid-column:1/-1}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){html{scroll-padding-top:24px}.wrap{padding:18px 12px 40px}header{gap:16px}.header-tools{gap:10px;justify-content:flex-start;flex-wrap:wrap}.header-meta{width:100%}.section-nav{position:static;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:thin}.section-nav a{flex:none;min-height:44px}.grid{grid-template-columns:minmax(0,1fr);gap:16px}.grid>.card,.grid>.wide{grid-column:1/-1}.card{padding:20px 16px}.priority-list{grid-template-columns:1fr}.tiles{gap:10px}.tile{padding:16px 12px;min-height:120px}.tile-v{font-size:28px}.tile-s{font-size:11px}.command-copy strong{font-size:18px}.command-actions{flex-wrap:wrap;gap:10px;white-space:normal}.fin{grid-template-columns:70px minmax(0,1fr)}.fin-v{grid-column:1/-1;text-align:right}.kv{grid-template-columns:repeat(2,minmax(0,1fr))}.view-tab,.theme-option,.action-link,.doc-example-trigger,.diagram-close{min-height:44px}.row{gap:20px}.ses{grid-template-columns:minmax(0,1fr) auto}.ses-v{grid-column:2}.ses-n{overflow-wrap:anywhere}}
+@media(max-width:360px){.tiles{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+@media(max-width:640px){.theme-option{width:44px}.help::after{inset:-10px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<a class="skip-link" href="#painel">Ir para o painel</a>
 <div class="wrap">
 <header>
   <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">NF</span><div><h1>AgendaMed <span>· Neural-Flow</span></h1><p>Visão de execução, risco e governança do projeto</p></div></div>
   <div class="header-tools"><fieldset class="view-tabs"><legend>Seção do dashboard</legend><input type="radio" name="view" id="view-dashboard" checked><label class="view-tab" for="view-dashboard">Painel</label><input type="radio" name="view" id="view-about"><label class="view-tab" for="view-about">O Neural-Flow</label></fieldset><fieldset class="language-picker"><legend>Idioma / Language</legend><input type="radio" name="language" id="lang-pt" value="pt" checked><label class="view-tab" for="lang-pt">PT</label><input type="radio" name="language" id="lang-en" value="en"><label class="view-tab" for="lang-en">EN</label></fieldset><fieldset class="theme-picker"><legend>Escolha a paleta do dashboard</legend><input type="radio" name="theme" id="theme-light" checked><label class="theme-option" for="theme-light" aria-label="Tema claro"><span class="theme-swatch light" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-dark"><label class="theme-option" for="theme-dark" aria-label="Tema escuro"><span class="theme-swatch dark" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-giyu"><label class="theme-option" for="theme-giyu" aria-label="Tema Giyu: vinho, verde e azul-neblina"><span class="theme-swatch giyu" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-tanjiro"><label class="theme-option" for="theme-tanjiro" aria-label="Tema Tanjiro: água, verde e azul-noturno"><span class="theme-swatch tanjiro" aria-hidden="true"></span></label></fieldset><div class="header-meta"><span class="live-dot" aria-hidden="true"></span><span>Atualizado em 08 ago 2026 · 12:00</span></div></div>
 </header>
 
-<main class="dashboard-view">
-<section class="command-bar attention" aria-label="Resumo executivo">
-  <div class="command-copy"><span class="eyebrow">Resumo executivo</span><strong>Execução em andamento, com 1 controle que exige ação antes do próximo commit.</strong><span>Prioridade: regularize os guards reprovados e registre a evidência pendente.</span></div>
-  <div class="command-actions"><span class="risk-badge attention"><i aria-hidden="true"></i> Atenção necessária</span><a href="#guards" class="action-link">Ver controles <span aria-hidden="true">→</span></a></div>
+<main class="dashboard-view" id="painel" tabindex="-1">
+<section class="command-bar attention" id="resumo" aria-label="Resumo executivo">
+  <div class="command-copy"><span class="eyebrow">Resumo executivo</span><strong>4 pontos precisam de revisao.</strong><span>Comece pelos controles reprovados, bloqueios e prazos.</span></div>
+  <div class="command-actions"><span class="risk-badge attention"><i aria-hidden="true"></i> Revisao pendente</span><a href="#prioridades" class="action-link">Ver pendencias <span aria-hidden="true">→</span></a></div>
 </section>
 
-<div class="tiles"><div class="tile bad"><span class="tile-k">Governanca<button type="button" class="help help-sm" popovertarget="ajuda-tile-governanca" aria-label="O que e Governanca?">?</button></span><span class="tile-v">4/5</span><span class="tile-s">1 reprovando — corrija antes do commit</span></div><div class="tile ok"><span class="tile-k">Sprint ativa<button type="button" class="help help-sm" popovertarget="ajuda-tile-sprint" aria-label="O que e Sprint ativa?">?</button></span><span class="tile-v">#02</span><span class="tile-s">Sprint 2: Motor de agendamento</span></div><div class="tile warn"><span class="tile-k">Divergencias<button type="button" class="help help-sm" popovertarget="ajuda-tile-divergencias" aria-label="O que e Divergencias?">?</button></span><span class="tile-v">1</span><span class="tile-s">decisoes aguardando revisao humana</span></div><div class="tile ok"><span class="tile-k">ADRs<button type="button" class="help help-sm" popovertarget="ajuda-tile-adrs" aria-label="O que e ADRs?">?</button></span><span class="tile-v">4</span><span class="tile-s">3 aceito · 1 superado</span></div></div>
+<div class="tiles"><div class="tile bad"><span class="tile-k">Governanca<button type="button" class="help help-sm" popovertarget="ajuda-tile-governanca" aria-label="O que e Governanca?">?</button></span><span class="tile-v">4/5</span><span class="tile-s">1 reprovando; revise os achados</span></div><div class="tile ok"><span class="tile-k">Sprint ativa<button type="button" class="help help-sm" popovertarget="ajuda-tile-sprint" aria-label="O que e Sprint ativa?">?</button></span><span class="tile-v">#02</span><span class="tile-s">Sprint 2: Motor de agendamento</span></div><div class="tile warn"><span class="tile-k">Divergencias<button type="button" class="help help-sm" popovertarget="ajuda-tile-divergencias" aria-label="O que e Divergencias?">?</button></span><span class="tile-v">1</span><span class="tile-s">decisoes aguardando revisao humana</span></div><div class="tile ok"><span class="tile-k">ADRs<button type="button" class="help help-sm" popovertarget="ajuda-tile-adrs" aria-label="O que e ADRs?">?</button></span><span class="tile-v">4</span><span class="tile-s">3 aceito · 1 superado</span></div></div>
+
+<nav class="section-nav" aria-label="Navegacao do painel">
+  <a href="#resumo">Resumo</a><a href="#prioridades">Pendencias <span>4</span></a><a href="#sprint">Sprint</a><a href="#guards">Controles</a><a href="#documentos-produto">Documentos</a><a href="#finops">Tokens</a><a href="#grafo">Conhecimento</a><a href="#historico">Historico</a>
+</nav>
+<p class="snapshot-note">Retrato local gerado em 08 ago 2026 · 12:00. Os dados mudam quando o painel e gerado novamente.</p>
 
 <div class="grid">
-  <section class="card wide"><h2>Sprint ativa<button type="button" class="help" popovertarget="ajuda-sprint" aria-label="O que e Sprint ativa?">?</button></h2>
+  <section class="card wide priority-card" id="prioridades"><h2>O que precisa de atencao <span class="section-count">4</span></h2>
+    <p class="sub">Sinais dos artefatos para orientar a proxima revisao</p><ol class="priority-list"><li><a href="#guards"><span class="priority-index">01</span><span><strong>Vetor de Contexto</strong><span class="priority-detail">Corrija os achados desta verificacao.</span></span><span class="priority-arrow" aria-hidden="true">↗</span></a></li><li><a href="#smoke"><span class="priority-index">02</span><span><strong>2 achados criticos no ultimo audit</strong><span class="priority-detail">Revise o relatorio e confirme a correcao.</span></span><span class="priority-arrow" aria-hidden="true">↗</span></a></li><li><a href="#finops"><span class="priority-index">03</span><span><strong>Sprint 02: 77% do budget</strong><span class="priority-detail">Revise o consumo declarado e a mitigacao registrada.</span></span><span class="priority-arrow" aria-hidden="true">↗</span></a></li><li><a href="#loop"><span class="priority-index">04</span><span><strong>1 divergencias aguardando revisao</strong><span class="priority-detail">Revise as decisoes pendentes antes de continuar o loop.</span></span><span class="priority-arrow" aria-hidden="true">↗</span></a></li></ol></section>
+  <section class="card layout-sprint" id="sprint"><h2>Sprint ativa<button type="button" class="help" popovertarget="ajuda-sprint" aria-label="O que e Sprint ativa?">?</button></h2>
+        <p class="sprint-title">Sprint 2: Motor de agendamento</p>
         <div class="row">
           <div class="hero"><span class="hero-n">40<span class="hero-u">%</span></span>
             <span class="hero-l">2 de 5 itens</span></div>
@@ -341,51 +440,16 @@ h2{font-size:10px;margin-bottom:7px;letter-spacing:.12em}.sub{font-size:12px;mar
               <div class="span"><dt>Arquivo</dt><dd class="mono">docs/sprints/sprint-02.md</dd></div>
             </dl>
           </div>
-        </div></section>
-  <section class="card" id="guards"><h2>Guards<button type="button" class="help" popovertarget="ajuda-guards" aria-label="O que e Guards?">?</button></h2>
-    <p class="sub">Executados agora, sobre a arvore de trabalho</p><div class="guards"><div class="guard pass"><div class="guard-h"><span class="guard-n">State Protocol</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Sprint validada antes de executar</span><code class="guard-c">nf_gate.py sprint</code></div><div class="guard pass"><div class="guard-h"><span class="guard-n">Circuit Breaker</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Orcamento de tokens declarado</span><code class="guard-c">nf_gate.py budget</code></div><div class="guard fail"><div class="guard-h"><span class="guard-n">Vetor de Contexto</span><span class="pill bad"><span aria-hidden="true">&#10007;</span>FAIL</span></div><span class="guard-d">Decisao ancorada em fonte que existe</span><code class="guard-c">nf_gate.py context</code><ul class="achados"><li><code>V3</code> docs/sprints/sprint-01.md — sprint concluida sem secao de evidencias</li></ul></div><div class="guard pass"><div class="guard-h"><span class="guard-n">ADR Governance</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Decisao numerada, sem ciclo nem pendura</span><code class="guard-c">nf_gate.py adr</code></div><div class="guard inativo"><div class="guard-h"><span class="guard-n">Spec-First</span><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div><span class="guard-d">Spec completa antes do codigo</span><code class="guard-c">nf_gate.py spec</code></div><div class="guard pass"><div class="guard-h"><span class="guard-n">Calibracao</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Confianca declarada e derivada de evidencia</span><code class="guard-c">nf_gate.py calibration</code></div></div></section>
-  <section class="card"><h2>FinOps de tokens<button type="button" class="help" popovertarget="ajuda-finops" aria-label="O que e FinOps de tokens?">?</button></h2>
-    <p class="sub">Orcamento declarado x consumo observado</p><div class="fin"><span class="fin-l">Sprint 01</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--st-critical)"></div></div><span class="fin-v bad-t">560k / 500k (112%)</span></div><div class="fin"><span class="fin-l">Sprint 02</span><div class="track" style="height:8px"><div class="fill" style="width:76.9%;background:var(--st-warning)"></div></div><span class="fin-v warn-t">615k / 800k (77%)</span></div><p class="nota">Limite de alerta em 70%. Consumo &ge; 100% do budget sem mitigacao registrada reprova no guard <code>budget</code> (B3).</p><div class="sep"></div><p class="sub">Declarado x medido — sprint ativa</p><div class="fin"><span class="fin-l">Declarado</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--muted-fill)"></div></div><span class="fin-v">615k</span></div><div class="fin"><span class="fin-l">Medido</span><div class="track" style="height:8px"><div class="fill" style="width:30.7%;background:var(--series-3)"></div></div><span class="fin-v">245k</span></div><p class="nota">O medido vem dos transcripts locais e cobre 30 dias do projeto inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o proximo budget, nao como substituto do registro.</p><div class="sep"></div><p class="sub">Tokens gastos na construcao do indice</p><div class="fin"><span class="fin-l">Entrada</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="fin-v">412k</span></div><div class="fin"><span class="fin-l">Saida</span><div class="track" style="height:8px"><div class="fill" style="width:19.1%;background:var(--series-2)"></div></div><span class="fin-v">79k</span></div></section>
-  <section class="card"><h2>smoke-gate<button type="button" class="help" popovertarget="ajuda-smoke" aria-label="O que e smoke-gate?">?</button></h2>
-    <p class="sub">Gate de evidencia sobre codigo e schema</p>
-        <dl class="kv">
-          <div><dt>Versao</dt><dd class="mono">v0.5.0</dd></div>
-          <div><dt>Ultimo audit</dt><dd class="ok-t">2026-08-08 19:05</dd></div>
-        </dl><div class="sev"><span class="sev-i critical"><span aria-hidden="true">&#9679;</span>2 critical</span><span class="sev-i warning"><span aria-hidden="true">&#9679;</span>5 warning</span><span class="sev-i info"><span aria-hidden="true">&#9679;</span>2 info</span></div>
-        <p class="nota">Rode <code>npx smoke-gate audit --since origin/main</code> no PR.
-        O relatorio <code>audit-report.md</code> e a evidencia do gate.</p></section>
-  <section class="card"><h2>Indice de conhecimento<button type="button" class="help" popovertarget="ajuda-grafo" aria-label="O que e Indice de conhecimento?">?</button></h2>
-    <p class="sub">Grafo construido sobre a documentacao</p>
-        <div class="stats">
-          <div><span class="s-v">742</span><span class="s-k">nos</span></div>
-          <div><span class="s-v">1.2k</span><span class="s-k">arestas</span></div>
-          <div><span class="s-v">8</span><span class="s-k">comunidades</span></div>
-          <div><span class="s-v">104</span><span class="s-k">arquivos</span></div>
         </div>
-        <div class="btns"><a class="btn" href="graphify-out/graph.html" target="_blank" rel="noopener noreferrer"><span class="btn-t">Grafo interativo</span><span class="btn-d">force-directed, filtro por comunidade · 196 B</span></a><a class="btn" href="graphify-out/wiki/index.md" target="_blank" rel="noopener noreferrer"><span class="btn-t">Wiki</span><span class="btn-d">um artigo por comunidade, navegavel · 81 B</span></a><a class="btn" href="graphify-out/GRAPH_REPORT.md" target="_blank" rel="noopener noreferrer"><span class="btn-t">Relatorio</span><span class="btn-d">god nodes e comunidades, em texto · 79 B</span></a></div>
-        <p class="sub">Maiores comunidades, por numero de nos</p>
-        <div class="hbar"><span class="hbar-label" title="agendamento">agendamento</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="hbar-val">148</span></div><div class="hbar"><span class="hbar-label" title="pacientes">pacientes</span><div class="hbar-track"><div class="hbar-fill" style="width:81.8%;background:var(--series-1)"></div></div><span class="hbar-val">121</span></div><div class="hbar"><span class="hbar-label" title="profissionais">profissionais</span><div class="hbar-track"><div class="hbar-fill" style="width:71.6%;background:var(--series-1)"></div></div><span class="hbar-val">106</span></div><div class="hbar"><span class="hbar-label" title="notificacao">notificacao</span><div class="hbar-track"><div class="hbar-fill" style="width:66.2%;background:var(--series-1)"></div></div><span class="hbar-val">98</span></div><div class="hbar"><span class="hbar-label" title="prontuario">prontuario</span><div class="hbar-track"><div class="hbar-fill" style="width:58.8%;background:var(--series-1)"></div></div><span class="hbar-val">87</span></div><div class="hbar"><span class="hbar-label" title="faturamento">faturamento</span><div class="hbar-track"><div class="hbar-fill" style="width:48.0%;background:var(--series-1)"></div></div><span class="hbar-val">71</span></div><div class="hbar"><span class="hbar-label" title="integracao">integracao</span><div class="hbar-track"><div class="hbar-fill" style="width:42.6%;background:var(--series-1)"></div></div><span class="hbar-val">63</span></div><div class="hbar"><span class="hbar-label" title="auditoria">auditoria</span><div class="hbar-track"><div class="hbar-fill" style="width:32.4%;background:var(--series-1)"></div></div><span class="hbar-val">48</span></div>
-        <p class="nota">Atualizado em 2026-08-08 19:05.
-        <strong>108 arestas AMBIGUOUS</strong> — sao os pontos onde a especificacao deixou uma relacao sem fechar.
-        Consulte o indice antes de ler arquivo: custa ~48x menos tokens.</p></section>
-  <section class="card"><h2>Loop autonomo<button type="button" class="help" popovertarget="ajuda-loop" aria-label="O que e Loop autonomo?">?</button></h2>
-    <p class="sub">Estado em disco, nao na conversa</p>
-        <div class="row">
-          <div class="hero"><span class="hero-n">60<span class="hero-u">%</span></span>
-            <span class="hero-l">3 de 5 itens</span></div>
-          <div class="grow"><div class="track" style="height:10px"><div class="fill" style="width:60.0%;background:var(--series-3)"></div></div>
-            <dl class="kv">
-              <div><dt>Iteracoes</dt><dd>3</dd></div>
-              <div><dt>Bloqueados</dt><dd>1</dd></div>
-              <div><dt>Divergencias</dt><dd class="warn-t">1</dd></div>
-            </dl>
-          </div>
-        </div>
-        <div class="sep"></div>
-        <p class="sub">Confianca declarada por iteracao</p><div class="hbar"><span class="hbar-label">Alta</span><div class="hbar-track"><div class="hbar-fill" style="width:66.7%;background:var(--st-good)"></div></div><span class="hbar-val">2</span></div><div class="hbar"><span class="hbar-label">Media</span><div class="hbar-track"><div class="hbar-fill" style="width:33.3%;background:var(--series-1)"></div></div><span class="hbar-val">1</span></div><div class="hbar"><span class="hbar-label">Baixa</span><div class="hbar-track"><div class="hbar-fill" style="width:0.0%;background:var(--st-warning)"></div></div><span class="hbar-val">0</span></div>
-        <p class="nota">Item marcado pronto nunca pode ser <code>BAIXA</code> —
-        o guard <code>calibration</code> reprova (C2).</p></section>
-  <section class="card"><h2>Consumo real de tokens<button type="button" class="help" popovertarget="ajuda-tokens" aria-label="O que e Consumo real de tokens?">?</button></h2>
+        <div class="next-step"><span>Proxima acao registrada</span><p>implementar deteccao de conflito de horario</p></div></section>
+  <section class="card layout-guards" id="guards"><h2>Guards<button type="button" class="help" popovertarget="ajuda-guards" aria-label="O que e Guards?">?</button></h2>
+    <p class="sub">Verificados ao gerar este retrato, sobre a arvore de trabalho</p><div class="guards"><div class="guard pass"><div class="guard-h"><span class="guard-n">State Protocol</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Sprint validada antes de executar</span><code class="guard-c">nf_gate.py sprint</code></div><div class="guard pass"><div class="guard-h"><span class="guard-n">Circuit Breaker</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Orcamento de tokens declarado</span><code class="guard-c">nf_gate.py budget</code></div><div class="guard fail"><div class="guard-h"><span class="guard-n">Vetor de Contexto</span><span class="pill bad"><span aria-hidden="true">&#10007;</span>FAIL</span></div><span class="guard-d">Decisao ancorada em fonte que existe</span><code class="guard-c">nf_gate.py context</code><ul class="achados"><li><code>V3</code> docs/sprints/sprint-01.md — sprint concluida sem secao de evidencias</li></ul></div><div class="guard pass"><div class="guard-h"><span class="guard-n">ADR Governance</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Decisao numerada, sem ciclo nem pendura</span><code class="guard-c">nf_gate.py adr</code></div><div class="guard inativo"><div class="guard-h"><span class="guard-n">Spec-First</span><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div><span class="guard-d">Spec completa antes do codigo</span><code class="guard-c">nf_gate.py spec</code></div><div class="guard pass"><div class="guard-h"><span class="guard-n">Calibracao</span><span class="pill ok"><span aria-hidden="true">&#10003;</span>PASS</span></div><span class="guard-d">Confianca declarada e derivada de evidencia</span><code class="guard-c">nf_gate.py calibration</code></div><div class="guard inativo"><div class="guard-h"><span class="guard-n">Action Gateway</span><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div><span class="guard-d">Allowlist e aprovacao antes de risco alto</span><code class="guard-c">nf_gate.py action</code></div></div></section>
+  <section class="card wide" id="documentos-produto"><h2>Documentos do projeto</h2>
+    <p class="sub">Diagnostico, lacunas e modelos de referencia para a versao do produto</p>
+    <details class="section-details"><summary>Ver documentos e modelos <span class="section-count">6</span></summary><div class="doc-list"><article class="doc-card"><div class="doc-card-head"><div><h3>PRD</h3><p>Requisitos, usuarios, funcionalidades e metas do produto.</p></div><span class="pill idle"><span aria-hidden="true">&#8212;</span>Ausente</span></div><div class="doc-path"><span>Arquivo</span><span class="muted">Nenhum arquivo mapeado</span></div><ul class="doc-gaps"><li>documento nao encontrado; use o exemplo para preparar a primeira versao</li></ul><p class="doc-next">Proxima acao: Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.</p><button type="button" class="doc-example-trigger" popovertarget="exemplo-documento-prd" aria-haspopup="dialog" aria-controls="exemplo-documento-prd">Ver exemplo</button></article><article class="doc-card"><div class="doc-card-head"><div><h3>TRD</h3><p>Arquitetura, escolhas tecnicas, operacao e custo de manutencao.</p></div><span class="pill idle"><span aria-hidden="true">&#8212;</span>Ausente</span></div><div class="doc-path"><span>Arquivo</span><span class="muted">Nenhum arquivo mapeado</span></div><ul class="doc-gaps"><li>documento nao encontrado; use o exemplo para preparar a primeira versao</li></ul><p class="doc-next">Proxima acao: Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.</p><button type="button" class="doc-example-trigger" popovertarget="exemplo-documento-trd" aria-haspopup="dialog" aria-controls="exemplo-documento-trd">Ver exemplo</button></article><article class="doc-card"><div class="doc-card-head"><div><h3>Fluxo do App</h3><p>Jornadas, navegacao, acesso e estados de erro.</p></div><span class="pill idle"><span aria-hidden="true">&#8212;</span>Ausente</span></div><div class="doc-path"><span>Arquivo</span><span class="muted">Nenhum arquivo mapeado</span></div><ul class="doc-gaps"><li>documento nao encontrado; use o exemplo para preparar a primeira versao</li></ul><p class="doc-next">Proxima acao: Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.</p><button type="button" class="doc-example-trigger" popovertarget="exemplo-documento-app_flow" aria-haspopup="dialog" aria-controls="exemplo-documento-app_flow">Ver exemplo</button></article><article class="doc-card"><div class="doc-card-head"><div><h3>UI/UX Design</h3><p>Brief visual, componentes e especificacao das telas.</p></div><span class="pill idle"><span aria-hidden="true">&#8212;</span>Ausente</span></div><div class="doc-path"><span>Arquivo</span><span class="muted">Nenhum arquivo mapeado</span></div><ul class="doc-gaps"><li>documento nao encontrado; use o exemplo para preparar a primeira versao</li></ul><p class="doc-next">Proxima acao: Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.</p><button type="button" class="doc-example-trigger" popovertarget="exemplo-documento-uiux" aria-haspopup="dialog" aria-controls="exemplo-documento-uiux">Ver exemplo</button></article><article class="doc-card"><div class="doc-card-head"><div><h3>Esquema Backend</h3><p>Entidades, campos, relacoes e autenticacao.</p></div><span class="pill idle"><span aria-hidden="true">&#8212;</span>Ausente</span></div><div class="doc-path"><span>Arquivo</span><span class="muted">Nenhum arquivo mapeado</span></div><ul class="doc-gaps"><li>documento nao encontrado; use o exemplo para preparar a primeira versao</li></ul><p class="doc-next">Proxima acao: Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.</p><button type="button" class="doc-example-trigger" popovertarget="exemplo-documento-backend" aria-haspopup="dialog" aria-controls="exemplo-documento-backend">Ver exemplo</button></article><article class="doc-card"><div class="doc-card-head"><div><h3>Plano de implementacao</h3><p>Ordem de construcao com dependencias e aceite.</p></div><span class="pill idle"><span aria-hidden="true">&#8212;</span>Ausente</span></div><div class="doc-path"><span>Arquivo</span><span class="muted">Nenhum arquivo mapeado</span></div><ul class="doc-gaps"><li>documento nao encontrado; use o exemplo para preparar a primeira versao</li></ul><p class="doc-next">Proxima acao: Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.</p><button type="button" class="doc-example-trigger" popovertarget="exemplo-documento-implementation_plan" aria-haspopup="dialog" aria-controls="exemplo-documento-implementation_plan">Ver exemplo</button></article></div><p class="nota">O diagnostico esta disponivel. O gate de sprints sera ativado quando o projeto adotar a base documental.</p></details></section>
+  <section class="card" id="finops"><h2>FinOps de tokens<button type="button" class="help" popovertarget="ajuda-finops" aria-label="O que e FinOps de tokens?">?</button></h2>
+    <p class="sub">Orcamento declarado x consumo observado</p><div class="fin"><span class="fin-l">Sprint 01</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--st-critical)"></div></div><span class="fin-v bad-t">560k / 500k (112%)</span></div><div class="fin"><span class="fin-l">Sprint 02</span><div class="track" style="height:8px"><div class="fill" style="width:76.9%;background:var(--st-warning)"></div></div><span class="fin-v warn-t">615k / 800k (77%)</span></div><p class="nota">Limite de alerta em 70%. Consumo &ge; 100% do budget sem mitigacao registrada reprova no guard <code>budget</code> (B3).</p><div class="sep"></div><p class="sub">Declarado x medido — sprint ativa</p><div class="fin"><span class="fin-l">Declarado</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--muted-fill)"></div></div><span class="fin-v">615k</span></div><div class="fin"><span class="fin-l">Medido</span><div class="track" style="height:8px"><div class="fill" style="width:30.7%;background:var(--series-3)"></div></div><span class="fin-v">245k</span></div><p class="nota">O medido vem dos transcripts locais e cobre 36500 dias do projeto inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o proximo budget, nao como substituto do registro.</p><div class="sep"></div><p class="sub">Tokens gastos na construcao do indice</p><div class="fin"><span class="fin-l">Entrada</span><div class="track" style="height:8px"><div class="fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="fin-v">412k</span></div><div class="fin"><span class="fin-l">Saida</span><div class="track" style="height:8px"><div class="fill" style="width:19.1%;background:var(--series-2)"></div></div><span class="fin-v">79k</span></div></section>
+  <section class="card" id="tokens"><h2>Consumo real de tokens<button type="button" class="help" popovertarget="ajuda-tokens" aria-label="O que e Consumo real de tokens?">?</button></h2>
     <p class="sub">Medido nos transcripts locais, nao declarado</p>
         <div class="topo-t">
           <div class="hero"><span class="hero-n num">245k</span>
@@ -424,20 +488,59 @@ h2{font-size:10px;margin-bottom:7px;letter-spacing:.12em}.sub{font-size:12px;mar
         <div class="hbar"><span class="hbar-label" title="claude-opus-5">claude-opus-5</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="hbar-val">172k</span></div><div class="hbar"><span class="hbar-label" title="claude-fable-5">claude-fable-5</span><div class="hbar-track"><div class="hbar-fill" style="width:42.9%;background:var(--series-1)"></div></div><span class="hbar-val">74k</span></div>
         <p class="nota">Todo o periodo registrado. So numeros sao lidos —
         o conteudo das mensagens nunca e acessado.</p></section>
-  <section class="card"><h2>Ritmo e ferramentas<button type="button" class="help" popovertarget="ajuda-ritmo" aria-label="O que e Ritmo e ferramentas?">?</button></h2>
+  <section class="card" id="ritmo"><h2>Ritmo e ferramentas<button type="button" class="help" popovertarget="ajuda-ritmo" aria-label="O que e Ritmo e ferramentas?">?</button></h2>
     <p class="sub">Como o trabalho se distribuiu</p><p class="sub">Requisicoes por hora, ultimos 3 dias (UTC)</p><div class="ritmo"><div class="ritmo-l"><span class="ritmo-d">08-06</span><div class="ritmo-c"><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 00h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 01h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 02h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 03h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 04h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 05h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 06h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 07h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 08h — sem atividade"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 09h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 10h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 11h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 12h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-06 13h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 14h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 15h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 16h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-06 17h — 1 requisicoes"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 18h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 19h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 20h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 21h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 22h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-06 23h — sem atividade"></i></div></div><div class="ritmo-l"><span class="ritmo-d">08-07</span><div class="ritmo-c"><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 00h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 01h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 02h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 03h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 04h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 05h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 06h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 07h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 08h — sem atividade"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 09h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 10h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 11h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 12h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-07 13h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 14h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 15h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 16h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-07 17h — 1 requisicoes"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 18h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 19h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 20h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 21h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 22h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-07 23h — sem atividade"></i></div></div><div class="ritmo-l"><span class="ritmo-d">08-08</span><div class="ritmo-c"><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 00h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 01h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 02h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 03h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 04h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 05h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 06h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 07h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 08h — sem atividade"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 09h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 10h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 11h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 12h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-7)" title="2026-08-08 13h — 2 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 14h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 15h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 16h — 1 requisicoes"></i><i class="cel" style="background:var(--ramp-5)" title="2026-08-08 17h — 1 requisicoes"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 18h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 19h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 20h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 21h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 22h — sem atividade"></i><i class="cel" style="background:var(--muted-fill)" title="2026-08-08 23h — sem atividade"></i></div></div><div class="ritmo-l"><span class="ritmo-d"></span><div class="ritmo-h"><span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>23h</span></div></div></div><div class="escala"><span>menos</span><i class="cel" style="background:var(--ramp-1)"></i><i class="cel" style="background:var(--ramp-2)"></i><i class="cel" style="background:var(--ramp-3)"></i><i class="cel" style="background:var(--ramp-4)"></i><i class="cel" style="background:var(--ramp-5)"></i><i class="cel" style="background:var(--ramp-6)"></i><i class="cel" style="background:var(--ramp-7)"></i><span>mais</span><span class="escala-p">pico 2 req/h</span></div><div class="sep"></div><p class="sub">Ferramentas mais usadas</p><div class="hbar"><span class="hbar-label" title="Write">Write</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-2)"></div></div><span class="hbar-val">8</span></div><div class="hbar"><span class="hbar-label" title="Bash">Bash</span><div class="hbar-track"><div class="hbar-fill" style="width:75.0%;background:var(--series-2)"></div></div><span class="hbar-val">6</span></div><div class="hbar"><span class="hbar-label" title="Edit">Edit</span><div class="hbar-track"><div class="hbar-fill" style="width:62.5%;background:var(--series-2)"></div></div><span class="hbar-val">5</span></div><div class="hbar"><span class="hbar-label" title="Grep">Grep</span><div class="hbar-track"><div class="hbar-fill" style="width:50.0%;background:var(--series-2)"></div></div><span class="hbar-val">4</span></div><div class="hbar"><span class="hbar-label" title="Read">Read</span><div class="hbar-track"><div class="hbar-fill" style="width:50.0%;background:var(--series-2)"></div></div><span class="hbar-val">4</span></div><div class="hbar"><span class="hbar-label" title="chrome: navigate">chrome: navigate</span><div class="hbar-track"><div class="hbar-fill" style="width:25.0%;background:var(--series-2)"></div></div><span class="hbar-val">2</span></div><div class="sep"></div><p class="sub">Sessoes por consumo</p><div class="sess"><div class="ses"><span class="ses-n">s7</span><span class="ses-d">480 min · 14 req</span><span class="ses-v num">95k</span></div><div class="ses"><span class="ses-n">s6</span><span class="ses-d">480 min · 14 req</span><span class="ses-v num">79k</span></div><div class="ses"><span class="ses-n">s8</span><span class="ses-d">480 min · 14 req</span><span class="ses-v num">71k</span></div></div></section>
-  <section class="card"><h2>Protocolos<button type="button" class="help" popovertarget="ajuda-protocolos" aria-label="O que e Protocolos?">?</button></h2>
-    <p class="sub">O que trava e o que se audita</p><div class="prots"><div class="prot"><span class="prot-n">State Protocol<button type="button" class="help help-sm" popovertarget="ajuda-prot-state-protocol" aria-label="O que e State Protocol?">?</button></span><code class="prot-g">nf_gate sprint</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Circuit Breaker<button type="button" class="help help-sm" popovertarget="ajuda-prot-circuit-breaker" aria-label="O que e Circuit Breaker?">?</button></span><code class="prot-g">nf_gate budget</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Vetor de Contexto<button type="button" class="help help-sm" popovertarget="ajuda-prot-vetor-de-contexto" aria-label="O que e Vetor de Contexto?">?</button></span><code class="prot-g">nf_gate context</code><span class="pill bad"><span aria-hidden="true">&#10007;</span>reprovando</span></div><div class="prot"><span class="prot-n">Evidencia Sintetica<button type="button" class="help help-sm" popovertarget="ajuda-prot-evidencia-sintetica" aria-label="O que e Evidencia Sintetica?">?</button></span><code class="prot-g">smoke-gate</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Aegis<button type="button" class="help help-sm" popovertarget="ajuda-prot-aegis" aria-label="O que e Aegis?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">Neural-Memory<button type="button" class="help help-sm" popovertarget="ajuda-prot-neural-memory" aria-label="O que e Neural-Memory?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">ADR Governance<button type="button" class="help help-sm" popovertarget="ajuda-prot-adr-governance" aria-label="O que e ADR Governance?">?</button></span><code class="prot-g">nf_gate adr</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Spec-First<button type="button" class="help help-sm" popovertarget="ajuda-prot-spec-first" aria-label="O que e Spec-First?">?</button></span><code class="prot-g">nf_gate spec</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div><div class="prot"><span class="prot-n">Loop Autonomo<button type="button" class="help help-sm" popovertarget="ajuda-prot-loop-autonomo" aria-label="O que e Loop Autonomo?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">Calibracao<button type="button" class="help help-sm" popovertarget="ajuda-prot-calibracao" aria-label="O que e Calibracao?">?</button></span><code class="prot-g">nf_gate calibration</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div></div><p class="nota">"manual" nao e falha: sao os protocolos cuja aderencia se audita, nao se trava. Guard aspiracional declarado como tal — nunca apresentado como se travasse.</p></section>
-<section class="card wide"><h2>Historico de sprints<button type="button" class="help" popovertarget="ajuda-historico" aria-label="O que e Historico de sprints?">?</button></h2><div class="tbl-scroll"><table class="tbl"><thead><tr><th>#</th><th>Titulo</th><th>Status</th><th>Aut.</th><th>Itens</th><th>Tokens</th></tr></thead><tbody><tr><td>01</td><td>Sprint 1: Descoberta e especificacao</td><td>concluida</td><td class="mono">A1</td><td>5/5</td><td class="mono">560k / 500k</td></tr><tr><td>02</td><td>Sprint 2: Motor de agendamento</td><td>em andamento</td><td class="mono">A1</td><td>2/5</td><td class="mono">615k / 800k</td></tr></tbody></table></div></section>
+  <section class="card" id="smoke"><h2>smoke-gate<button type="button" class="help" popovertarget="ajuda-smoke" aria-label="O que e smoke-gate?">?</button></h2>
+    <p class="sub">Gate de evidencia sobre codigo e schema</p>
+        <dl class="kv">
+          <div><dt>Versao</dt><dd class="mono">v0.5.0</dd></div>
+          <div><dt>Ultimo audit</dt><dd class="ok-t">2026-08-08 19:05</dd></div>
+        </dl><div class="sev"><span class="sev-i critical"><span aria-hidden="true">&#9679;</span>2 critical</span><span class="sev-i warning"><span aria-hidden="true">&#9679;</span>5 warning</span><span class="sev-i info"><span aria-hidden="true">&#9679;</span>2 info</span></div>
+        <p class="nota">Rode <code>npx smoke-gate audit --since origin/main</code> no PR.
+        O relatorio <code>audit-report.md</code> e a evidencia do gate.</p></section>
+  <section class="card" id="grafo"><h2>Indice de conhecimento<button type="button" class="help" popovertarget="ajuda-grafo" aria-label="O que e Indice de conhecimento?">?</button></h2>
+    <p class="sub">Grafo construido sobre a documentacao</p>
+        <div class="stats">
+          <div><span class="s-v">742</span><span class="s-k">nos</span></div>
+          <div><span class="s-v">1.2k</span><span class="s-k">arestas</span></div>
+          <div><span class="s-v">8</span><span class="s-k">comunidades</span></div>
+          <div><span class="s-v">104</span><span class="s-k">arquivos</span></div>
+        </div>
+        <div class="btns"><a class="btn" href="graphify-out/graph.html" target="_blank" rel="noopener noreferrer"><span class="btn-t">Grafo interativo</span><span class="btn-d">force-directed, filtro por comunidade · 196 B</span></a><a class="btn" href="graphify-out/wiki/index.md" target="_blank" rel="noopener noreferrer"><span class="btn-t">Wiki</span><span class="btn-d">um artigo por comunidade, navegavel · 81 B</span></a><a class="btn" href="graphify-out/GRAPH_REPORT.md" target="_blank" rel="noopener noreferrer"><span class="btn-t">Relatorio</span><span class="btn-d">god nodes e comunidades, em texto · 79 B</span></a></div>
+        <p class="sub">Maiores comunidades, por numero de nos</p>
+        <div class="hbar"><span class="hbar-label" title="agendamento">agendamento</span><div class="hbar-track"><div class="hbar-fill" style="width:100.0%;background:var(--series-1)"></div></div><span class="hbar-val">148</span></div><div class="hbar"><span class="hbar-label" title="pacientes">pacientes</span><div class="hbar-track"><div class="hbar-fill" style="width:81.8%;background:var(--series-1)"></div></div><span class="hbar-val">121</span></div><div class="hbar"><span class="hbar-label" title="profissionais">profissionais</span><div class="hbar-track"><div class="hbar-fill" style="width:71.6%;background:var(--series-1)"></div></div><span class="hbar-val">106</span></div><div class="hbar"><span class="hbar-label" title="notificacao">notificacao</span><div class="hbar-track"><div class="hbar-fill" style="width:66.2%;background:var(--series-1)"></div></div><span class="hbar-val">98</span></div><div class="hbar"><span class="hbar-label" title="prontuario">prontuario</span><div class="hbar-track"><div class="hbar-fill" style="width:58.8%;background:var(--series-1)"></div></div><span class="hbar-val">87</span></div><div class="hbar"><span class="hbar-label" title="faturamento">faturamento</span><div class="hbar-track"><div class="hbar-fill" style="width:48.0%;background:var(--series-1)"></div></div><span class="hbar-val">71</span></div><div class="hbar"><span class="hbar-label" title="integracao">integracao</span><div class="hbar-track"><div class="hbar-fill" style="width:42.6%;background:var(--series-1)"></div></div><span class="hbar-val">63</span></div><div class="hbar"><span class="hbar-label" title="auditoria">auditoria</span><div class="hbar-track"><div class="hbar-fill" style="width:32.4%;background:var(--series-1)"></div></div><span class="hbar-val">48</span></div>
+        <p class="nota">Atualizado em 2026-08-08 19:05.
+        <strong>108 arestas AMBIGUOUS</strong> — sao os pontos onde a especificacao deixou uma relacao sem fechar.
+        Consulte o indice antes de ler arquivo: custa ~48x menos tokens.</p></section>
+  <section class="card" id="loop"><h2>Loop autonomo<button type="button" class="help" popovertarget="ajuda-loop" aria-label="O que e Loop autonomo?">?</button></h2>
+    <p class="sub">Estado em disco, nao na conversa</p>
+        <div class="row">
+          <div class="hero"><span class="hero-n">60<span class="hero-u">%</span></span>
+            <span class="hero-l">3 de 5 itens</span></div>
+          <div class="grow"><div class="track" style="height:10px"><div class="fill" style="width:60.0%;background:var(--series-3)"></div></div>
+            <dl class="kv">
+              <div><dt>Iteracoes</dt><dd>3</dd></div>
+              <div><dt>Bloqueados</dt><dd>1</dd></div>
+              <div><dt>Divergencias</dt><dd class="warn-t">1</dd></div>
+            </dl>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <p class="sub">Confianca declarada por iteracao</p><div class="hbar"><span class="hbar-label">Alta</span><div class="hbar-track"><div class="hbar-fill" style="width:66.7%;background:var(--st-good)"></div></div><span class="hbar-val">2</span></div><div class="hbar"><span class="hbar-label">Media</span><div class="hbar-track"><div class="hbar-fill" style="width:33.3%;background:var(--series-1)"></div></div><span class="hbar-val">1</span></div><div class="hbar"><span class="hbar-label">Baixa</span><div class="hbar-track"><div class="hbar-fill" style="width:0.0%;background:var(--st-warning)"></div></div><span class="hbar-val">0</span></div>
+        <p class="nota">Item marcado pronto nunca pode ser <code>BAIXA</code> —
+        o guard <code>calibration</code> reprova (C2).</p></section>
+  <section class="card wide" id="protocolos"><h2>Protocolos<button type="button" class="help" popovertarget="ajuda-protocolos" aria-label="O que e Protocolos?">?</button></h2>
+    <p class="sub">O que trava e o que se audita</p><div class="prots"><div class="prot"><span class="prot-n">State Protocol<button type="button" class="help help-sm" popovertarget="ajuda-prot-state-protocol" aria-label="O que e State Protocol?">?</button></span><code class="prot-g">nf_gate sprint</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Circuit Breaker<button type="button" class="help help-sm" popovertarget="ajuda-prot-circuit-breaker" aria-label="O que e Circuit Breaker?">?</button></span><code class="prot-g">nf_gate budget</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Vetor de Contexto<button type="button" class="help help-sm" popovertarget="ajuda-prot-vetor-de-contexto" aria-label="O que e Vetor de Contexto?">?</button></span><code class="prot-g">nf_gate context</code><span class="pill bad"><span aria-hidden="true">&#10007;</span>reprovando</span></div><div class="prot"><span class="prot-n">Evidencia Sintetica<button type="button" class="help help-sm" popovertarget="ajuda-prot-evidencia-sintetica" aria-label="O que e Evidencia Sintetica?">?</button></span><code class="prot-g">smoke-gate</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Aegis<button type="button" class="help help-sm" popovertarget="ajuda-prot-aegis" aria-label="O que e Aegis?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">Neural-Memory<button type="button" class="help help-sm" popovertarget="ajuda-prot-neural-memory" aria-label="O que e Neural-Memory?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">ADR Governance<button type="button" class="help help-sm" popovertarget="ajuda-prot-adr-governance" aria-label="O que e ADR Governance?">?</button></span><code class="prot-g">nf_gate adr</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Spec-First<button type="button" class="help help-sm" popovertarget="ajuda-prot-spec-first" aria-label="O que e Spec-First?">?</button></span><code class="prot-g">nf_gate spec</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div><div class="prot"><span class="prot-n">Loop Autonomo<button type="button" class="help help-sm" popovertarget="ajuda-prot-loop-autonomo" aria-label="O que e Loop Autonomo?">?</button></span><code class="prot-g">auditoria mensal</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>manual</span></div><div class="prot"><span class="prot-n">Calibracao<button type="button" class="help help-sm" popovertarget="ajuda-prot-calibracao" aria-label="O que e Calibracao?">?</button></span><code class="prot-g">nf_gate calibration</code><span class="pill ok"><span aria-hidden="true">&#10003;</span>trava</span></div><div class="prot"><span class="prot-n">Action Gateway</span><code class="prot-g">nf_gate action</code><span class="pill idle"><span aria-hidden="true">&#9679;</span>inativo</span></div></div><p class="nota">"manual" nao e falha: sao os protocolos cuja aderencia se audita, nao se trava. Guard aspiracional declarado como tal — nunca apresentado como se travasse.</p></section>
+<section class="card wide" id="historico"><h2>Historico de sprints<button type="button" class="help" popovertarget="ajuda-historico" aria-label="O que e Historico de sprints?">?</button></h2><div class="tbl-scroll"><table class="tbl"><thead><tr><th>#</th><th>Titulo</th><th>Status</th><th>Aut.</th><th>Itens</th><th>Tokens</th></tr></thead><tbody><tr><td>01</td><td>Sprint 1: Descoberta e especificacao</td><td>concluida</td><td class="mono">A1</td><td>5/5</td><td class="mono">560k / 500k</td></tr><tr><td>02</td><td>Sprint 2: Motor de agendamento</td><td>em andamento</td><td class="mono">A1</td><td>2/5</td><td class="mono">615k / 800k</td></tr></tbody></table></div></section>
 </div>
 </main>
 
 <main class="about-view" aria-label="Sobre o Neural-Flow Framework">
   <section class="about-hero"><div class="about-copy"><p class="about-kicker">Método de engenharia assistida por IA</p><h2>Transformar intenção em mudança verificável.</h2><p>Neural-Flow é um framework de governança para trabalho técnico executado por pessoas e agentes. Ele organiza a execução em artefatos legíveis, regras verificáveis e evidências reproduzíveis, para que velocidade não dependa de confiança cega.</p><p>O objetivo é simples: cada mudança deve ter escopo, contexto, decisão e prova. Assim, o projeto permanece compreensível quando a conversa acaba, o agente muda ou a equipe cresce.</p></div><figure class="architecture-figure"><button type="button" class="architecture-trigger" popovertarget="diagrama-arquitetura" aria-label="Ampliar diagrama de arquitetura"><span class="architecture-hint" aria-hidden="true">Clique para ampliar</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" role="img" font-family="ui-sans-serif,-apple-system,&quot;Segoe UI&quot;,Roboto,sans-serif" aria-label="Caminho de uma mudanca no Neural-Flow: os artefatos do projeto sao lidos pelos guards; o hook de pre-commit valida o que esta em stage e barra o commit quando algum reprova; depois do push o CI revalida, porque o hook e opt-in por clone. Divergencias, evidencia e memoria realimentam o ciclo.">
 <defs>
-<marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#b3c2cb"/></marker>
-<marker id="seta-bloq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#c0392f"/></marker>
-<marker id="seta-passa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#12805a"/></marker>
+<marker id="nf-preview-seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#b3c2cb"/></marker>
+<marker id="nf-preview-seta-bloq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#c0392f"/></marker>
+<marker id="nf-preview-seta-passa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#12805a"/></marker>
 </defs>
 <rect width="1280" height="720" rx="14" fill="#ffffff"/>
 <text x="40" y="50" font-size="21" font-weight="700" fill="#17242c">Neural-Flow — como uma mudanca vira commit</text>
@@ -453,38 +556,40 @@ h2{font-size:10px;margin-bottom:7px;letter-spacing:.12em}.sub{font-size:12px;mar
 <rect x="300" y="334" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="357" font-size="12.5" font-weight="620" fill="#17242c">build/</text><text x="572" y="357" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">C1–C7</text><text x="314" y="375" font-size="11" fill="#4a5a64">plano, diario, divergencias</text>
 <rect x="300" y="396" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="419" font-size="12.5" font-weight="620" fill="#17242c">graphify-out/</text><text x="572" y="419" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">V1–V3</text><text x="314" y="437" font-size="11" fill="#4a5a64">indice consultado antes de ler</text>
 <rect x="300" y="458" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="481" font-size="12.5" font-weight="620" fill="#17242c">AGENTS.md + portas</text><text x="572" y="481" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P5</text><text x="314" y="499" font-size="11" fill="#4a5a64">toda IA entra pela mesma diretriz</text>
-<line x1="232" y1="175" x2="292" y2="175" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/><text x="262.0" y="166.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">produz</text>
+<rect x="300" y="520" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="543" font-size="12.5" font-weight="620" fill="#17242c">action-policy.json</text><text x="572" y="543" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">G1–G5</text><text x="314" y="561" font-size="11" fill="#4a5a64">allowlist, risco e aprovacao humana</text>
+<line x1="232" y1="175" x2="292" y2="175" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-preview-seta)"/><text x="262.0" y="166.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">produz</text>
 <text x="700" y="124" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">GATE LOCAL</text>
 <rect x="700" y="148" width="250" height="62" rx="8" fill="#ffffff" stroke="#b3c2cb" stroke-width="1"/><text x="714" y="171" font-size="13" font-weight="620" fill="#17242c">git add</text><text x="714" y="189" font-size="11" fill="#4a5a64">caminhos explicitos, nunca -A</text>
-<line x1="825.0" y1="210" x2="825.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/>
+<line x1="825.0" y1="210" x2="825.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-preview-seta)"/>
 <rect x="700" y="244" width="250" height="108" rx="8" fill="#f1f8fa" stroke="#146c84" stroke-width="1"/><text x="714" y="267" font-size="13" font-weight="620" fill="#17242c">hook de pre-commit</text><text x="714" y="285" font-size="11" fill="#4a5a64">materializa o indice numa</text><text x="714" y="301" font-size="11" fill="#4a5a64">arvore temporaria e valida la</text><text x="714" y="317" font-size="11" fill="#4a5a64">o checado e o que entraria</text><text x="714" y="333" font-size="11" fill="#4a5a64">no commit — nao o editor</text>
-<line x1="592" y1="300" x2="692" y2="300" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/><text x="642.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">le o stage</text>
-<line x1="825.0" y1="352" x2="825.0" y2="366" stroke="#c0392f" stroke-width="1.5" marker-end="url(#seta-bloq)"/>
+<line x1="592" y1="300" x2="692" y2="300" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-preview-seta)"/><text x="642.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">le o stage</text>
+<line x1="825.0" y1="352" x2="825.0" y2="366" stroke="#c0392f" stroke-width="1.5" marker-end="url(#nf-preview-seta-bloq)"/>
 <rect x="700" y="374" width="250" height="58" rx="8" fill="#fdf3f2" stroke="#c0392f" stroke-width="1"/><text x="714" y="397" font-size="12" font-weight="620" fill="#c0392f">reprovou: commit barrado</text><text x="714" y="415" font-size="11" fill="#4a5a64">corrija o artefato, nao o gate</text>
-<path d="M700 403 L614 403 L614 494 L594 494" fill="none" stroke="#c0392f" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#seta-bloq)"/>
+<path d="M700 403 L614 403 L614 556 L594 556" fill="none" stroke="#c0392f" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#nf-preview-seta-bloq)"/>
 <text x="1010" y="124" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">AUTORIDADE</text>
-<line x1="956" y1="300" x2="1002" y2="300" stroke="#12805a" stroke-width="1.5" marker-end="url(#seta-passa)"/><text x="979.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">passou</text>
+<line x1="956" y1="300" x2="1002" y2="300" stroke="#12805a" stroke-width="1.5" marker-end="url(#nf-preview-seta-passa)"/><text x="979.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">passou</text>
 <rect x="1010" y="148" width="230" height="62" rx="8" fill="#ffffff" stroke="#b3c2cb" stroke-width="1"/><text x="1024" y="171" font-size="13" font-weight="620" fill="#17242c">commit</text><text x="1024" y="189" font-size="11" fill="#4a5a64">um por item do plano</text>
-<line x1="1125.0" y1="210" x2="1125.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/>
+<line x1="1125.0" y1="210" x2="1125.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-preview-seta)"/>
 <rect x="1010" y="244" width="230" height="108" rx="8" fill="#f1f9f5" stroke="#12805a" stroke-width="1"/><text x="1024" y="267" font-size="13" font-weight="620" fill="#17242c">CI: os mesmos guards</text><text x="1024" y="285" font-size="11" fill="#4a5a64">o hook e opt-in por clone,</text><text x="1024" y="301" font-size="11" fill="#4a5a64">entao guard que depende de</text><text x="1024" y="317" font-size="11" fill="#4a5a64">configuracao de maquina</text><text x="1024" y="333" font-size="11" font-weight="700" fill="#17242c">nao e guard</text>
-<line x1="1125.0" y1="352" x2="1125.0" y2="386" stroke="#12805a" stroke-width="1.5" marker-end="url(#seta-passa)"/>
+<line x1="1125.0" y1="352" x2="1125.0" y2="386" stroke="#12805a" stroke-width="1.5" marker-end="url(#nf-preview-seta-passa)"/>
 <rect x="1010" y="386" width="230" height="56" rx="8" fill="#ffffff" stroke="#d3dde3" stroke-width="1"/><text x="1024" y="409" font-size="13" font-weight="620" fill="#17242c">branch</text><text x="1024" y="427" font-size="11" fill="#4a5a64">estado publicado</text>
 <line x1="40" y1="462" x2="1240" y2="462" stroke="#d3dde3"/>
 <text x="40" y="486" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">O QUE VOLTA PARA O CICLO</text>
 <rect x="40" y="500" width="386.6666666666667" height="74" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="54" y="523" font-size="12.5" font-weight="620" fill="#17242c">divergencias</text><text x="54" y="541" font-size="11" fill="#4a5a64">decisao que o loop tomou sozinho</text><text x="54" y="557" font-size="11" fill="#4a5a64">→ fila de revisao humana</text>
 <rect x="446.6666666666667" y="500" width="386.6666666666667" height="74" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="460.6666666666667" y="523" font-size="12.5" font-weight="620" fill="#17242c">evidencia</text><text x="460.6666666666667" y="541" font-size="11" fill="#4a5a64">verde do comando de verificacao</text><text x="460.6666666666667" y="557" font-size="11" fill="#4a5a64">→ fecha o item da sprint</text>
 <rect x="853.3333333333334" y="500" width="386.6666666666667" height="74" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="867.3333333333334" y="523" font-size="12.5" font-weight="620" fill="#17242c">memoria e indice</text><text x="867.3333333333334" y="541" font-size="11" fill="#4a5a64">licao datada, reindex incremental</text><text x="867.3333333333334" y="557" font-size="11" fill="#4a5a64">→ barateia a proxima sessao</text>
-<line x1="1125.0" y1="442" x2="1125.0" y2="452" stroke="#b3c2cb" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#seta)"/>
+<line x1="1125.0" y1="442" x2="1125.0" y2="452" stroke="#b3c2cb" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#nf-preview-seta)"/>
 <text x="1135.0" y="466" font-size="10.5" fill="#4a5a64">realimenta</text>
 <line x1="40" y1="606" x2="1240" y2="606" stroke="#d3dde3"/>
 <text x="40" y="632" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">GUARDS EXECUTAVEIS<tspan fill="#146c84">   python3 scripts/nf_gate.py</tspan></text>
-<rect x="40" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="54" y="667" font-size="11" font-weight="620" fill="#17242c">state-protocol</text><text x="188.85714285714286" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">S1–S6</text><text x="54" y="685" font-size="11" fill="#4a5a64">sprint</text>
-<rect x="212.85714285714286" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="226.85714285714286" y="667" font-size="11" font-weight="620" fill="#17242c">token-circuit-breaker</text><text x="361.7142857142857" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">B1–B4</text><text x="226.85714285714286" y="685" font-size="11" fill="#4a5a64">budget</text>
-<rect x="385.7142857142857" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="399.7142857142857" y="667" font-size="11" font-weight="620" fill="#17242c">context-vector</text><text x="534.5714285714286" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">V1–V3</text><text x="399.7142857142857" y="685" font-size="11" fill="#4a5a64">context</text>
-<rect x="558.5714285714286" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="572.5714285714286" y="667" font-size="11" font-weight="620" fill="#17242c">adr-governance</text><text x="707.4285714285714" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">A1–A6</text><text x="572.5714285714286" y="685" font-size="11" fill="#4a5a64">adr</text>
-<rect x="731.4285714285714" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="745.4285714285714" y="667" font-size="11" font-weight="620" fill="#17242c">spec-first</text><text x="880.2857142857143" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P4</text><text x="745.4285714285714" y="685" font-size="11" fill="#4a5a64">spec</text>
-<rect x="904.2857142857143" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="918.2857142857143" y="667" font-size="11" font-weight="620" fill="#17242c">calibration</text><text x="1053.142857142857" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">C1–C7</text><text x="918.2857142857143" y="685" font-size="11" fill="#4a5a64">calibration</text>
-<rect x="1077.142857142857" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="1091.142857142857" y="667" font-size="11" font-weight="620" fill="#17242c">agent-entrypoints</text><text x="1226.0" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P5</text><text x="1091.142857142857" y="685" font-size="11" fill="#4a5a64">agentes</text>
+<rect x="40" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="54" y="667" font-size="11" font-weight="620" fill="#17242c">state-protocol</text><text x="167.25" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">S1–S6</text><text x="54" y="685" font-size="11" fill="#4a5a64">sprint</text>
+<rect x="191.25" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="205.25" y="667" font-size="11" font-weight="620" fill="#17242c">token-circuit-breaker</text><text x="318.5" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">B1–B4</text><text x="205.25" y="685" font-size="11" fill="#4a5a64">budget</text>
+<rect x="342.5" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="356.5" y="667" font-size="11" font-weight="620" fill="#17242c">context-vector</text><text x="469.75" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">V1–V3</text><text x="356.5" y="685" font-size="11" fill="#4a5a64">context</text>
+<rect x="493.75" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="507.75" y="667" font-size="11" font-weight="620" fill="#17242c">adr-governance</text><text x="621.0" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">A1–A6</text><text x="507.75" y="685" font-size="11" fill="#4a5a64">adr</text>
+<rect x="645.0" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="659.0" y="667" font-size="11" font-weight="620" fill="#17242c">spec-first</text><text x="772.25" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P4</text><text x="659.0" y="685" font-size="11" fill="#4a5a64">spec</text>
+<rect x="796.25" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="810.25" y="667" font-size="11" font-weight="620" fill="#17242c">calibration</text><text x="923.5" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">C1–C7</text><text x="810.25" y="685" font-size="11" fill="#4a5a64">calibration</text>
+<rect x="947.5" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="961.5" y="667" font-size="11" font-weight="620" fill="#17242c">action-gateway</text><text x="1074.75" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">G1–G5</text><text x="961.5" y="685" font-size="11" fill="#4a5a64">action</text>
+<rect x="1098.75" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="1112.75" y="667" font-size="11" font-weight="620" fill="#17242c">agent-entrypoints</text><text x="1226.0" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P5</text><text x="1112.75" y="685" font-size="11" fill="#4a5a64">agentes</text>
 </svg>
 </button><figcaption>Arquitetura do fluxo: os artefatos registram a intenção, os guards bloqueiam desvios e o CI confirma a autoridade do processo.</figcaption></figure></section>
   <section class="about-grid"><article class="about-block"><h3>O que o framework resolve</h3><p>Projetos guiados por IA frequentemente perdem contexto, misturam hipótese com fato e deixam decisões importantes só no chat. Neural-Flow torna o estado do trabalho explícito em disco, reduzindo retrabalho e tornando a retomada confiável.</p><ul class="about-principles"><li><strong>Estado persistente</strong>Plano, diário, divergências e sprint registram o que foi feito e o que falta.</li><li><strong>Decisão rastreável</strong>ADRs preservam o porquê de mudanças arquiteturais sem reescrever o histórico.</li></ul></article><article class="about-block"><h3>Como ele preserva autonomia</h3><p>Autonomia não significa ausência de limites. O framework define até onde um agente pode avançar e quais decisões exigem revisão humana, especialmente em escopos sensíveis ou irreversíveis.</p><ul class="about-principles"><li><strong>Guards executáveis</strong>Regras críticas deixam de ser recomendação e passam a bloquear o commit quando violadas.</li><li><strong>Evidência antes de conclusão</strong>Um item só está pronto quando a verificação foi executada e registrada.</li></ul></article></section>
@@ -493,9 +598,9 @@ h2{font-size:10px;margin-bottom:7px;letter-spacing:.12em}.sub{font-size:12px;mar
 
 <div popover id="diagrama-arquitetura" class="diagram-modal" role="dialog" aria-label="Diagrama de arquitetura ampliado"><div class="diagram-modal-head"><strong>Como uma mudança vira commit</strong><button type="button" class="diagram-close" popovertarget="diagrama-arquitetura" popovertargetaction="hide">Fechar</button></div><div class="diagram-modal-body"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" role="img" font-family="ui-sans-serif,-apple-system,&quot;Segoe UI&quot;,Roboto,sans-serif" aria-label="Caminho de uma mudanca no Neural-Flow: os artefatos do projeto sao lidos pelos guards; o hook de pre-commit valida o que esta em stage e barra o commit quando algum reprova; depois do push o CI revalida, porque o hook e opt-in por clone. Divergencias, evidencia e memoria realimentam o ciclo.">
 <defs>
-<marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#b3c2cb"/></marker>
-<marker id="seta-bloq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#c0392f"/></marker>
-<marker id="seta-passa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#12805a"/></marker>
+<marker id="nf-modal-seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#b3c2cb"/></marker>
+<marker id="nf-modal-seta-bloq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#c0392f"/></marker>
+<marker id="nf-modal-seta-passa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#12805a"/></marker>
 </defs>
 <rect width="1280" height="720" rx="14" fill="#ffffff"/>
 <text x="40" y="50" font-size="21" font-weight="700" fill="#17242c">Neural-Flow — como uma mudanca vira commit</text>
@@ -511,38 +616,40 @@ h2{font-size:10px;margin-bottom:7px;letter-spacing:.12em}.sub{font-size:12px;mar
 <rect x="300" y="334" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="357" font-size="12.5" font-weight="620" fill="#17242c">build/</text><text x="572" y="357" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">C1–C7</text><text x="314" y="375" font-size="11" fill="#4a5a64">plano, diario, divergencias</text>
 <rect x="300" y="396" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="419" font-size="12.5" font-weight="620" fill="#17242c">graphify-out/</text><text x="572" y="419" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">V1–V3</text><text x="314" y="437" font-size="11" fill="#4a5a64">indice consultado antes de ler</text>
 <rect x="300" y="458" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="481" font-size="12.5" font-weight="620" fill="#17242c">AGENTS.md + portas</text><text x="572" y="481" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P5</text><text x="314" y="499" font-size="11" fill="#4a5a64">toda IA entra pela mesma diretriz</text>
-<line x1="232" y1="175" x2="292" y2="175" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/><text x="262.0" y="166.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">produz</text>
+<rect x="300" y="520" width="286" height="54" rx="8" fill="#e9f0f3" stroke="#d3dde3" stroke-width="1"/><text x="314" y="543" font-size="12.5" font-weight="620" fill="#17242c">action-policy.json</text><text x="572" y="543" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">G1–G5</text><text x="314" y="561" font-size="11" fill="#4a5a64">allowlist, risco e aprovacao humana</text>
+<line x1="232" y1="175" x2="292" y2="175" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-modal-seta)"/><text x="262.0" y="166.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">produz</text>
 <text x="700" y="124" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">GATE LOCAL</text>
 <rect x="700" y="148" width="250" height="62" rx="8" fill="#ffffff" stroke="#b3c2cb" stroke-width="1"/><text x="714" y="171" font-size="13" font-weight="620" fill="#17242c">git add</text><text x="714" y="189" font-size="11" fill="#4a5a64">caminhos explicitos, nunca -A</text>
-<line x1="825.0" y1="210" x2="825.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/>
+<line x1="825.0" y1="210" x2="825.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-modal-seta)"/>
 <rect x="700" y="244" width="250" height="108" rx="8" fill="#f1f8fa" stroke="#146c84" stroke-width="1"/><text x="714" y="267" font-size="13" font-weight="620" fill="#17242c">hook de pre-commit</text><text x="714" y="285" font-size="11" fill="#4a5a64">materializa o indice numa</text><text x="714" y="301" font-size="11" fill="#4a5a64">arvore temporaria e valida la</text><text x="714" y="317" font-size="11" fill="#4a5a64">o checado e o que entraria</text><text x="714" y="333" font-size="11" fill="#4a5a64">no commit — nao o editor</text>
-<line x1="592" y1="300" x2="692" y2="300" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/><text x="642.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">le o stage</text>
-<line x1="825.0" y1="352" x2="825.0" y2="366" stroke="#c0392f" stroke-width="1.5" marker-end="url(#seta-bloq)"/>
+<line x1="592" y1="300" x2="692" y2="300" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-modal-seta)"/><text x="642.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">le o stage</text>
+<line x1="825.0" y1="352" x2="825.0" y2="366" stroke="#c0392f" stroke-width="1.5" marker-end="url(#nf-modal-seta-bloq)"/>
 <rect x="700" y="374" width="250" height="58" rx="8" fill="#fdf3f2" stroke="#c0392f" stroke-width="1"/><text x="714" y="397" font-size="12" font-weight="620" fill="#c0392f">reprovou: commit barrado</text><text x="714" y="415" font-size="11" fill="#4a5a64">corrija o artefato, nao o gate</text>
-<path d="M700 403 L614 403 L614 494 L594 494" fill="none" stroke="#c0392f" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#seta-bloq)"/>
+<path d="M700 403 L614 403 L614 556 L594 556" fill="none" stroke="#c0392f" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#nf-modal-seta-bloq)"/>
 <text x="1010" y="124" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">AUTORIDADE</text>
-<line x1="956" y1="300" x2="1002" y2="300" stroke="#12805a" stroke-width="1.5" marker-end="url(#seta-passa)"/><text x="979.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">passou</text>
+<line x1="956" y1="300" x2="1002" y2="300" stroke="#12805a" stroke-width="1.5" marker-end="url(#nf-modal-seta-passa)"/><text x="979.0" y="291.0" font-size="10.5" fill="#4a5a64" text-anchor="middle">passou</text>
 <rect x="1010" y="148" width="230" height="62" rx="8" fill="#ffffff" stroke="#b3c2cb" stroke-width="1"/><text x="1024" y="171" font-size="13" font-weight="620" fill="#17242c">commit</text><text x="1024" y="189" font-size="11" fill="#4a5a64">um por item do plano</text>
-<line x1="1125.0" y1="210" x2="1125.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#seta)"/>
+<line x1="1125.0" y1="210" x2="1125.0" y2="244" stroke="#b3c2cb" stroke-width="1.5" marker-end="url(#nf-modal-seta)"/>
 <rect x="1010" y="244" width="230" height="108" rx="8" fill="#f1f9f5" stroke="#12805a" stroke-width="1"/><text x="1024" y="267" font-size="13" font-weight="620" fill="#17242c">CI: os mesmos guards</text><text x="1024" y="285" font-size="11" fill="#4a5a64">o hook e opt-in por clone,</text><text x="1024" y="301" font-size="11" fill="#4a5a64">entao guard que depende de</text><text x="1024" y="317" font-size="11" fill="#4a5a64">configuracao de maquina</text><text x="1024" y="333" font-size="11" font-weight="700" fill="#17242c">nao e guard</text>
-<line x1="1125.0" y1="352" x2="1125.0" y2="386" stroke="#12805a" stroke-width="1.5" marker-end="url(#seta-passa)"/>
+<line x1="1125.0" y1="352" x2="1125.0" y2="386" stroke="#12805a" stroke-width="1.5" marker-end="url(#nf-modal-seta-passa)"/>
 <rect x="1010" y="386" width="230" height="56" rx="8" fill="#ffffff" stroke="#d3dde3" stroke-width="1"/><text x="1024" y="409" font-size="13" font-weight="620" fill="#17242c">branch</text><text x="1024" y="427" font-size="11" fill="#4a5a64">estado publicado</text>
 <line x1="40" y1="462" x2="1240" y2="462" stroke="#d3dde3"/>
 <text x="40" y="486" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">O QUE VOLTA PARA O CICLO</text>
 <rect x="40" y="500" width="386.6666666666667" height="74" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="54" y="523" font-size="12.5" font-weight="620" fill="#17242c">divergencias</text><text x="54" y="541" font-size="11" fill="#4a5a64">decisao que o loop tomou sozinho</text><text x="54" y="557" font-size="11" fill="#4a5a64">→ fila de revisao humana</text>
 <rect x="446.6666666666667" y="500" width="386.6666666666667" height="74" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="460.6666666666667" y="523" font-size="12.5" font-weight="620" fill="#17242c">evidencia</text><text x="460.6666666666667" y="541" font-size="11" fill="#4a5a64">verde do comando de verificacao</text><text x="460.6666666666667" y="557" font-size="11" fill="#4a5a64">→ fecha o item da sprint</text>
 <rect x="853.3333333333334" y="500" width="386.6666666666667" height="74" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="867.3333333333334" y="523" font-size="12.5" font-weight="620" fill="#17242c">memoria e indice</text><text x="867.3333333333334" y="541" font-size="11" fill="#4a5a64">licao datada, reindex incremental</text><text x="867.3333333333334" y="557" font-size="11" fill="#4a5a64">→ barateia a proxima sessao</text>
-<line x1="1125.0" y1="442" x2="1125.0" y2="452" stroke="#b3c2cb" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#seta)"/>
+<line x1="1125.0" y1="442" x2="1125.0" y2="452" stroke="#b3c2cb" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#nf-modal-seta)"/>
 <text x="1135.0" y="466" font-size="10.5" fill="#4a5a64">realimenta</text>
 <line x1="40" y1="606" x2="1240" y2="606" stroke="#d3dde3"/>
 <text x="40" y="632" font-size="10" font-weight="700" fill="#7d8b94" letter-spacing="1.4">GUARDS EXECUTAVEIS<tspan fill="#146c84">   python3 scripts/nf_gate.py</tspan></text>
-<rect x="40" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="54" y="667" font-size="11" font-weight="620" fill="#17242c">state-protocol</text><text x="188.85714285714286" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">S1–S6</text><text x="54" y="685" font-size="11" fill="#4a5a64">sprint</text>
-<rect x="212.85714285714286" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="226.85714285714286" y="667" font-size="11" font-weight="620" fill="#17242c">token-circuit-breaker</text><text x="361.7142857142857" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">B1–B4</text><text x="226.85714285714286" y="685" font-size="11" fill="#4a5a64">budget</text>
-<rect x="385.7142857142857" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="399.7142857142857" y="667" font-size="11" font-weight="620" fill="#17242c">context-vector</text><text x="534.5714285714286" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">V1–V3</text><text x="399.7142857142857" y="685" font-size="11" fill="#4a5a64">context</text>
-<rect x="558.5714285714286" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="572.5714285714286" y="667" font-size="11" font-weight="620" fill="#17242c">adr-governance</text><text x="707.4285714285714" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">A1–A6</text><text x="572.5714285714286" y="685" font-size="11" fill="#4a5a64">adr</text>
-<rect x="731.4285714285714" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="745.4285714285714" y="667" font-size="11" font-weight="620" fill="#17242c">spec-first</text><text x="880.2857142857143" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P4</text><text x="745.4285714285714" y="685" font-size="11" fill="#4a5a64">spec</text>
-<rect x="904.2857142857143" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="918.2857142857143" y="667" font-size="11" font-weight="620" fill="#17242c">calibration</text><text x="1053.142857142857" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">C1–C7</text><text x="918.2857142857143" y="685" font-size="11" fill="#4a5a64">calibration</text>
-<rect x="1077.142857142857" y="644" width="162.85714285714286" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="1091.142857142857" y="667" font-size="11" font-weight="620" fill="#17242c">agent-entrypoints</text><text x="1226.0" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P5</text><text x="1091.142857142857" y="685" font-size="11" fill="#4a5a64">agentes</text>
+<rect x="40" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="54" y="667" font-size="11" font-weight="620" fill="#17242c">state-protocol</text><text x="167.25" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">S1–S6</text><text x="54" y="685" font-size="11" fill="#4a5a64">sprint</text>
+<rect x="191.25" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="205.25" y="667" font-size="11" font-weight="620" fill="#17242c">token-circuit-breaker</text><text x="318.5" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">B1–B4</text><text x="205.25" y="685" font-size="11" fill="#4a5a64">budget</text>
+<rect x="342.5" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="356.5" y="667" font-size="11" font-weight="620" fill="#17242c">context-vector</text><text x="469.75" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">V1–V3</text><text x="356.5" y="685" font-size="11" fill="#4a5a64">context</text>
+<rect x="493.75" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="507.75" y="667" font-size="11" font-weight="620" fill="#17242c">adr-governance</text><text x="621.0" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">A1–A6</text><text x="507.75" y="685" font-size="11" fill="#4a5a64">adr</text>
+<rect x="645.0" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="659.0" y="667" font-size="11" font-weight="620" fill="#17242c">spec-first</text><text x="772.25" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P4</text><text x="659.0" y="685" font-size="11" fill="#4a5a64">spec</text>
+<rect x="796.25" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="810.25" y="667" font-size="11" font-weight="620" fill="#17242c">calibration</text><text x="923.5" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">C1–C7</text><text x="810.25" y="685" font-size="11" fill="#4a5a64">calibration</text>
+<rect x="947.5" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="961.5" y="667" font-size="11" font-weight="620" fill="#17242c">action-gateway</text><text x="1074.75" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">G1–G5</text><text x="961.5" y="685" font-size="11" fill="#4a5a64">action</text>
+<rect x="1098.75" y="644" width="141.25" height="50" rx="8" fill="#f3f6f8" stroke="#d3dde3" stroke-width="1"/><text x="1112.75" y="667" font-size="11" font-weight="620" fill="#17242c">agent-entrypoints</text><text x="1226.0" y="667" font-size="10" font-weight="700" fill="#146c84" text-anchor="end">P1–P5</text><text x="1112.75" y="685" font-size="11" fill="#4a5a64">agentes</text>
 </svg>
 </div></div>
 
@@ -570,7 +677,309 @@ para ler o snapshot da sprint ativa, depois o delta desde a ultima atualizacao, 
 historico completo — releitura integral e o maior desperdicio de tokens que existe.</p>
 <p><strong>O que observar.</strong> Sprint apos sprint estourando o orcamento nao e problema
 de estimativa: e sinal de que o escopo esta entrando maior do que cabe, ou de que o tier de
-modelo esta alto demais para a tarefa.</p></div></div><div popover id="ajuda-sprint" class="pop" role="dialog" aria-label="Sprint ativa"><div class="pop-h"><h3>Sprint ativa</h3><button type="button" class="pop-x" popovertarget="ajuda-sprint" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">
+modelo esta alto demais para a tarefa.</p></div></div><div popover id="exemplo-documento-prd" class="pop doc-pop" role="dialog" aria-label="Exemplo: PRD"><div class="doc-pop-head"><div><span class="eyebrow">Exemplo do Neural-Flow. Adapte ao seu projeto.</span><h3>PRD</h3></div><button type="button" class="pop-x" popovertarget="exemplo-documento-prd" popovertargetaction="hide" aria-label="Fechar exemplo">&times;</button></div><div class="doc-pop-body"><pre class="doc-example">&gt; TEMPLATE Neural-Flow
+&gt; Modelo oficial de PRD. Remova os exemplos e substitua-os pelos fatos do projeto.
+
+# PRD — &lt;nome do produto&gt;
+
+## Identificacao
+- **Versao:** a preencher
+- **Status:** rascunho | revisao | aprovado
+- **Responsavel:** a preencher
+- **Ultima revisao:** AAAA-MM-DD
+
+## Visao geral
+Explique em linguagem simples o que o produto faz e para quem.
+
+&gt; Exemplo: O Agenda Clara ajuda clinicas pequenas a organizar consultas e avisar
+&gt; pacientes sobre mudancas de horario.
+
+## Problema e usuarios
+- **Usuario principal:** descreva um perfil real, sem inventar dados demograficos.
+- **Problema observado:** que tarefa ou dificuldade motivou o produto?
+- **Evidencia:** entrevistas, dados ou observacao que sustentam o problema.
+
+## Metas e objetivos
+- **OBJ-001:** resultado que o produto busca para o usuario.
+- **Fora do objetivo:** resultados que este produto nao pretende entregar.
+
+## Funcionalidades e roadmap
+Use IDs estaveis `REQ-001`, `REQ-002`... Marque cada item como atual, proxima versao
+ou futuro. A visao geral cobre o software; somente itens da versao atual bloqueiam esta
+entrega.
+
+| ID | Funcionalidade | Usuario/necessidade | Versao | Prioridade | Evidencia |
+|---|---|---|---|---|---|
+| a preencher | a preencher | a preencher | a preencher | a preencher | a preencher |
+
+## Requisitos funcionais
+Descreva comportamentos verificaveis. Referencie os IDs da tabela acima.
+
+## Requisitos nao funcionais
+Descreva seguranca, privacidade, acessibilidade, desempenho, disponibilidade e limites
+operacionais relevantes. Use valores medidos ou identificados como pendentes.
+
+## Experiencia do usuario
+Descreva a experiencia esperada e a relacione ao `Fluxo do App` e ao `UI/UX Design`.
+
+## Metricas de sucesso
+| ID | Metrica | Como medir | Linha de base | Meta | Periodo |
+|---|---|---|---|---|---|
+| a preencher | a preencher | a preencher | a preencher | a preencher | a preencher |
+
+## Criterios de aceite
+- **a preencher:** a preencher
+
+## Limites e fora do escopo
+Liste o que a versao atual nao fara. Separe adiamentos de decisoes ainda pendentes.
+
+## Decisoes pendentes
+- **PEND-001:** pergunta, responsavel e decisao necessaria antes da implementacao afetada.
+
+## Referencias
+- Links para TRD, Fluxo do App, UI/UX Design, Esquema Backend e Plano de Implementacao.
+</pre></div></div><div popover id="exemplo-documento-trd" class="pop doc-pop" role="dialog" aria-label="Exemplo: TRD"><div class="doc-pop-head"><div><span class="eyebrow">Exemplo do Neural-Flow. Adapte ao seu projeto.</span><h3>TRD</h3></div><button type="button" class="pop-x" popovertarget="exemplo-documento-trd" popovertargetaction="hide" aria-label="Fechar exemplo">&times;</button></div><div class="doc-pop-body"><pre class="doc-example">&gt; TEMPLATE Neural-Flow
+&gt; Modelo oficial de TRD. Valores de custo devem declarar premissas, fonte e data.
+
+# TRD — &lt;nome do produto&gt;
+
+## Identificacao
+- **Versao do PRD coberta:** a preencher
+- **Status:** rascunho | revisao | aprovado
+- **Responsavel tecnico:** a preencher
+- **Ultima revisao:** AAAA-MM-DD
+
+## Objetivo e fronteiras
+Resuma os requisitos tecnicos da versao atual e o que nao esta decidido.
+
+## Arquitetura
+Descreva os componentes e os fluxos entre eles. Inclua um diagrama legivel quando ajudar.
+
+&gt; Exemplo: navegador → API → PostgreSQL; servico de email chamado por uma fila.
+
+## Componentes e responsabilidades
+| Componente | Responsabilidade | Requisito atendido | Dependencias |
+|---|---|---|---|
+| a preencher | a preencher | a preencher | a preencher |
+
+## Tecnologias e decisoes
+| ID | Escolha | Motivo | Alternativa considerada | Custo de mudanca |
+|---|---|---|---|---|
+| a preencher | pendente | pendente | pendente | pendente |
+
+## Integracoes e contratos
+Para cada integracao, informe fornecedor, dados trocados, autenticacao, limites, custo,
+modo de falha e alternativa. Use &quot;nao se aplica&quot; com justificativa quando necessario.
+
+## Seguranca e privacidade
+Descreva fronteiras de confianca, dados pessoais, gestao de segredos, ameacas relevantes,
+retencao, auditoria e controles de acesso.
+
+## Desempenho e disponibilidade
+Defina metas apenas quando houver necessidade ou evidencia. Registre metas desconhecidas
+como pendentes, sem atribuir numeros plausiveis.
+
+## Implantacao e operacao
+Ambientes, deploy, configuracao, observabilidade, backup, recuperacao e responsaveis.
+
+## Custo de manutencao
+| Item | Estimativa | Moeda/periodo | Premissas e volume | Fonte | Verificado em |
+|---|---:|---|---|---|---|
+| a preencher | pendente | pendente | pendente | pendente | AAAA-MM-DD |
+
+Inclua custos recorrentes de infraestrutura, licencas e operacao. Separe estimativa de
+valor contratado e identifique os dados que ainda precisam ser medidos.
+
+## Modos de falha e recuperacao
+Para cada dependencia critica, descreva impacto, deteccao, comportamento seguro e
+recuperacao.
+
+## Decisoes pendentes e referencias
+- **PEND-001:** decisao tecnica, impacto, responsavel e prazo.
+- Link para PRD, Fluxo do App, UI/UX Design, Esquema Backend e Plano de Implementacao.
+</pre></div></div><div popover id="exemplo-documento-app_flow" class="pop doc-pop" role="dialog" aria-label="Exemplo: Fluxo do App"><div class="doc-pop-head"><div><span class="eyebrow">Exemplo do Neural-Flow. Adapte ao seu projeto.</span><h3>Fluxo do App</h3></div><button type="button" class="pop-x" popovertarget="exemplo-documento-app_flow" popovertargetaction="hide" aria-label="Fechar exemplo">&times;</button></div><div class="doc-pop-body"><pre class="doc-example">&gt; TEMPLATE Neural-Flow
+&gt; Modelo oficial do fluxo do app. Use jornadas reais ou marque hipoteses explicitamente.
+
+# Fluxo do App — &lt;nome do produto&gt;
+
+## Identificacao
+- **Versao do PRD coberta:** a preencher
+- **Status:** rascunho | revisao | aprovado
+- **Ultima revisao:** AAAA-MM-DD
+
+## Objetivo e limites
+Defina quais jornadas estao cobertas nesta versao.
+
+## Perfis e permissoes
+| ID | Perfil | Objetivo | Acoes permitidas | Restricoes |
+|---|---|---|---|---|
+| a preencher | a preencher | a preencher | a preencher | a preencher |
+
+## Mapa de navegacao
+Mostre telas, pontos de entrada, destinos e condicoes de acesso.
+
+&gt; Exemplo: Inicio → Entrar → Painel → Detalhe do agendamento.
+
+## Jornadas principais
+IDs de jornada: `JRN-001`, `JRN-002`... Cada passo deve relacionar tela, acao, resultado
+e requisito `REQ-NNN` do PRD.
+
+### JRN-001 — &lt;objetivo da jornada&gt;
+1. **Entrada:** a preencher.
+2. **Acao e resposta:** a preencher.
+3. **Conclusao:** a preencher.
+4. **Requisitos:** a preencher.
+
+## Estados alternativos e erros
+Para cada jornada, inclua cancelamento, dados vazios, indisponibilidade, validacao e
+recuperacao. Explique a mensagem e o proximo passo disponivel.
+
+## Acesso e autenticacao
+Explique cadastro, login, recuperacao de conta, sessao e rotas que exigem permissao.
+Se nao houver autenticacao, justifique e diga como os acessos sao controlados.
+
+## Inventario de telas
+| ID | Tela | Perfil | Jornada | Requisitos | Referencia UI/UX |
+|---|---|---|---|---|---|
+| a preencher | a preencher | a preencher | a preencher | a preencher | a preencher |
+
+## Pendencias e referencias
+- **PEND-001:** fluxo ou regra nao decidido, impacto e responsavel.
+- Link para PRD, TRD, UI/UX Design, Esquema Backend e Plano de Implementacao.
+</pre></div></div><div popover id="exemplo-documento-uiux" class="pop doc-pop" role="dialog" aria-label="Exemplo: UI/UX Design"><div class="doc-pop-head"><div><span class="eyebrow">Exemplo do Neural-Flow. Adapte ao seu projeto.</span><h3>UI/UX Design</h3></div><button type="button" class="pop-x" popovertarget="exemplo-documento-uiux" popovertargetaction="hide" aria-label="Fechar exemplo">&times;</button></div><div class="doc-pop-body"><pre class="doc-example">&gt; TEMPLATE Neural-Flow
+&gt; Modelo oficial de UI/UX. Descreva estados e comportamento, nao apenas aparencia.
+
+# UI/UX Design — &lt;nome do produto&gt;
+
+## Identificacao
+- **Versao do PRD coberta:** a preencher
+- **Status:** rascunho | revisao | aprovado
+- **Ultima revisao:** AAAA-MM-DD
+
+## Brief e principios
+Publico, contexto de uso, necessidades de acessibilidade e principios que orientam as
+decisoes visuais. Marque hipoteses de pesquisa como hipoteses.
+
+## Paleta de cores
+| Token | Valor | Uso | Contraste verificado |
+|---|---|---|---|
+| a preencher | pendente | a preencher | pendente |
+
+## Tipografia
+| Token | Familia/peso | Tamanho/altura | Uso |
+|---|---|---|---|
+| a preencher | pendente | pendente | a preencher |
+
+## Componentes e estados
+Para cada componente compartilhado, descreva variacoes, interacao, foco de teclado,
+carregamento, vazio, erro, sucesso e validacao.
+
+## Telas
+IDs `UI-001`, `UI-002`... Relacione cada tela ao fluxo, perfil e requisitos do PRD.
+
+### UI-001 — &lt;nome da tela&gt;
+- **Jornada/tela:** a preencher.
+- **Objetivo e perfil:** a preencher.
+- **Hierarquia e conteudo:** a preencher.
+- **Acoes e navegacao:** a preencher.
+- **Estados:** carregando, vazio, erro, sucesso e permissao negada.
+- **Responsividade:** a preencher.
+- **Criterios de aceite:** a preencher.
+
+## Responsividade e acessibilidade
+Breakpoints ou regra adaptativa, navegacao por teclado, foco, rotulos, contraste e uso
+com leitor de tela. Registre excecoes e pendencias.
+
+## Referencias e decisoes pendentes
+- **PEND-001:** decisao visual, impacto e responsavel.
+- Link para PRD, TRD, Fluxo do App, Esquema Backend e Plano de Implementacao.
+</pre></div></div><div popover id="exemplo-documento-backend" class="pop doc-pop" role="dialog" aria-label="Exemplo: Esquema Backend"><div class="doc-pop-head"><div><span class="eyebrow">Exemplo do Neural-Flow. Adapte ao seu projeto.</span><h3>Esquema Backend</h3></div><button type="button" class="pop-x" popovertarget="exemplo-documento-backend" popovertargetaction="hide" aria-label="Fechar exemplo">&times;</button></div><div class="doc-pop-body"><pre class="doc-example">&gt; TEMPLATE Neural-Flow
+&gt; Modelo oficial do esquema backend. Tipos e relacoes devem refletir decisoes confirmadas.
+
+# Esquema Backend — &lt;nome do produto&gt;
+
+## Identificacao
+- **Versao do PRD/TRD coberta:** a preencher
+- **Banco ou persistencia:** a preencher ou nao se aplica com justificativa
+- **Status:** rascunho | revisao | aprovado
+- **Ultima revisao:** AAAA-MM-DD
+
+## Visao geral e fronteiras
+Descreva a persistencia, os servicos que a acessam e os limites de responsabilidade.
+
+## Entidades
+IDs `ENT-001`, `ENT-002`... Explique propriedade, ciclo de vida e requisito atendido.
+
+## Tabelas, colecoes e campos
+| Entidade | Campo | Tipo | Obrigatorio | Restricao/indice | Origem |
+|---|---|---|---|---|---|
+| a preencher | a preencher | pendente | pendente | pendente | pendente |
+
+Para cada tabela/colecao, liste todos os campos, tipos, valores nulos, defaults, chaves,
+unicidade, indices e regras de retencao. Nao invente nomes de tabelas reais.
+
+## Relacionamentos e integridade
+| Origem | Destino | Cardinalidade | Chave | Regra de exclusao |
+|---|---|---|---|---|
+| a preencher | a preencher | pendente | pendente | pendente |
+
+## Acesso aos dados e contratos
+Identifique produtores e consumidores, operacoes, transacoes, eventos e validacao de
+entrada. Inclua APIs ou consultas relevantes, sem registrar segredos.
+
+## Autenticacao, sessoes e autorizacao
+Descreva provedor, cadastro/login, tokens ou cookies, duracao e revogacao de sessao,
+recuperacao de conta, papeis e permissao por recurso. Se nao se aplica, explique o limite
+de acesso usado no lugar.
+
+## Privacidade e seguranca
+Classificacao de campos sensiveis, isolamento entre usuarios/tenants, criptografia,
+auditoria, retencao, exclusao e modos de falha seguros.
+
+## Migracoes, backup e recuperacao
+Estrategia de evolucao do schema, compatibilidade, backup e restauracao.
+
+## Decisoes pendentes e referencias
+- **PEND-001:** tabela, campo ou regra ainda nao decidida, impacto e responsavel.
+- Link para PRD, TRD, Fluxo do App, UI/UX Design e Plano de Implementacao.
+</pre></div></div><div popover id="exemplo-documento-implementation_plan" class="pop doc-pop" role="dialog" aria-label="Exemplo: Plano de implementacao"><div class="doc-pop-head"><div><span class="eyebrow">Exemplo do Neural-Flow. Adapte ao seu projeto.</span><h3>Plano de implementacao</h3></div><button type="button" class="pop-x" popovertarget="exemplo-documento-implementation_plan" popovertargetaction="hide" aria-label="Fechar exemplo">&times;</button></div><div class="doc-pop-body"><pre class="doc-example">&gt; TEMPLATE Neural-Flow
+&gt; Plano mestre. Mantenha os IDs estaveis; o progresso das sprints fica separado.
+
+# Plano de Implementacao — &lt;nome do produto&gt;
+
+## Identificacao e versao
+- **Versao de produto:** a preencher
+- **PRD/TRD aprovados:** a preencher
+- **Status:** rascunho | revisao | aprovado
+- **Ultima revisao:** AAAA-MM-DD
+
+## Definicao de pronto do produto
+Liste verificacoes executaveis que demonstram que a versao foi entregue.
+
+## Premissas, restricoes e fora do escopo
+Registre dependencias, decisoes aprovadas, riscos e o que nao sera construido.
+
+## Sequencia de implementacao
+IDs unicos e estaveis `IMP-001`, `IMP-002`... Numero de ordem crescente. Dependencias
+precisam apontar para itens anteriores. A coluna de criterios de aceite referencia
+criterios definidos no PRD ou na spec do modulo.
+
+| Ordem | ID | Etapa/entregavel | Dependencias | Requisitos | Criterios de aceite |
+|---:|---|---|---|---|---|
+| 1 | a preencher | a preencher | a preencher | a preencher | a preencher |
+
+## Rastreabilidade e validacao
+Para cada item, identifique as specs, ADRs, telas e entidades pertinentes, o comando de
+verificacao e a evidencia que sera registrada na sprint.
+
+## Acompanhamento das sprints
+As sprints referenciam os IDs deste plano. O estado `[ ]`/`[x]`, diarios e evidencias de
+execucao pertencem a `build/PLANO.md` e aos arquivos de sprint, nao alteram este plano.
+
+## Riscos, decisoes pendentes e referencias
+- **PEND-001:** questao, itens afetados, responsavel e criterio para resolver.
+- Link para PRD, TRD, Fluxo do App, UI/UX Design e Esquema Backend.
+</pre></div></div><div popover id="ajuda-sprint" class="pop" role="dialog" aria-label="Sprint ativa"><div class="pop-h"><h3>Sprint ativa</h3><button type="button" class="pop-x" popovertarget="ajuda-sprint" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">
 <p><strong>O que e.</strong> A sprint em andamento e o unico lugar onde trabalho tecnico
 pode acontecer. O State Protocol e categorico: nenhuma execucao comeca sem uma sprint
 validada.</p>
@@ -648,7 +1057,7 @@ divergencias sao o que se le <em>antes de decidir</em>.</p>
 verificada, MEDIA = spec ou ADR vigente, BAIXA = inferencia. Item marcado pronto
 <strong>nunca</strong> pode ser BAIXA (codigo C2), e BAIXA somada a acao irreversivel obriga
 o agente a parar e perguntar.</p></div></div><div popover id="ajuda-protocolos" class="pop" role="dialog" aria-label="Protocolos"><div class="pop-h"><h3>Protocolos</h3><button type="button" class="pop-x" popovertarget="ajuda-protocolos" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">
-<p><strong>O que e.</strong> Os dez protocolos do framework e o estado de cada um neste
+<p><strong>O que e.</strong> Os onze protocolos do framework e o estado de cada um neste
 projeto.</p>
 <p><strong>Como ler.</strong> <strong>trava</strong> = ha guard executavel e ele esta
 passando. <strong>reprovando</strong> = ha guard e ele achou violacao.
@@ -691,20 +1100,12 @@ contexto esta sendo reconstruido por varredura, exatamente o que o indice de con
 existe para evitar.</p>
 <p><strong>Sessoes</strong> lista as mais caras, com duracao e numero de requisicoes. Uma
 sessao curta e cara costuma indicar releitura pesada logo no inicio.</p>
-<p>Tudo vem dos transcripts locais; nada sai da sua maquina.</p></div></div><div popover id="ajuda-historico" class="pop" role="dialog" aria-label="Historico de sprints"><div class="pop-h"><h3>Historico de sprints</h3><button type="button" class="pop-x" popovertarget="ajuda-historico" popovertargetaction="hide" aria-label="Fechar">&times;</button></div><div class="pop-b">
-<p><strong>O que e.</strong> Todas as sprints do projeto, com progresso, nivel de autonomia e
-consumo de tokens contra o orcamento.</p>
-<p><strong>Para que serve.</strong> Retomada e onboarding. A regra de escala do framework diz
-para ler o snapshot da sprint ativa, depois o delta desde a ultima atualizacao, e so entao o
-historico completo — releitura integral e o maior desperdicio de tokens que existe.</p>
-<p><strong>O que observar.</strong> Sprint apos sprint estourando o orcamento nao e problema
-de estimativa: e sinal de que o escopo esta entrando maior do que cabe, ou de que o tier de
-modelo esta alto demais para a tarefa.</p></div></div>
+<p>Tudo vem dos transcripts locais; nada sai da sua maquina.</p></div></div>
 <footer>Neural-Flow Framework — gerado por <code>scripts/nf_dashboard.py</code></footer>
 </div>
 <script id="nf-dashboard-i18n">
 (() => {
-  const translations = {"Visão de execução, risco e governança do projeto":"Execution, risk and governance view","Seção do dashboard":"Dashboard section","Painel":"Dashboard","O Neural-Flow":"About Neural-Flow","Escolha a paleta do dashboard":"Choose the dashboard palette","Atualizado em ":"Updated ","Resumo executivo":"Executive summary","Execução em andamento, com ":"Work in progress, with "," controle que exige ação antes do próximo commit.":" control requiring action before the next commit."," controles que exigem ação antes do próximo commit.":" controls requiring action before the next commit.","Prioridade: regularize os guards reprovados e registre a evidência pendente.":"Priority: fix failing guards and record the pending evidence.","Atenção necessária":"Attention needed","Controles conformes":"Controls compliant","Ver controles":"View controls","Governanca":"Governance","guards conforme":"guards compliant"," reprovando — corrija antes do commit":" failing — fix before committing","Sprint ativa":"Active sprint","nenhuma sprint encontrada":"no sprint found","Divergencias":"Divergences","decisoes aguardando revisao humana":"decisions awaiting human review","loop nao iniciado":"loop not started","nenhum registrado":"none recorded","aceito":"accepted","superado":"superseded","proposto":"proposed","concluida":"completed","em andamento":"in progress","planejada":"planned","bloqueada":"blocked","cancelada":"cancelled"," dias restantes":" days remaining"," dias em atraso":" days overdue","prazo nao definido":"deadline undefined","Status":"Status","Autonomia":"Autonomy","Inicio":"Start","Prazo":"Deadline","Bloqueados":"Blocked","Arquivo":"File","Guards":"Guards","Executados agora, sobre a arvore de trabalho":"Run now against the working tree","Sprint validada antes de executar":"Sprint validated before execution","Orcamento de tokens declarado":"Token budget declared","Decisao ancorada em fonte que existe":"Decision anchored in an existing source","Decisao numerada, sem ciclo nem pendura":"Numbered decision, without cycles or dangling references","Spec completa antes do codigo":"Complete spec before coding","Confianca declarada e derivada de evidencia":"Confidence declared and derived from evidence","FinOps de tokens":"Token FinOps","Orcamento declarado x consumo observado":"Declared budget vs observed consumption","Limite de alerta em 70%. Consumo ≥ 100% do budget sem mitigacao registrada reprova no guard":"Alert threshold is 70%. Consumption ≥ 100% of the budget without recorded mitigation fails the guard","Declarado x medido — sprint ativa":"Declared vs measured — active sprint","Declarado":"Declared","Medido":"Measured","O medido vem dos transcripts locais e cobre 30 dias do projeto inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o proximo budget, nao como substituto do registro.":"Measured usage comes from local transcripts and covers the whole project over 30 days, not only this sprint — use it as an estimate for the next budget, not as a replacement for the record.","Tokens gastos na construcao do indice":"Tokens spent building the index","Entrada":"Input","Saida":"Output","Gate de evidencia sobre codigo e schema":"Evidence gate for code and schema","Versao":"Version","Ultimo audit":"Last audit","nunca":"never","Rode":"Run","no PR. O relatorio":"in the PR. The report","e a evidencia do gate.":"is the gate evidence.","Indice de conhecimento":"Knowledge index","Grafo construido sobre a documentacao":"Graph built from project documentation","nos":"nodes","arestas":"edges","comunidades":"communities","arquivos":"files","Grafo interativo":"Interactive graph","Wiki":"Wiki","Relatorio":"Report","Maiores comunidades, por numero de nos":"Largest communities by node count","arestas AMBIGUOUS":"AMBIGUOUS edges","— sao os pontos onde a especificacao deixou uma relacao sem fechar. Consulte o indice antes de ler arquivo: custa ~48x menos tokens.":"— these are the points where the specification left a relationship unresolved. Consult the index before reading files: it costs about 48x fewer tokens.","Loop autonomo":"Autonomous loop","Estado em disco, nao na conversa":"State on disk, not in the conversation","Iteracoes":"Iterations","Confianca declarada por iteracao":"Confidence declared per iteration","Alta":"High","Media":"Medium","Baixa":"Low","Item marcado pronto nunca pode ser":"An item marked ready can never be","reprova (C2).":"fails (C2).","Consumo real de tokens":"Actual token usage","Medido nos transcripts locais, nao declarado":"Measured in local transcripts, not declared","tokens faturaveis":"billable tokens","de cache":"cached","Cache escrito":"Cache written","Cache lido":"Cache read","Requisicoes":"Requests","Sessoes":"Sessions","Consumo por dia, tokens faturaveis":"Daily usage, billable tokens","Por modelo, em tokens faturaveis":"By model, billable tokens","Todo o periodo registrado. So numeros sao lidos — o conteudo das mensagens nunca e acessado.":"Entire recorded period. Only numbers are read — message content is never accessed.","Ritmo e ferramentas":"Work rhythm and tools","Como o trabalho se distribuiu":"How the work was distributed","Requisicoes por hora, ":"Requests per hour, ","ultimos ":"last "," dias (UTC)":" days (UTC)","no dia registrado":"on the recorded day","Ferramentas mais usadas":"Most used tools","Sessoes por consumo":"Sessions by usage","menos":"less","mais":"more","pico ":"peak ","Protocolos":"Protocols","O que trava e o que se audita":"What blocks and what is audited","trava":"blocking","reprovando":"failing","manual":"manual","inativo":"inactive","nao instalado":"not installed","Historico de sprints":"Sprint history","Titulo":"Title","Aut.":"Aut.","Itens":"Items","Tokens":"Tokens","Fechar":"Close","Como uma mudança vira commit":"How a change becomes a commit","O que é.":"What it is.","O que e.":"What it is.","O que você vê.":"What you see.","O que voce ve.":"What you see.","Como ler as cores.":"How to read the colors.","A regra.":"The rule.","Por que existe.":"Why it exists.","Por que ele existe.":"Why it exists.","Os botões.":"The links.","Os botoes.":"The links.","A regra de uso.":"Usage rule.","Os quatro arquivos.":"The four files.","Divergências são o que você revisa.":"Divergences are what you review.","Divergencias sao o que voce revisa.":"Divergences are what you review.","Confianca.":"Confidence.","O que observar.":"What to watch.","Para que serve.":"What it is for.","Arquitetura do fluxo":"Flow architecture","Nenhuma sprint encontrada":"No sprint found","Nenhum sprint encontrado":"No sprint found","Loop nao iniciado":"Loop not started","Nenhum registrado":"None recorded","Sobre o Neural-Flow Framework":"About the Neural-Flow Framework","Método de engenharia assistida por IA":"AI-assisted engineering method","Transformar intenção em mudança verificável.":"Turn intent into a verifiable change.","Neural-Flow é um framework de governança para trabalho técnico executado por pessoas e agentes. Ele organiza a execução em artefatos legíveis, regras verificáveis e evidências reproduzíveis, para que velocidade não dependa de confiança cega.":"Neural-Flow is a governance framework for technical work carried out by people and agents. It organizes execution into readable artifacts, verifiable rules, and reproducible evidence, so speed does not depend on blind trust.","O objetivo é simples: cada mudança deve ter escopo, contexto, decisão e prova. Assim, o projeto permanece compreensível quando a conversa acaba, o agente muda ou a equipe cresce.":"The goal is simple: every change needs scope, context, a decision, and proof. This keeps the project understandable when the conversation ends, the agent changes, or the team grows.","Clique para ampliar":"Click to enlarge","Arquitetura do fluxo: os artefatos registram a intenção, os guards bloqueiam desvios e o CI confirma a autoridade do processo.":"Flow architecture: artifacts record intent, guards block deviations, and CI confirms the process authority.","O que o framework resolve":"What the framework solves","Projetos guiados por IA frequentemente perdem contexto, misturam hipótese com fato e deixam decisões importantes só no chat. Neural-Flow torna o estado do trabalho explícito em disco, reduzindo retrabalho e tornando a retomada confiável.":"AI-guided projects often lose context, mix hypotheses with facts, and leave important decisions only in chat. Neural-Flow makes work state explicit on disk, reducing rework and making resumption reliable.","Estado persistente":"Persistent state","Plano, diário, divergências e sprint registram o que foi feito e o que falta.":"The plan, journal, divergences, and sprint record what is done and what remains.","Decisão rastreável":"Traceable decisions","ADRs preservam o porquê de mudanças arquiteturais sem reescrever o histórico.":"ADRs preserve why architectural changes happened without rewriting history.","Como ele preserva autonomia":"How it preserves autonomy","Autonomia não significa ausência de limites. O framework define até onde um agente pode avançar e quais decisões exigem revisão humana, especialmente em escopos sensíveis ou irreversíveis.":"Autonomy does not mean an absence of limits. The framework defines how far an agent may go and which decisions require human review, especially for sensitive or irreversible scopes.","Guards executáveis":"Executable guards","Regras críticas deixam de ser recomendação e passam a bloquear o commit quando violadas.":"Critical rules stop being recommendations and block the commit when violated.","Evidência antes de conclusão":"Evidence before completion","Um item só está pronto quando a verificação foi executada e registrada.":"An item is ready only after verification has been run and recorded.","O ciclo operacional":"The operating cycle","Defina a sprint, o escopo, a autonomia e o orçamento.":"Define the sprint, scope, autonomy, and budget.","Consulte o índice e registre fontes que sustentam a decisão.":"Consult the index and record the sources supporting the decision.","Implemente uma mudança pequena e deixe o estado no plano.":"Implement a small change and leave the state in the plan.","Execute os guards; se reprovar, corrija o artefato ou a mudança.":"Run the guards; if one fails, fix the artifact or the change.","Registre evidência, faça o commit e deixe o CI validar novamente.":"Record evidence, commit, and let CI validate again.","Ampliar diagrama de arquitetura":"Enlarge architecture diagram","Diagrama de arquitetura ampliado":"Enlarged architecture diagram","Neural-Flow Framework — gerado por ":"Neural-Flow Framework — generated by "};
+  const translations = {"Ir para o painel":"Skip to dashboard","Navegacao do painel":"Dashboard navigation","O que precisa de atencao":"What needs attention","Sinais dos artefatos para orientar a proxima revisao":"Signals from project files to guide the next review","Ver pendencias":"Review pending items","Pendencias":"Pending items","Controles":"Controls","Conhecimento":"Knowledge","Historico":"History","Documentos":"Documents","Resumo":"Overview","Retrato local gerado em ":"Local snapshot generated ","Os dados mudam quando o painel e gerado novamente.":"Data changes when the dashboard is generated again.","Verificados ao gerar este retrato, sobre a arvore de trabalho":"Verified when generating this snapshot, against the working tree","Ver documentos e modelos":"View documents and templates","Proxima acao registrada":"Recorded next action","Nenhuma proxima acao registrada.":"No next action recorded.","Nenhuma sprint encontrada em andamento.":"No sprint in progress.","Confira o historico ou registre uma sprint em ":"Check the history or record a sprint in ","nenhuma sprint em andamento":"no sprint in progress","nenhum controle ativo":"no active controls","Nenhum controle ativo para avaliar este projeto.":"No active controls to evaluate this project.","Configure os artefatos e gere o painel novamente para verificar o estado.":"Configure project files and generate the dashboard again to verify its status.","Sem verificacao ativa":"No active verification","Os controles ativos deste retrato estao conformes.":"Active controls in this snapshot pass.","Acompanhe o consumo e mantenha as evidencias atualizadas.":"Track usage and keep evidence up to date.","Verificacoes conformes":"Checks pass"," pontos precisam de revisao.":" items need review.","Comece pelos controles reprovados, bloqueios e prazos.":"Start with failed controls, blocked work, and deadlines.","Revisao pendente":"Review pending","Corrija os achados desta verificacao.":"Address the findings from this check."," achados criticos no ultimo audit":" critical findings in the last audit","Revise o relatorio e confirme a correcao.":"Review the report and verify the fix."," sprints em andamento":" sprints in progress","A mais recente aparece em destaque. Revise os status no historico.":"The latest one is highlighted. Review statuses in the history."," com bloqueio":" blocked","Revise os itens bloqueados e registre o proximo passo.":"Review blocked items and record the next step."," com checklist concluido":" with a completed checklist","Revise as evidencias e atualize o status da sprint.":"Review evidence and update the sprint status."," itens abertos. Revise o prazo planejado.":" open items. Review the planned deadline."," do budget":" of budget","Revise o consumo declarado e a mitigacao registrada.":"Review declared usage and recorded mitigation.","Base documental precisa de revisao":"Document baseline needs review","Confira lacunas, mapeamento e aprovacoes dos documentos.":"Check gaps, mapping, and document approvals."," divergencias aguardando revisao":" discrepancies awaiting review","Revise as decisoes pendentes antes de continuar o loop.":"Review pending decisions before continuing the loop.","Nenhuma pendencia identificada nos sinais disponiveis. Confira tambem os controles inativos e os registros ausentes.":"No pending issues identified in the available signals. Also check inactive controls and missing records.","Nenhuma sprint registrada.":"No sprint recorded.","vence na data deste retrato":"due on this snapshot date","Documentos do projeto":"Project documents","Diagnostico, lacunas e modelos de referencia para a versao do produto":"Status, gaps, and reference models for this product version","PRD":"Product requirements","Fluxo do App":"App flow","Esquema Backend":"Backend schema","Plano de implementacao":"Implementation plan","Requisitos, usuarios, funcionalidades e metas do produto.":"Product requirements, users, features, and goals.","Arquitetura, escolhas tecnicas, operacao e custo de manutencao.":"Architecture, technical choices, operations, and maintenance cost.","Jornadas, navegacao, acesso e estados de erro.":"Journeys, navigation, access, and error states.","Brief visual, componentes e especificacao das telas.":"Visual brief, components, and screen specifications.","Entidades, campos, relacoes e autenticacao.":"Entities, fields, relationships, and authentication.","Ordem de construcao com dependencias e aceite.":"Build order with dependencies and acceptance criteria.","Aprovado":"Approved","Aguardando revisao":"Awaiting review","Alterado apos aprovacao":"Changed after approval","Incompleto":"Incomplete","Ausente":"Missing","Nenhum arquivo mapeado":"No file mapped","Ver exemplo":"View example","Exemplo do Neural-Flow. Adapte ao seu projeto.":"Neural-Flow example. Adapt it to your project.","Fechar exemplo":"Close example","Exemplo indisponivel nesta instalacao. Reinstale o Neural-Flow para restaurar os modelos oficiais.":"Example unavailable in this installation. Reinstall Neural-Flow to restore the official models.","O diagnostico esta disponivel. O gate de sprints sera ativado quando o projeto adotar a base documental.":"Diagnostics are available. The sprint gate will activate when the project adopts the document baseline.","A base aprovada esta vigente.":"The approved baseline is current.","Solicite a revisao da IA e registre a aprovacao do usuario.":"Request an AI review and record user approval.","Abra o arquivo e complete as lacunas listadas.":"Open the file and fill in the listed gaps.","Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.":"Map an existing document in .neural-flow.json or create one from the example.","A justificativa de nao aplicabilidade foi aprovada.":"The not-applicable rationale was approved.","Proxima acao: revisao da IA e aprovacao do usuario.":"Next: AI review and user approval.","Arquivo":"File","nao se aplica: ":"not applicable: ","Custo de manutencao":"Maintenance cost","Visão de execução, risco e governança do projeto":"Execution, risk and governance view","Seção do dashboard":"Dashboard section","Painel":"Dashboard","O Neural-Flow":"About Neural-Flow","Escolha a paleta do dashboard":"Choose the dashboard palette","Atualizado em ":"Updated ","Resumo executivo":"Executive summary","Execução em andamento, com ":"Work in progress, with "," controle que exige ação antes do próximo commit.":" control requiring action before the next commit."," controles que exigem ação antes do próximo commit.":" controls requiring action before the next commit.","Prioridade: regularize os guards reprovados e registre a evidência pendente.":"Priority: fix failing guards and record the pending evidence.","Atenção necessária":"Attention needed","Controles conformes":"Controls compliant","Ver controles":"View controls","Governanca":"Governance","guards conforme":"guards compliant"," reprovando — corrija antes do commit":" failing — fix before committing","Sprint ativa":"Active sprint","nenhuma sprint encontrada":"no sprint found","Divergencias":"Divergences","decisoes aguardando revisao humana":"decisions awaiting human review","loop nao iniciado":"loop not started","nenhum registrado":"none recorded","aceito":"accepted","superado":"superseded","proposto":"proposed","concluida":"completed","em andamento":"in progress","planejada":"planned","bloqueada":"blocked","cancelada":"cancelled"," dias restantes":" days remaining"," dias em atraso":" days overdue","prazo nao definido":"deadline undefined","Status":"Status","Autonomia":"Autonomy","Inicio":"Start","Prazo":"Deadline","Bloqueados":"Blocked","Guards":"Guards","Executados agora, sobre a arvore de trabalho":"Run now against the working tree","Sprint validada antes de executar":"Sprint validated before execution","Orcamento de tokens declarado":"Token budget declared","Decisao ancorada em fonte que existe":"Decision anchored in an existing source","Decisao numerada, sem ciclo nem pendura":"Numbered decision, without cycles or dangling references","Spec completa antes do codigo":"Complete spec before coding","Confianca declarada e derivada de evidencia":"Confidence declared and derived from evidence","FinOps de tokens":"Token FinOps","Orcamento declarado x consumo observado":"Declared budget vs observed consumption","Limite de alerta em 70%. Consumo ≥ 100% do budget sem mitigacao registrada reprova no guard":"Alert threshold is 70%. Consumption ≥ 100% of the budget without recorded mitigation fails the guard","Declarado x medido — sprint ativa":"Declared vs measured — active sprint","Declarado":"Declared","Medido":"Measured","O medido vem dos transcripts locais e cobre 30 dias do projeto inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o proximo budget, nao como substituto do registro.":"Measured usage comes from local transcripts and covers the whole project over 30 days, not only this sprint — use it as an estimate for the next budget, not as a replacement for the record.","Tokens gastos na construcao do indice":"Tokens spent building the index","Entrada":"Input","Saida":"Output","Gate de evidencia sobre codigo e schema":"Evidence gate for code and schema","Versao":"Version","Ultimo audit":"Last audit","nunca":"never","Rode":"Run","no PR. O relatorio":"in the PR. The report","e a evidencia do gate.":"is the gate evidence.","Indice de conhecimento":"Knowledge index","Grafo construido sobre a documentacao":"Graph built from project documentation","nos":"nodes","arestas":"edges","comunidades":"communities","arquivos":"files","Grafo interativo":"Interactive graph","Wiki":"Wiki","Relatorio":"Report","Maiores comunidades, por numero de nos":"Largest communities by node count","arestas AMBIGUOUS":"AMBIGUOUS edges","— sao os pontos onde a especificacao deixou uma relacao sem fechar. Consulte o indice antes de ler arquivo: custa ~48x menos tokens.":"— these are the points where the specification left a relationship unresolved. Consult the index before reading files: it costs about 48x fewer tokens.","Loop autonomo":"Autonomous loop","Estado em disco, nao na conversa":"State on disk, not in the conversation","Iteracoes":"Iterations","Confianca declarada por iteracao":"Confidence declared per iteration","Alta":"High","Media":"Medium","Baixa":"Low","Item marcado pronto nunca pode ser":"An item marked ready can never be","reprova (C2).":"fails (C2).","Consumo real de tokens":"Actual token usage","Medido nos transcripts locais, nao declarado":"Measured in local transcripts, not declared","tokens faturaveis":"billable tokens","de cache":"cached","Cache escrito":"Cache written","Cache lido":"Cache read","Requisicoes":"Requests","Sessoes":"Sessions","Consumo por dia, tokens faturaveis":"Daily usage, billable tokens","Por modelo, em tokens faturaveis":"By model, billable tokens","Todo o periodo registrado. So numeros sao lidos — o conteudo das mensagens nunca e acessado.":"Entire recorded period. Only numbers are read — message content is never accessed.","Ritmo e ferramentas":"Work rhythm and tools","Como o trabalho se distribuiu":"How the work was distributed","Requisicoes por hora, ":"Requests per hour, ","ultimos ":"last "," dias (UTC)":" days (UTC)","no dia registrado":"on the recorded day","Ferramentas mais usadas":"Most used tools","Sessoes por consumo":"Sessions by usage","menos":"less","mais":"more","pico ":"peak ","Protocolos":"Protocols","O que trava e o que se audita":"What blocks and what is audited","trava":"blocking","reprovando":"failing","manual":"manual","inativo":"inactive","nao instalado":"not installed","Historico de sprints":"Sprint history","Titulo":"Title","Aut.":"Aut.","Itens":"Items","Tokens":"Tokens","Fechar":"Close","Como uma mudança vira commit":"How a change becomes a commit","O que é.":"What it is.","O que e.":"What it is.","O que você vê.":"What you see.","O que voce ve.":"What you see.","Como ler as cores.":"How to read the colors.","A regra.":"The rule.","Por que existe.":"Why it exists.","Por que ele existe.":"Why it exists.","Os botões.":"The links.","Os botoes.":"The links.","A regra de uso.":"Usage rule.","Os quatro arquivos.":"The four files.","Divergências são o que você revisa.":"Divergences are what you review.","Divergencias sao o que voce revisa.":"Divergences are what you review.","Confianca.":"Confidence.","O que observar.":"What to watch.","Para que serve.":"What it is for.","Arquitetura do fluxo":"Flow architecture","Nenhuma sprint encontrada":"No sprint found","Nenhum sprint encontrado":"No sprint found","Loop nao iniciado":"Loop not started","Nenhum registrado":"None recorded","Sobre o Neural-Flow Framework":"About the Neural-Flow Framework","Método de engenharia assistida por IA":"AI-assisted engineering method","Transformar intenção em mudança verificável.":"Turn intent into a verifiable change.","Neural-Flow é um framework de governança para trabalho técnico executado por pessoas e agentes. Ele organiza a execução em artefatos legíveis, regras verificáveis e evidências reproduzíveis, para que velocidade não dependa de confiança cega.":"Neural-Flow is a governance framework for technical work carried out by people and agents. It organizes execution into readable artifacts, verifiable rules, and reproducible evidence, so speed does not depend on blind trust.","O objetivo é simples: cada mudança deve ter escopo, contexto, decisão e prova. Assim, o projeto permanece compreensível quando a conversa acaba, o agente muda ou a equipe cresce.":"The goal is simple: every change needs scope, context, a decision, and proof. This keeps the project understandable when the conversation ends, the agent changes, or the team grows.","Clique para ampliar":"Click to enlarge","Arquitetura do fluxo: os artefatos registram a intenção, os guards bloqueiam desvios e o CI confirma a autoridade do processo.":"Flow architecture: artifacts record intent, guards block deviations, and CI confirms the process authority.","O que o framework resolve":"What the framework solves","Projetos guiados por IA frequentemente perdem contexto, misturam hipótese com fato e deixam decisões importantes só no chat. Neural-Flow torna o estado do trabalho explícito em disco, reduzindo retrabalho e tornando a retomada confiável.":"AI-guided projects often lose context, mix hypotheses with facts, and leave important decisions only in chat. Neural-Flow makes work state explicit on disk, reducing rework and making resumption reliable.","Estado persistente":"Persistent state","Plano, diário, divergências e sprint registram o que foi feito e o que falta.":"The plan, journal, divergences, and sprint record what is done and what remains.","Decisão rastreável":"Traceable decisions","ADRs preservam o porquê de mudanças arquiteturais sem reescrever o histórico.":"ADRs preserve why architectural changes happened without rewriting history.","Como ele preserva autonomia":"How it preserves autonomy","Autonomia não significa ausência de limites. O framework define até onde um agente pode avançar e quais decisões exigem revisão humana, especialmente em escopos sensíveis ou irreversíveis.":"Autonomy does not mean an absence of limits. The framework defines how far an agent may go and which decisions require human review, especially for sensitive or irreversible scopes.","Guards executáveis":"Executable guards","Regras críticas deixam de ser recomendação e passam a bloquear o commit quando violadas.":"Critical rules stop being recommendations and block the commit when violated.","Evidência antes de conclusão":"Evidence before completion","Um item só está pronto quando a verificação foi executada e registrada.":"An item is ready only after verification has been run and recorded.","O ciclo operacional":"The operating cycle","Defina a sprint, o escopo, a autonomia e o orçamento.":"Define the sprint, scope, autonomy, and budget.","Consulte o índice e registre fontes que sustentam a decisão.":"Consult the index and record the sources supporting the decision.","Implemente uma mudança pequena e deixe o estado no plano.":"Implement a small change and leave the state in the plan.","Execute os guards; se reprovar, corrija o artefato ou a mudança.":"Run the guards; if one fails, fix the artifact or the change.","Registre evidência, faça o commit e deixe o CI validar novamente.":"Record evidence, commit, and let CI validate again.","Ampliar diagrama de arquitetura":"Enlarge architecture diagram","Diagrama de arquitetura ampliado":"Enlarged architecture diagram","Neural-Flow Framework — gerado por ":"Neural-Flow Framework — generated by "};
   const pairs = Object.entries(translations).sort((a, b) => b[0].length - a[0].length);
   const originals = new WeakMap();
   const attrs = ["aria-label", "title"];
@@ -737,6 +1138,32 @@ modelo esta alto demais para a tarefa.</p></div></div>
   let initial = "pt";
   try { initial = localStorage.getItem("nf-dashboard-language") || "pt"; } catch (_) {}
   apply(initial === "en" ? "en" : "pt");
+})();
+</script>
+<script id="nf-dashboard-navigation">
+(() => {
+  const links = [...document.querySelectorAll('.section-nav a')];
+  const select = () => {
+    const target = location.hash || '#resumo';
+    links.forEach(link => {
+      if (link.getAttribute('href') === target) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  };
+  window.addEventListener('hashchange', select);
+  select();
+  document.querySelector('.skip-link').addEventListener('click', () => {
+    document.getElementById('view-dashboard').checked = true;
+  });
+  const themes = [...document.querySelectorAll('[name=theme]')];
+  try {
+    const saved = localStorage.getItem('nf-dashboard-theme');
+    const input = themes.find(theme => theme.id === saved);
+    if (input) input.checked = true;
+  } catch (_) {}
+  themes.forEach(theme => theme.addEventListener('change', () => {
+    try { localStorage.setItem('nf-dashboard-theme', theme.id); } catch (_) {}
+  }));
 })();
 </script>
 </body>

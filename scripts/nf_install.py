@@ -40,9 +40,14 @@ GUARDS = [
     "nf_gate.py", "nf_guards.py", "validate_sprint_state.py",
     "validate_token_budget.py", "validate_context_sources.py",
     "validate_adr.py", "validate_module_spec.py", "validate_calibration.py",
+    "validate_action_policy.py",
     "validate_agent_entrypoints.py",
     "nf_dashboard.py", "nf_tokens.py", "nf_agentes.py", "nf_indice_regras.py",
+    "nf_product_docs.py",
 ]
+
+RUNTIME_SCRIPTS = ["nf_action_policy.py", "nf_action_gateway.py", "nf_sandbox.py",
+                   ]
 
 SMOKE_GATE_REPO = "reimon/smoke-gate"
 # Rede indisponivel ou API fora do ar nao pode impedir a instalacao — cai para a
@@ -203,6 +208,20 @@ def instalar_guards(inst: Instalacao) -> None:
             )
             continue
         inst.copiar(RAIZ_FW / "scripts" / nome, destino)
+    # O guard valida a politica; estes scripts fazem a decisao em runtime.
+    # Eles ficam separados para que o projeto adotante possa chamar o gateway
+    # sem importar o orquestrador inteiro.
+    for nome in RUNTIME_SCRIPTS:
+        destino = inst.alvo / "scripts" / nome
+        if destino.exists() and not _assinado(destino) and not inst.forcar:
+            alternativo = inst.alvo / "scripts" / f"nf_{nome}"
+            inst.copiar(RAIZ_FW / "scripts" / nome, alternativo)
+            inst.avisos.append(
+                f"'scripts/{nome}' ja existe e nao e do framework — o runtime "
+                f"foi instalado como 'scripts/nf_{nome}'."
+            )
+            continue
+        inst.copiar(RAIZ_FW / "scripts" / nome, destino)
     inst.copiar(
         RAIZ_FW / "templates" / "githooks" / "pre-commit",
         inst.alvo / ".githooks" / "pre-commit",
@@ -211,6 +230,10 @@ def instalar_guards(inst: Instalacao) -> None:
     inst.copiar(
         RAIZ_FW / ".github" / "workflows" / "neural-flow-gates.yml",
         inst.alvo / ".github" / "workflows" / "neural-flow-gates.yml",
+    )
+    inst.copiar_template(
+        "templates/action-policy-template.json",
+        inst.alvo / ".neural-flow" / "action-policy.json",
     )
 
 
@@ -312,6 +335,45 @@ def gerar_indice_de_regras(inst: Instalacao) -> None:
         (inst.mantidos if antes[a] == depois else inst.criados).append(a)
 
 
+def instalar_documentos_produto(inst: Instalacao, framework_existente: bool) -> None:
+    """Instala os exemplos oficiais e inicializa a configuracao sem apagar mapas."""
+    modelos = RAIZ_FW / "templates" / "product-docs"
+    destino_modelos = inst.alvo / ".neural-flow" / "product-examples"
+    for origem in sorted(modelos.glob("*.md")):
+        inst.copiar(origem, destino_modelos / f"{origem.stem}.md.example")
+
+    caminho = inst.alvo / ".neural-flow.json"
+    dados: dict = {}
+    antes = None
+    if caminho.is_file():
+        antes = caminho.read_text(encoding="utf-8", errors="replace")
+        try:
+            dados = json.loads(antes)
+            if not isinstance(dados, dict):
+                raise ValueError("a raiz precisa ser um objeto")
+        except (json.JSONDecodeError, ValueError) as exc:
+            inst.avisos.append(f".neural-flow.json invalido ({exc}); configuracao de documentos nao foi alterada")
+            return
+    produto = dados.setdefault("product_docs", {})
+    if not isinstance(produto, dict):
+        inst.avisos.append("product_docs em .neural-flow.json nao e um objeto; configuracao preservada")
+        return
+    produto.setdefault("enabled", not framework_existente)
+    produto.setdefault("documents", {})
+    produto.setdefault("approvals", {})
+    depois = json.dumps(dados, ensure_ascii=False, indent=2) + "\n"
+    if depois == antes:
+        inst.mantidos.append(".neural-flow.json (product_docs sem alteracoes)")
+    elif antes is not None and not inst.forcar:
+        inst.mantidos.append(".neural-flow.json")
+        inst.avisos.append(
+            ".neural-flow.json existente preservado; configure product_docs "
+            "explicitamente ou use --force para instalar os valores ausentes."
+        )
+    else:
+        inst.escrever(caminho, depois)
+
+
 def instalar_sprint(inst: Instalacao, nome_projeto: str, modo: str) -> None:
     hoje = date.today()
     prazo = hoje + timedelta(days=14)
@@ -376,6 +438,9 @@ def instalar_sprint(inst: Instalacao, nome_projeto: str, modo: str) -> None:
         "## Snapshot Operacional", "",
         f"- App/Escopo: {escopo}",
         "- Status: `em andamento`",
+        "- Tipo de trabalho: `preparacao-documental`",
+        "- Versao do produto: `a definir`",
+        "- Plano mestre: `docs/product/implementation-plan.md`",
         f"- Data de inicio: `{hoje.isoformat()}`",
         f"- Data planejada de conclusao: `{prazo.isoformat()}`",
         "- Data real de conclusao: `a definir`",
@@ -572,21 +637,21 @@ construir e impedir que o agente invente o que a spec nao disse.
 
 | Etapa | O que fazer | Gate |
 | --- | --- | --- |
-| 1. Especificar | Uma pasta por modulo em `docs/modulos/`, seguindo `docs/PADRAO-ESPECIFICACAO-MODULOS.md` | `python3 scripts/nf_gate.py spec` |
-| 2. Inventariar | O que ja existe (biblioteca, kit interno, servico) que cobre parte do escopo. O inventario e como se descobre o que **falta** | decisao registrada como ADR |
-| 3. Indexar | Grafo de conhecimento sobre `docs/` — consulta ao indice custa ~48x menos que reler | `graphify <caminho>` |
-| 4. Planejar | `build/PLANO.md`: itens ordenados por dependencia, cada um com criterio de aceite e Definicao de Pronto | revisao humana |
-| 5. Construir | Loop de uma iteracao por item, estado em disco | comando de verificacao verde |
-| 6. Registrar | Diario, divergencias, memoria, indice atualizado | fim de agente arruma a casa |
+| 1. Documentar o produto | Completar PRD, TRD, Fluxo do App, UI/UX, Esquema Backend e Plano mestre. Consulte os exemplos no dashboard | `python3 scripts/nf_product_docs.py --root .` |
+| 2. Revisar e aprovar | Agente revisa coerencia e cobertura; usuario aprova cada documento | hash vigente em `.neural-flow.json` |
+| 3. Especificar modulos | Uma pasta por modulo em `docs/modulos/`, seguindo `docs/PADRAO-ESPECIFICACAO-MODULOS.md` | `python3 scripts/nf_gate.py spec` |
+| 4. Inventariar e indexar | Mapear reuso e gerar grafo de conhecimento sobre `docs/` | decisao registrada como ADR; `graphify <caminho>` |
+| 5. Planejar sprints | Cada acao referencia itens `IMP`, requisitos e criterios do plano mestre | `python3 scripts/nf_gate.py sprint` |
+| 6. Construir e registrar | Loop de uma iteracao por item, estado em disco | guards e verificacoes verdes |
 
 Especificar antes de inventariar produz reuso ruim. Indexar antes de especificar indexa o
 vazio. Construir antes de planejar produz codigo que ninguem consegue verificar.
 
 ## Agora
 
-1. Abra `docs/sprints/sprint-01.md` — e a sprint de descoberta, ja valida no gate.
-2. Preencha `docs/PADRAO-ESPECIFICACAO-MODULOS.md` com as secoes que **este** dominio exige.
-3. Escreva a spec do primeiro modulo em `docs/modulos/01-<nome>/spec.md`.
+1. Abra o dashboard gerado na raiz e consulte os seis exemplos em “Documentos do projeto”.
+2. Preencha os documentos reais ou mapeie os existentes em `.neural-flow.json`.
+3. Complete `docs/PADRAO-ESPECIFICACAO-MODULOS.md` e a spec do primeiro modulo.
 4. Rode `python3 scripts/nf_gate.py` antes de cada commit (o hook ja faz isso).
 
 ## Quando as specs estiverem prontas
@@ -737,11 +802,21 @@ def configurar_git(inst: Instalacao, iniciar: bool) -> None:
     # inteiro — o indice de regras nunca chegaria ao CI nem a maquina de outra
     # pessoa, e o guard `agentes` reprovaria justamente onde ninguem pode
     # regerar. Reinstalar precisa consertar isso, e a marca sozinha nao detecta.
-    if marca in conteudo and ".neural-flow/indice-regras" not in conteudo and not inst.dry_run:
+    if marca in conteudo and (
+        ".neural-flow/indice-regras" not in conteudo
+        or ".neural-flow/action-policy.json" not in conteudo
+    ) and not inst.dry_run:
+        excecoes = []
+        if ".neural-flow/indice-regras.md" not in conteudo:
+            excecoes.append("!.neural-flow/indice-regras.md")
+        if ".neural-flow/indice-regras.json" not in conteudo:
+            excecoes.append("!.neural-flow/indice-regras.json")
+        if ".neural-flow/action-policy.json" not in conteudo:
+            excecoes.append("!.neural-flow/action-policy.json")
         gitignore.write_text(
             conteudo.rstrip("\n")
-            + "\n\n# Neural-Flow — o indice de regras e versionado de proposito\n"
-            "!.neural-flow/indice-regras.md\n!.neural-flow/indice-regras.json\n",
+            + "\n\n# Neural-Flow — artefatos de governanca versionados de proposito\n"
+            + "\n".join(excecoes) + "\n",
             encoding="utf-8",
         )
         inst.avisos.append(
@@ -756,7 +831,8 @@ def configurar_git(inst: Instalacao, iniciar: bool) -> None:
             # O indice de regras e versionado de proposito: e o primeiro arquivo
             # que qualquer agente le, inclusive no CI e na maquina de outra
             # pessoa. Ignora-lo tornaria a governanca local.
-            "!.neural-flow/indice-regras.md\n!.neural-flow/indice-regras.json\n",
+            "!.neural-flow/indice-regras.md\n!.neural-flow/indice-regras.json\n"
+            "!.neural-flow/action-policy.json\n",
             encoding="utf-8",
         )
 
@@ -806,7 +882,12 @@ def main() -> int:
         print("  DRY-RUN: nada sera escrito\n")
 
     inst = Instalacao(alvo, args.dry_run, args.force)
+    framework_existente = any(_assinado(alvo / "scripts" / nome) for nome in
+                              ("nf_gate.py", "validate_module_spec.py"))
     instalar_guards(inst)
+    # O State Protocol importa o diagnostico compartilhado em runtime. Ele
+    # precisa estar disponivel inclusive em projetos brownfield sem colisao.
+    instalar_documentos_produto(inst, framework_existente)
     instalar_governanca(inst, nome)
     instalar_sprint(inst, nome, modo)
     if modo == "greenfield":
@@ -849,10 +930,28 @@ def main() -> int:
         print("instalador, nao seu. Rode `python3 scripts/nf_gate.py` para ver os detalhes.")
         return 1
 
+    print("\nDiagnostico dos documentos do produto:")
+    diagnostico = subprocess.run(
+        [sys.executable, "scripts/nf_product_docs.py", "--root", str(alvo)],
+        cwd=alvo, capture_output=True, text=True,
+    )
+    print(diagnostico.stdout.strip() or diagnostico.stderr.strip())
+    painel = subprocess.run(
+        [sys.executable, "scripts/nf_dashboard.py", "--root", str(alvo), "--sem-tema"],
+        cwd=alvo, capture_output=True, text=True,
+    )
+    if painel.returncode != 0:
+        print("\nNao consegui gerar o dashboard da instalacao:")
+        print(painel.stderr.strip() or painel.stdout.strip())
+        return 1
+    print(painel.stdout.strip())
+
     proximos = (
-        "COMECE-AQUI.md — a ordem: especificar, inventariar, indexar, planejar, construir"
+        "Abra `.neural-flow/dashboard.html` e consulte os exemplos em Documentos do projeto; "
+        "depois siga a ordem em `COMECE-AQUI.md`."
         if modo == "greenfield"
-        else "AGENTS.md — preencha o mapa de capacidades (o que o agente NAO deve reimplementar)"
+        else "Abra `.neural-flow/dashboard.html` para consultar o diagnostico e os seis exemplos. "
+        "Preencha tambem o mapa de capacidades em `AGENTS.md`."
     )
     print(f"""
 Instalado. Proximos passos:

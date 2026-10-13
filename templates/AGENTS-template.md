@@ -28,6 +28,7 @@ erro mais caro (e mais comum) de agentes.
 | Storage | `<helper de storage>` | SDK de storage direto numa rota |
 | Auth/RBAC | `<middleware de auth>` | checagem inline |
 | `<outra capacidade>` | `<modulo>` | `<anti-padrao>` |
+| Executar acao do agente | `scripts/nf_action_gateway.py` + `nf_sandbox.py` + `.neural-flow/action-policy.json` | shell direto ou comando fora da allowlist |
 
 Em duvida sobre se algo ja existe: `grep` em `<diretorios de libs/services>` — ou
 consulte `<docs de arquitetura>`.
@@ -41,6 +42,9 @@ consulte `<docs de arquitetura>`.
 
 - `<regra de import proibido 1>` → guard: `<regra de lint>`.
 - `<regra de import proibido 2>` → guard: `<teste de arquitetura>`.
+- Toda acao do agente precisa estar na allowlist `.neural-flow/action-policy.json` e
+  passar por `scripts/nf_action_gateway.py`; risco sensivel ou irreversivel exige
+  aprovacao humana para o comando exato.
 
 ## 3. Governanca de LLM
 

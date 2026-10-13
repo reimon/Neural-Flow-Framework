@@ -48,6 +48,7 @@ from nf_guards import (  # noqa: E402
     arquivos, campos, chave, eh_placeholder, eh_template, ler, numero,
     secao, sem_acento,
 )
+from nf_product_docs import diagnostico as diagnosticar_documentos_produto  # noqa: E402
 from nf_tokens import coletar_tokens  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
@@ -74,10 +75,14 @@ def imagem_embutida(nome: str) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(conteudo).decode("ascii")
 
 
-def diagrama_arquitetura() -> str:
+def diagrama_arquitetura(prefixo: str = "") -> str:
     """Incorpora o diagrama para que a pagina explicativa tambem abra offline."""
     try:
-        return (ASSETS / "arquitetura.svg").read_text(encoding="utf-8")
+        svg = (ASSETS / "arquitetura.svg").read_text(encoding="utf-8")
+        for identificador in re.findall(r'\bid="([^"]+)"', svg):
+            svg = svg.replace(f'id="{identificador}"', f'id="{prefixo}{identificador}"')
+            svg = svg.replace(f'url(#{identificador})', f'url(#{prefixo}{identificador})')
+        return svg
     except OSError:
         return '<p class="vazio">Diagrama de arquitetura não encontrado.</p>'
 
@@ -88,6 +93,7 @@ GUARDS = [
     ("adr", "ADR Governance", "Decisao numerada, sem ciclo nem pendura"),
     ("spec", "Spec-First", "Spec completa antes do codigo"),
     ("calibration", "Calibracao", "Confianca declarada e derivada de evidencia"),
+    ("action", "Action Gateway", "Allowlist e aprovacao antes de risco alto"),
 ]
 
 PROTOCOLOS = [
@@ -95,6 +101,7 @@ PROTOCOLOS = [
     ("Vetor de Contexto", "context"), ("Evidencia Sintetica", "smoke"),
     ("Aegis", None), ("Neural-Memory", None), ("ADR Governance", "adr"),
     ("Spec-First", "spec"), ("Loop Autonomo", None), ("Calibracao", "calibration"),
+    ("Action Gateway", "action"),
 ]
 
 RE_ITEM = re.compile(r"^\s*[-*]\s*\[(?P<marca>[ xX])\]\s*(?:\*\*)?(?P<id>[\w.]+)")
@@ -119,6 +126,8 @@ class Sprint:
     feitos: int
     total: int
     bloqueados: int
+    proxima_acao: str = ""
+    blocker: str = ""
 
     @property
     def progresso(self) -> float:
@@ -141,6 +150,7 @@ class Dados:
     grafo: dict | None = None
     smoke: dict = field(default_factory=dict)
     loop: dict = field(default_factory=dict)
+    documentos_produto: dict = field(default_factory=dict)
     tokens: object = None
     janela_dias: int = 30
     # Os guards rodam mesmo sem o framework instalado no alvo (fallback para a
@@ -150,10 +160,8 @@ class Dados:
 
     @property
     def ativa(self) -> Sprint | None:
-        for s in self.sprints:
-            if s.status == "em andamento":
-                return s
-        return self.sprints[-1] if self.sprints else None
+        candidatas = [s for s in self.sprints if s.status == "em andamento"]
+        return max(candidatas, key=lambda s: (s.numero.zfill(4), s.arquivo), default=None)
 
 
 def coletar_sprints(raiz: Path) -> list[Sprint]:
@@ -189,6 +197,8 @@ def coletar_sprints(raiz: Path) -> list[Sprint]:
             feitos=sum(1 for m in itens if m.group("marca").lower() == "x"),
             total=len(itens),
             bloqueados=sum(1 for l in linhas if RE_BLOQUEADO.search(l)),
+            proxima_acao=limpo("proxima acao"),
+            blocker=limpo("blocker principal"),
         ))
     saida.sort(key=lambda s: (s.numero.zfill(4), s.arquivo))
     return saida
@@ -199,6 +209,7 @@ def coletar_guards(raiz: Path) -> list[dict]:
         "sprint": "sprint_state", "budget": "token_budget",
         "context": "context_sources", "adr": "adr",
         "spec": "module_spec", "calibration": "calibration",
+        "action": "action_policy",
     }
     resultado = []
     for nome, protocolo, o_que in GUARDS:
@@ -413,6 +424,7 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
         grafo=coletar_grafo(raiz),
         smoke=coletar_smoke(raiz),
         loop=coletar_loop(raiz),
+        documentos_produto=diagnosticar_documentos_produto(raiz),
         tokens=coletar_tokens(raiz, dias=dias, diretorio=transcripts),
         janela_dias=dias,
         guards_locais=(raiz / "scripts" / "nf_gate.py").is_file(),
@@ -620,7 +632,7 @@ verificada, MEDIA = spec ou ADR vigente, BAIXA = inferencia. Item marcado pronto
 o agente a parar e perguntar.</p>"""),
 
     "protocolos": ("Protocolos", """
-<p><strong>O que e.</strong> Os dez protocolos do framework e o estado de cada um neste
+<p><strong>O que e.</strong> Os onze protocolos do framework e o estado de cada um neste
 projeto.</p>
 <p><strong>Como ler.</strong> <strong>trava</strong> = ha guard executavel e ele esta
 passando. <strong>reprovando</strong> = ha guard e ele achou violacao.
@@ -741,6 +753,87 @@ def ajuda(chave: str, titulo: str, corpo: str, pequeno: bool = False) -> tuple[s
 # servico externo. Valores do projeto (nomes, caminhos, titulos de sprint) ficam
 # intactos: sao dados do adotante, nao texto da interface.
 TRADUCOES_UI = {
+    "Ir para o painel": "Skip to dashboard",
+    "Navegacao do painel": "Dashboard navigation",
+    "O que precisa de atencao": "What needs attention",
+    "Sinais dos artefatos para orientar a proxima revisao": "Signals from project files to guide the next review",
+    "Ver pendencias": "Review pending items",
+    "Pendencias": "Pending items",
+    "Controles": "Controls",
+    "Conhecimento": "Knowledge",
+    "Historico": "History",
+    "Documentos": "Documents",
+    "Resumo": "Overview",
+    "Retrato local gerado em ": "Local snapshot generated ",
+    "Os dados mudam quando o painel e gerado novamente.": "Data changes when the dashboard is generated again.",
+    "Verificados ao gerar este retrato, sobre a arvore de trabalho": "Verified when generating this snapshot, against the working tree",
+    "Ver documentos e modelos": "View documents and templates",
+    "Proxima acao registrada": "Recorded next action",
+    "Nenhuma proxima acao registrada.": "No next action recorded.",
+    "Nenhuma sprint encontrada em andamento.": "No sprint in progress.",
+    "Confira o historico ou registre uma sprint em ": "Check the history or record a sprint in ",
+    "nenhuma sprint em andamento": "no sprint in progress",
+    "nenhum controle ativo": "no active controls",
+    "Nenhum controle ativo para avaliar este projeto.": "No active controls to evaluate this project.",
+    "Configure os artefatos e gere o painel novamente para verificar o estado.": "Configure project files and generate the dashboard again to verify its status.",
+    "Sem verificacao ativa": "No active verification",
+    "Os controles ativos deste retrato estao conformes.": "Active controls in this snapshot pass.",
+    "Acompanhe o consumo e mantenha as evidencias atualizadas.": "Track usage and keep evidence up to date.",
+    "Verificacoes conformes": "Checks pass",
+    " pontos precisam de revisao.": " items need review.",
+    "Comece pelos controles reprovados, bloqueios e prazos.": "Start with failed controls, blocked work, and deadlines.",
+    "Revisao pendente": "Review pending",
+    "Corrija os achados desta verificacao.": "Address the findings from this check.",
+    " achados criticos no ultimo audit": " critical findings in the last audit",
+    "Revise o relatorio e confirme a correcao.": "Review the report and verify the fix.",
+    " sprints em andamento": " sprints in progress",
+    "A mais recente aparece em destaque. Revise os status no historico.": "The latest one is highlighted. Review statuses in the history.",
+    " com bloqueio": " blocked",
+    "Revise os itens bloqueados e registre o proximo passo.": "Review blocked items and record the next step.",
+    " com checklist concluido": " with a completed checklist",
+    "Revise as evidencias e atualize o status da sprint.": "Review evidence and update the sprint status.",
+    " itens abertos. Revise o prazo planejado.": " open items. Review the planned deadline.",
+    " do budget": " of budget",
+    "Revise o consumo declarado e a mitigacao registrada.": "Review declared usage and recorded mitigation.",
+    "Base documental precisa de revisao": "Document baseline needs review",
+    "Confira lacunas, mapeamento e aprovacoes dos documentos.": "Check gaps, mapping, and document approvals.",
+    " divergencias aguardando revisao": " discrepancies awaiting review",
+    "Revise as decisoes pendentes antes de continuar o loop.": "Review pending decisions before continuing the loop.",
+    "Nenhuma pendencia identificada nos sinais disponiveis. Confira tambem os controles inativos e os registros ausentes.": "No pending issues identified in the available signals. Also check inactive controls and missing records.",
+    "Nenhuma sprint registrada.": "No sprint recorded.",
+    "vence na data deste retrato": "due on this snapshot date",
+    "Documentos do projeto": "Project documents",
+    "Diagnostico, lacunas e modelos de referencia para a versao do produto": "Status, gaps, and reference models for this product version",
+    "PRD": "Product requirements",
+    "Fluxo do App": "App flow",
+    "Esquema Backend": "Backend schema",
+    "Plano de implementacao": "Implementation plan",
+    "Requisitos, usuarios, funcionalidades e metas do produto.": "Product requirements, users, features, and goals.",
+    "Arquitetura, escolhas tecnicas, operacao e custo de manutencao.": "Architecture, technical choices, operations, and maintenance cost.",
+    "Jornadas, navegacao, acesso e estados de erro.": "Journeys, navigation, access, and error states.",
+    "Brief visual, componentes e especificacao das telas.": "Visual brief, components, and screen specifications.",
+    "Entidades, campos, relacoes e autenticacao.": "Entities, fields, relationships, and authentication.",
+    "Ordem de construcao com dependencias e aceite.": "Build order with dependencies and acceptance criteria.",
+    "Aprovado": "Approved",
+    "Aguardando revisao": "Awaiting review",
+    "Alterado apos aprovacao": "Changed after approval",
+    "Incompleto": "Incomplete",
+    "Ausente": "Missing",
+    "Nenhum arquivo mapeado": "No file mapped",
+    "Ver exemplo": "View example",
+    "Exemplo do Neural-Flow. Adapte ao seu projeto.": "Neural-Flow example. Adapt it to your project.",
+    "Fechar exemplo": "Close example",
+    "Exemplo indisponivel nesta instalacao. Reinstale o Neural-Flow para restaurar os modelos oficiais.": "Example unavailable in this installation. Reinstall Neural-Flow to restore the official models.",
+    "O diagnostico esta disponivel. O gate de sprints sera ativado quando o projeto adotar a base documental.": "Diagnostics are available. The sprint gate will activate when the project adopts the document baseline.",
+    "A base aprovada esta vigente.": "The approved baseline is current.",
+    "Solicite a revisao da IA e registre a aprovacao do usuario.": "Request an AI review and record user approval.",
+    "Abra o arquivo e complete as lacunas listadas.": "Open the file and fill in the listed gaps.",
+    "Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.": "Map an existing document in .neural-flow.json or create one from the example.",
+    "A justificativa de nao aplicabilidade foi aprovada.": "The not-applicable rationale was approved.",
+    "Proxima acao: revisao da IA e aprovacao do usuario.": "Next: AI review and user approval.",
+    "Arquivo": "File",
+    "nao se aplica: ": "not applicable: ",
+    "Custo de manutencao": "Maintenance cost",
     "Visão de execução, risco e governança do projeto": "Execution, risk and governance view",
     "Seção do dashboard": "Dashboard section",
     "Painel": "Dashboard",
@@ -973,6 +1066,35 @@ def script_idioma() -> str:
 </script>"""
 
 
+def script_interface() -> str:
+    return """<script id="nf-dashboard-navigation">
+(() => {
+  const links = [...document.querySelectorAll('.section-nav a')];
+  const select = () => {
+    const target = location.hash || '#resumo';
+    links.forEach(link => {
+      if (link.getAttribute('href') === target) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  };
+  window.addEventListener('hashchange', select);
+  select();
+  document.querySelector('.skip-link').addEventListener('click', () => {
+    document.getElementById('view-dashboard').checked = true;
+  });
+  const themes = [...document.querySelectorAll('[name=theme]')];
+  try {
+    const saved = localStorage.getItem('nf-dashboard-theme');
+    const input = themes.find(theme => theme.id === saved);
+    if (input) input.checked = true;
+  } catch (_) {}
+  themes.forEach(theme => theme.addEventListener('change', () => {
+    try { localStorage.setItem('nf-dashboard-theme', theme.id); } catch (_) {}
+  }));
+})();
+</script>"""
+
+
 # ── Render ─────────────────────────────────────────────────────────────────────
 
 
@@ -1067,6 +1189,62 @@ def card(titulo: str, corpo: str, sub: str = "", extra: str = "") -> str:
     )
 
 
+def data_snapshot(d: Dados) -> date | None:
+    """Usa o carimbo do retrato, sem fazer a demo variar com o relogio."""
+    try:
+        return date.fromisoformat(d.gerado_em.split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def prioridades(d: Dados) -> list[tuple[str, str, str]]:
+    """Sinais para revisao, sem inferir aprovacao ou alterar artefatos."""
+    itens = []
+    for g in d.guards:
+        if g["estado"] == "fail":
+            itens.append((g["protocolo"], "Corrija os achados desta verificacao.", "guards"))
+    criticos = d.smoke.get("achados", {}).get("critical", 0)
+    if criticos:
+        itens.append((f"{criticos} achados criticos no ultimo audit",
+                      "Revise o relatorio e confirme a correcao.", "smoke"))
+    ativas = [s for s in d.sprints if s.status == "em andamento"]
+    if len(ativas) > 1:
+        itens.append((f"{len(ativas)} sprints em andamento",
+                      "A mais recente aparece em destaque. Revise os status no historico.", "historico"))
+    referencia = data_snapshot(d)
+    for s in d.sprints:
+        if s.status not in {"em andamento", "bloqueada"}:
+            continue
+        tem_blocker = (s.blocker and not eh_placeholder(s.blocker)
+                       and chave(s.blocker) not in {"nenhum", "nenhuma", "nao se aplica", "n/a", "-"})
+        if s.status == "bloqueada" or s.bloqueados or tem_blocker:
+            detalhe = s.blocker if tem_blocker else "Revise os itens bloqueados e registre o proximo passo."
+            itens.append((f"Sprint {s.numero} com bloqueio", detalhe, "historico"))
+        if s.total and s.feitos == s.total and s.status == "em andamento":
+            itens.append((f"Sprint {s.numero} com checklist concluido",
+                          "Revise as evidencias e atualize o status da sprint.", "historico"))
+        elif referencia and s.total > s.feitos:
+            try:
+                atraso = (referencia - date.fromisoformat(s.prazo)).days
+            except (ValueError, TypeError):
+                atraso = 0
+            if atraso > 0:
+                itens.append((f"Sprint {s.numero}: {atraso} dias em atraso",
+                              f"{s.total - s.feitos} itens abertos. Revise o prazo planejado.", "historico"))
+        if s.razao_budget is not None and s.razao_budget >= .7:
+            itens.append((f"Sprint {s.numero}: {s.razao_budget:.0%} do budget",
+                          "Revise o consumo declarado e a mitigacao registrada.", "finops"))
+    docs = d.documentos_produto
+    if docs.get("configuration_error") or docs.get("enabled") and not docs.get("ready"):
+        itens.append(("Base documental precisa de revisao",
+                      "Confira lacunas, mapeamento e aprovacoes dos documentos.", "documentos-produto"))
+    divergencias = d.loop.get("divergencias", 0) if d.loop.get("ativo") else 0
+    if divergencias:
+        itens.append((f"{divergencias} divergencias aguardando revisao",
+                      "Revise as decisoes pendentes antes de continuar o loop.", "loop"))
+    return itens
+
+
 def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     ativa = d.ativa
     tel = d.tokens          # usado tanto no FinOps quanto no quadro de consumo
@@ -1075,13 +1253,14 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     guards_ativos = sum(1 for g in d.guards if g["estado"] in ("pass", "fail"))
 
     # ── Tiles de topo ──
-    saude = "ok" if guards_fail == 0 else "bad"
-    saude_txt = "guards conforme" if guards_fail == 0 else f"{guards_fail} reprovando — corrija antes do commit"
+    saude = "bad" if guards_fail else "ok" if guards_ativos else "idle"
+    saude_txt = (f"{guards_fail} reprovando; revise os achados" if guards_fail else
+                 "guards conforme" if guards_ativos else "nenhum controle ativo")
     tiles = [
-        ("Governanca", f"{guards_pass}/{guards_ativos}", saude_txt, saude),
+        ("Governanca", f"{guards_pass}/{guards_ativos}" if guards_ativos else "—", saude_txt, saude),
         ("Sprint ativa",
          f"#{ativa.numero}" if ativa else "—",
-         (ativa.titulo[:46] if ativa else "nenhuma sprint encontrada"),
+         (ativa.titulo if ativa else "nenhuma sprint em andamento"),
          "ok" if ativa and ativa.status == "em andamento" else "idle"),
         ("Divergencias",
          str(d.loop.get("divergencias", 0)) if d.loop.get("ativo") else "—",
@@ -1110,16 +1289,17 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             # Conta a partir da data de GERACAO, nao de hoje. A pagina afirma
             # "gerado em X"; um contador relativo a hoje contradiria o proprio
             # carimbo — e faria a demo versionada mudar sozinha a cada dia.
-            try:
-                referencia = date.fromisoformat(d.gerado_em.split()[0])
-            except (ValueError, IndexError):
-                referencia = date.today()
+            referencia = data_snapshot(d)
+            if referencia is None:
+                raise ValueError("carimbo sem data valida")
             faltam = (date.fromisoformat(ativa.prazo) - referencia).days
-            restante = f"{faltam} dias restantes" if faltam >= 0 else f"{-faltam} dias em atraso"
+            restante = (f"{faltam} dias restantes" if faltam > 0 else
+                        "vence na data deste retrato" if faltam == 0 else f"{-faltam} dias em atraso")
         except (ValueError, TypeError):
             restante = "prazo nao definido"
         aut_alerta = ativa.autonomia.upper() in ("A2", "A3")
         corpo_sprint = f"""
+        <p class="sprint-title">{e(ativa.titulo)}</p>
         <div class="row">
           <div class="hero"><span class="hero-n">{ativa.progresso:.0f}<span class="hero-u">%</span></span>
             <span class="hero-l">{ativa.feitos} de {ativa.total} itens</span></div>
@@ -1134,10 +1314,11 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
               <div class="span"><dt>Arquivo</dt><dd class="mono">{e(ativa.arquivo)}</dd></div>
             </dl>
           </div>
-        </div>"""
+        </div>
+        <div class="next-step"><span>Proxima acao registrada</span><p>{e(ativa.proxima_acao or 'Nenhuma proxima acao registrada.')}</p></div>"""
     else:
-        corpo_sprint = ('<p class="vazio">Nenhuma sprint encontrada em <code>docs/sprints/</code>. '
-                        'O State Protocol exige uma sprint validada antes de qualquer execucao.</p>')
+        corpo_sprint = ('<p class="vazio">Nenhuma sprint encontrada em andamento. '
+                        'Confira o historico ou registre uma sprint em <code>docs/sprints/</code>.</p>')
 
     # ── Guards ──
     linhas_g = []
@@ -1196,7 +1377,10 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
                      'O Circuit Breaker exige orcamento declarado por sprint (B1).</p>')
 
     if tel is not None and getattr(tel, "disponivel", False) and com_budget:
-        ativa_b = next((s for s in com_budget if s.status == "em andamento"), com_budget[-1])
+        ativa_b = ativa if ativa and ativa.budget else None
+    else:
+        ativa_b = None
+    if ativa_b is not None:
         medido = tel.geral.faturavel
         declarado = ativa_b.consumo
         corpo_fin += (
@@ -1207,7 +1391,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             f'<div class="fin"><span class="fin-l">Medido</span>'
             f'{barra(min(medido / (ativa_b.budget or medido or 1) * 100, 100), "var(--series-3)")}'
             f'<span class="fin-v">{fmt(medido)}</span></div>'
-            '<p class="nota">O medido vem dos transcripts locais e cobre 30 dias do projeto '
+            f'<p class="nota">O medido vem dos transcripts locais e cobre {d.janela_dias} dias do projeto '
             'inteiro, nao so desta sprint — use como ordem de grandeza para calibrar o '
             'proximo budget, nao como substituto do registro.</p>'
         )
@@ -1424,9 +1608,11 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     )
 
     # ── Historico de sprints ──
-    if len(d.sprints) > 1:
+    botao_h, janela_h = ajuda(*(("historico",) + AJUDA_QUADROS["historico"]))
+    janelas.append(janela_h)
+    if d.sprints:
         linhas_s = "".join(
-            f'<tr><td>{e(s.numero)}</td><td>{e(s.titulo[:52])}</td>'
+            f'<tr><td>{e(s.numero)}</td><td>{e(s.titulo)}</td>'
             f'<td>{e(s.status)}</td><td class="mono">{e(s.autonomia)}</td>'
             f'<td>{s.feitos}/{s.total}</td>'
             f'<td class="mono">{fmt(s.consumo)} / {fmt(s.budget)}</td></tr>'
@@ -1438,32 +1624,107 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             '<th>Aut.</th><th>Itens</th><th>Tokens</th></tr></thead>'
             f'<tbody>{linhas_s}</tbody></table></div>'
         )
-        botao_h, janela_h = ajuda(*(("historico",) + AJUDA_QUADROS["historico"]))
-        janelas.append(janela_h)
-        card_hist = (f'<section class="card wide"><h2>Historico de sprints{botao_h}</h2>'
+        card_hist = (f'<section class="card wide" id="historico"><h2>Historico de sprints{botao_h}</h2>'
                      f'{corpo_hist}</section>')
     else:
-        card_hist = ""
+        card_hist = f'<section class="card wide" id="historico"><h2>Historico de sprints{botao_h}</h2><p class="vazio">Nenhuma sprint registrada.</p></section>'
+
+    # ── Base documental do produto ──
+    linhas_doc = []
+    rotulos_doc = {
+        "aprovado": ("&#10003;", "Aprovado", "ok"),
+        "aguardando_revisao": ("&#9679;", "Aguardando revisao", "idle"),
+        "alterado_apos_aprovacao": ("&#8635;", "Alterado apos aprovacao", "bad"),
+        "incompleto": ("&#9888;", "Incompleto", "bad"),
+        "ausente": ("&#8212;", "Ausente", "idle"),
+    }
+    for doc in d.documentos_produto.get("documents", []):
+        icone_doc, rotulo_doc, estado_doc = rotulos_doc.get(
+            doc["status"], ("&#9679;", "Aguardando revisao", "idle")
+        )
+        arquivo_doc = (f'<code class="mono">{e(doc["arquivo"])}</code>'
+                       if doc.get("arquivo") else '<span class="muted">Nenhum arquivo mapeado</span>')
+        lacunas = "".join(f"<li>{e(item)}</li>" for item in doc.get("lacunas", []))
+        candidatos = "".join(f"<li>{e(item)}</li>" for item in doc.get("candidatos", []))
+        detalhes_doc = (f'<ul class="doc-gaps">{lacunas}{candidatos}</ul>'
+                        if lacunas or candidatos else "")
+        if doc.get("arquivo"):
+            proxima = ('Abra o arquivo e complete as lacunas listadas.' if doc["status"] in {"incompleto", "alterado_apos_aprovacao"}
+                       else 'Solicite a revisao da IA e registre a aprovacao do usuario.'
+                       if doc["status"] == "aguardando_revisao" else
+                       'A justificativa de nao aplicabilidade foi aprovada.'
+                       if doc.get("revisao") == "nao_se_aplica" else 'A base aprovada esta vigente.')
+        else:
+            proxima = ('Mapeie um documento existente em .neural-flow.json ou crie-o usando o exemplo.'
+                       if doc["status"] != "aprovado" else 'A justificativa de nao aplicabilidade foi aprovada.')
+        sample = doc.get("exemplo")
+        if sample is None:
+            corpo_exemplo = '<p class="vazio">Exemplo indisponivel nesta instalacao. Reinstale o Neural-Flow para restaurar os modelos oficiais.</p>'
+        else:
+            corpo_exemplo = f'<pre class="doc-example">{e(sample)}</pre>'
+        alvo_exemplo = f"exemplo-documento-{e(doc['id'])}"
+        janelas.append(
+            f'<div popover id="{alvo_exemplo}" class="pop doc-pop" role="dialog" '
+            f'aria-label="Exemplo: {e(doc["titulo"])}">'
+            f'<div class="doc-pop-head"><div><span class="eyebrow">Exemplo do Neural-Flow. Adapte ao seu projeto.</span>'
+            f'<h3>{e(doc["titulo"])}</h3></div>'
+            f'<button type="button" class="pop-x" popovertarget="{alvo_exemplo}" '
+            f'popovertargetaction="hide" aria-label="Fechar exemplo">&times;</button></div>'
+            f'<div class="doc-pop-body">{corpo_exemplo}</div></div>'
+        )
+        linhas_doc.append(
+            f'<article class="doc-card"><div class="doc-card-head"><div><h3>{e(doc["titulo"])}</h3>'
+            f'<p>{e(doc["descricao"])}</p></div><span class="pill {estado_doc}">'
+            f'<span aria-hidden="true">{icone_doc}</span>{e(rotulo_doc)}</span></div>'
+            f'<div class="doc-path"><span>Arquivo</span>{arquivo_doc}</div>{detalhes_doc}'
+            f'<p class="doc-next">Proxima acao: {e(proxima)}</p>'
+            f'<button type="button" class="doc-example-trigger" popovertarget="{alvo_exemplo}" '
+            f'aria-haspopup="dialog" aria-controls="{alvo_exemplo}">Ver exemplo</button></article>'
+        )
+    doc_aviso = ""
+    if not d.documentos_produto.get("enabled"):
+        doc_aviso += '<p class="nota">O diagnostico esta disponivel. O gate de sprints sera ativado quando o projeto adotar a base documental.</p>'
+    if d.documentos_produto.get("configuration_error"):
+        doc_aviso += f'<p class="nota warn-t">{e(d.documentos_produto["configuration_error"])}</p>'
+    doc_issue_html = "".join(f"<li>{e(item)}</li>" for item in d.documentos_produto.get("issues", []))
+    if doc_issue_html:
+        doc_aviso += f'<ul class="doc-gaps">{doc_issue_html}</ul>'
+    corpo_documentos = (
+        '<div class="doc-list">' + "".join(linhas_doc) + "</div>" + doc_aviso
+        if linhas_doc else '<p class="vazio">Nenhum papel documental configurado.</p>'
+    )
 
     botoes_quadro = {}
     for chave, (titulo, corpo) in AJUDA_QUADROS.items():
+        if chave == "historico":
+            continue
         botao, janela = ajuda(chave, titulo, corpo)
         botoes_quadro[f"ajuda_{chave}"] = botao
         janelas.append(janela)
 
-    if guards_fail:
-        plural = "s" if guards_fail != 1 else ""
-        verbo = "exigem" if guards_fail != 1 else "exige"
-        resumo_status = (f"Execução em andamento, com {guards_fail} controle{plural} "
-                         f"que {verbo} ação antes do próximo commit.")
-        resumo_detalhe = "Prioridade: regularize os guards reprovados e registre a evidência pendente."
+    pendencias = prioridades(d)
+    corpo_prioridades = ''.join(
+        f'<li><a href="#{alvo}"><span class="priority-index">{i:02}</span><span><strong>{e(titulo)}</strong>'
+        f'<span class="priority-detail">{e(detalhe)}</span></span><span class="priority-arrow" aria-hidden="true">↗</span></a></li>'
+        for i, (titulo, detalhe, alvo) in enumerate(pendencias, 1)
+    )
+    corpo_prioridades = (f'<ol class="priority-list">{corpo_prioridades}</ol>' if pendencias else
+                         '<p class="vazio">Nenhuma pendencia identificada nos sinais disponiveis. Confira tambem os controles inativos e os registros ausentes.</p>')
+    if pendencias:
+        resumo_status = f"{len(pendencias)} pontos precisam de revisao."
+        resumo_detalhe = "Comece pelos controles reprovados, bloqueios e prazos."
         resumo_tipo = "attention"
-        resumo_rotulo = "Atenção necessária"
+        resumo_rotulo = "Revisao pendente"
+    elif not guards_ativos:
+        resumo_status = "Nenhum controle ativo para avaliar este projeto."
+        resumo_detalhe = "Configure os artefatos e gere o painel novamente para verificar o estado."
+        resumo_tipo = "neutral"
+        resumo_rotulo = "Sem verificacao ativa"
     else:
-        resumo_status = "Todos os controles ativos estão conformes para o próximo commit."
-        resumo_detalhe = "Acompanhe o consumo e mantenha o registro de evidências atualizado."
+        resumo_status = "Os controles ativos deste retrato estao conformes."
+        resumo_detalhe = "Acompanhe o consumo e mantenha as evidencias atualizadas."
         resumo_tipo = "healthy"
-        resumo_rotulo = "Controles conformes"
+        resumo_rotulo = "Verificacoes conformes"
 
     meses = ("jan", "fev", "mar", "abr", "mai", "jun",
              "jul", "ago", "set", "out", "nov", "dez")
@@ -1475,7 +1736,8 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         gerado_legivel = d.gerado_em
 
     pagina = TEMPLATE.format(
-        arquitetura=diagrama_arquitetura(),
+        arquitetura=diagrama_arquitetura("nf-preview-"),
+        arquitetura_ampliada=diagrama_arquitetura("nf-modal-"),
         fundo_giyu=imagem_embutida("theme-giyu.jpg"),
         fundo_tanjiro=imagem_embutida("theme-tanjiro.jpg"),
         gerado_legivel=e(gerado_legivel),
@@ -1493,6 +1755,10 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         tokens=corpo_tokens,
         ritmo=corpo_ritmo,
         protocolos=corpo_prot,
+        documentos_produto=corpo_documentos,
+        prioridades=corpo_prioridades,
+        total_prioridades=len(pendencias),
+        total_documentos=len(d.documentos_produto.get("documents", [])),
         historico=card_hist,
         resumo_status=resumo_status,
         resumo_detalhe=resumo_detalhe,
@@ -1500,7 +1766,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         resumo_rotulo=resumo_rotulo,
         idioma_controle=controle_idioma(),
     )
-    return pagina.replace("</body>", script_idioma() + "\n</body>")
+    return pagina.replace("</body>", script_idioma() + "\n" + script_interface() + "\n</body>")
 
 
 TEMPLATE = """<!doctype html>
@@ -1659,6 +1925,33 @@ h2{{font-size:11.5px;font-weight:660;letter-spacing:.1em;text-transform:uppercas
   padding:2px 9px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}}
 .pill.ok{{color:var(--st-good)}} .pill.bad{{color:var(--st-critical)}}
 .pill.idle{{color:var(--muted)}}
+/* Base documental */
+.doc-list{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:12px}}
+.doc-card{{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;
+  padding:15px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}}
+.doc-card-head{{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;width:100%}}
+.doc-card-head h3{{margin:0;font-size:15px;font-weight:630}}
+.doc-card-head p{{margin:3px 0 0;color:var(--muted);font-size:12.5px}}
+.doc-path{{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted);max-width:100%}}
+.doc-path code{{overflow-wrap:anywhere}}
+.doc-gaps{{margin:0;padding-left:18px;color:var(--text-2);font-size:12px}}
+.doc-gaps li+li{{margin-top:3px}}
+.doc-next{{margin:0;color:var(--text-2);font-size:12px}}
+.doc-example-trigger{{margin-top:auto;border:1px solid var(--line-forte);border-radius:7px;
+  background:var(--surface);color:var(--text);padding:7px 11px;font:inherit;font-size:12px;
+  font-weight:600;cursor:pointer}}
+.doc-example-trigger:hover{{border-color:var(--series-1);color:var(--series-1)}}
+.doc-example-trigger:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}
+.doc-pop{{width:min(920px,calc(100vw - 28px));max-width:unset;max-height:88vh;
+  border:1px solid var(--line);border-radius:var(--radius);padding:0;overflow:hidden;
+  background:var(--surface);color:var(--text);box-shadow:var(--shadow)}}
+@supports selector(:popover-open) {{.doc-pop::backdrop{{background:rgba(11,11,11,.52)}}}}
+.doc-pop-head{{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:15px 18px;border-bottom:1px solid var(--line)}}
+.doc-pop-head h3{{margin:3px 0 0;font-size:18px}}
+.doc-pop-body{{max-height:calc(88vh - 72px);overflow:auto;padding:16px 20px}}
+.doc-example{{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-2);
+  font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}}
 /* FinOps */
 .fin{{display:grid;grid-template-columns:88px 1fr auto;align-items:center;gap:12px;
   margin:8px 0}}
@@ -1813,40 +2106,114 @@ h2{{font-size:10px;margin-bottom:7px;letter-spacing:.12em}}.sub{{font-size:12px;
 @media (max-width:960px){{.about-hero{{grid-template-columns:1fr}}.architecture-figure{{max-width:780px}}.cycle-steps{{grid-template-columns:repeat(3,1fr)}}}}
 @media (prefers-reduced-motion:reduce){{.architecture-trigger svg,.architecture-trigger svg line,.architecture-trigger svg path[stroke],.diagram-modal:popover-open{{animation:none;transition:none}}}}
 @media (max-width:640px){{body:has(#theme-giyu:checked){{--character-position:right -7rem top 6rem;--character-size:330px auto;--character-opacity:.48}}body:has(#theme-tanjiro:checked){{--character-position:center top 10rem;--character-size:470px auto;--character-opacity:.38}}.wrap{{padding:16px 14px 38px}}header{{align-items:flex-start}}.header-meta{{font-size:10.5px}}.header-tools{{width:100%;justify-content:space-between}}.view-tab{{padding:0 7px;font-size:10.5px}}.command-bar{{align-items:flex-start;flex-direction:column;gap:10px;padding:14px}}.command-actions{{width:100%;justify-content:space-between}}.tiles,.grid,.about-grid,.about-principles{{grid-template-columns:1fr}}.card.wide,.card:nth-of-type(n){{grid-column:1}}.tile{{min-height:96px}}.brand-lockup p{{font-size:10.5px}}.about-copy,.about-block,.about-cycle{{padding:19px}}.about-copy h2{{font-size:23px}}.cycle-steps{{grid-template-columns:1fr 1fr}}}}
+/* Leitura e navegacao: dimensoes seguem o conteudo, sem depender da ordem dos cards. */
+html{{scroll-behavior:smooth;scroll-padding-top:96px}}
+.wrap{{max-width:1320px;padding:32px 28px 64px}}
+h1{{font-size:clamp(20px,2.4vw,28px);overflow-wrap:anywhere}}
+h2{{font-size:16px;font-weight:650;letter-spacing:-.02em;text-transform:none;margin-bottom:10px;color:var(--text)}}
+.card>h2::after{{display:none}}
+.card{{min-width:0;padding:24px;border-radius:12px}}
+.grid>.card{{grid-column:span 6;align-self:start}}
+.grid>.wide{{grid-column:1/-1}}
+.grid>.layout-sprint{{grid-column:span 7}}
+.grid>.layout-guards{{grid-column:span 5}}
+.tiles{{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}}
+.tile{{min-width:0;padding:20px;min-height:126px}}
+.tile-k{{text-transform:none;letter-spacing:0;font-size:12px;color:var(--text-2)}}
+.tile-s{{font-size:12px;line-height:1.5;overflow-wrap:anywhere}}
+.tile-v,.hero-n{{font-variant-numeric:tabular-nums}}
+.sub,.nota,.snapshot-note{{color:var(--text-2);line-height:1.6}}
+.header-meta .live-dot{{background:var(--muted);box-shadow:none}}
+.sub{{font-size:13px;margin-bottom:16px}}
+.snapshot-note{{font-size:12px;margin:12px 2px 20px;max-width:75ch}}
+.section-nav{{position:sticky;top:12px;z-index:3;display:flex;flex-wrap:wrap;gap:4px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow)}}
+.section-nav a{{display:inline-flex;gap:7px;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;color:var(--text-2);text-decoration:none;transition:background .18s,color .18s}}
+.section-nav a:hover,.section-nav a[aria-current]{{background:var(--acao-hover);color:var(--marca)}}
+.section-nav a span,.section-count{{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--muted-fill);color:var(--text-2);border-radius:4px;padding:1px 6px}}
+.section-count{{margin-left:10px}}
+.priority-list{{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;list-style:none;margin:0;padding:0}}
+.priority-list li{{border-top:1px solid var(--line)}}
+.priority-list a{{display:grid;grid-template-columns:24px minmax(0,1fr) 16px;gap:12px;padding:16px 2px;color:var(--text);text-decoration:none;border-radius:4px;transition:background .18s}}
+.priority-list a:hover{{background:var(--acao-hover)}}
+.priority-list strong{{display:block;font-size:13px;font-weight:650;overflow-wrap:anywhere}}
+.priority-index{{font:11px/1.8 ui-monospace,monospace;color:var(--marca)}}
+.priority-detail{{display:block;font-size:12px;line-height:1.55;color:var(--text-2);margin-top:3px;overflow-wrap:anywhere}}
+.priority-arrow{{color:var(--marca);font-size:16px}}
+.command-copy strong{{font-size:20px;line-height:1.35}}
+.command-copy>span:last-child{{max-width:64ch;margin-top:4px;font-size:13px}}
+.command-bar.neutral{{border-color:var(--line);border-left-color:var(--marca);background:var(--surface)}}
+.command-bar.neutral .eyebrow,.risk-badge.neutral{{color:var(--text-2)}}
+.risk-badge.neutral i{{background:var(--muted)}}
+.sprint-title{{font-size:19px;font-weight:600;line-height:1.4;letter-spacing:-.02em;margin:0 0 22px}}
+.next-step{{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}}
+.next-step>span{{font-size:12px;color:var(--text-2)}}
+.next-step p{{margin:4px 0 0;font-size:14px;overflow-wrap:anywhere}}
+.section-details summary{{cursor:pointer;min-height:44px;padding:10px 0;color:var(--marca);font-size:13px;font-weight:600}}
+.section-details[open] summary{{margin-bottom:12px}}
+.doc-card-head{{flex-wrap:wrap}}
+.kv dd,.guard-c,.achados,.vazio,.mono{{overflow-wrap:anywhere}}
+.grow{{min-width:min(230px,100%)}}
+.tbl-scroll{{max-width:100%}}
+.tbl td:nth-child(2){{min-width:180px;max-width:36ch;white-space:normal;overflow-wrap:anywhere}}
+.help{{position:relative;width:24px;height:24px;font-size:12px;flex:none}}
+.help::after{{content:"";position:absolute;inset:-5px}}
+.help-sm{{width:22px;height:22px}}
+.view-tab,.theme-option,.action-link,.doc-example-trigger,.pop-x,.diagram-close{{min-height:40px}}
+.theme-option{{width:40px}}
+.pop-x{{display:inline-flex;align-items:center;justify-content:center;min-width:40px}}
+.skip-link{{position:absolute;left:16px;top:12px;z-index:5;transform:translateY(-180%);background:var(--surface);color:var(--marca);padding:12px 16px;border:1px solid var(--marca);border-radius:6px}}
+.skip-link:focus{{transform:none}}
+a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visible{{outline:2px solid var(--marca);outline-offset:4px}}
+@media(max-width:960px){{.wrap{{padding:24px 20px 48px}}.grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.grid>.card{{grid-column:span 1}}.grid>.wide,.grid>.layout-sprint,.grid>.layout-guards{{grid-column:1/-1}}.tiles{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+@media(max-width:640px){{html{{scroll-padding-top:24px}}.wrap{{padding:18px 12px 40px}}header{{gap:16px}}.header-tools{{gap:10px;justify-content:flex-start;flex-wrap:wrap}}.header-meta{{width:100%}}.section-nav{{position:static;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:thin}}.section-nav a{{flex:none;min-height:44px}}.grid{{grid-template-columns:minmax(0,1fr);gap:16px}}.grid>.card,.grid>.wide{{grid-column:1/-1}}.card{{padding:20px 16px}}.priority-list{{grid-template-columns:1fr}}.tiles{{gap:10px}}.tile{{padding:16px 12px;min-height:120px}}.tile-v{{font-size:28px}}.tile-s{{font-size:11px}}.command-copy strong{{font-size:18px}}.command-actions{{flex-wrap:wrap;gap:10px;white-space:normal}}.fin{{grid-template-columns:70px minmax(0,1fr)}}.fin-v{{grid-column:1/-1;text-align:right}}.kv{{grid-template-columns:repeat(2,minmax(0,1fr))}}.view-tab,.theme-option,.action-link,.doc-example-trigger,.diagram-close{{min-height:44px}}.row{{gap:20px}}.ses{{grid-template-columns:minmax(0,1fr) auto}}.ses-v{{grid-column:2}}.ses-n{{overflow-wrap:anywhere}}}}
+@media(max-width:360px){{.tiles{{grid-template-columns:1fr}}.kv{{grid-template-columns:1fr}}}}
+@media(max-width:640px){{.theme-option{{width:44px}}.help::after{{inset:-10px}}}}
+@media(prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}*,*::before,*::after{{animation:none!important;transition:none!important}}}}
 </style>
 </head>
 <body>
+<a class="skip-link" href="#painel">Ir para o painel</a>
 <div class="wrap">
 <header>
   <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">NF</span><div><h1>{projeto} <span>· Neural-Flow</span></h1><p>Visão de execução, risco e governança do projeto</p></div></div>
   <div class="header-tools"><fieldset class="view-tabs"><legend>Seção do dashboard</legend><input type="radio" name="view" id="view-dashboard" checked><label class="view-tab" for="view-dashboard">Painel</label><input type="radio" name="view" id="view-about"><label class="view-tab" for="view-about">O Neural-Flow</label></fieldset>{idioma_controle}<fieldset class="theme-picker"><legend>Escolha a paleta do dashboard</legend><input type="radio" name="theme" id="theme-light" checked><label class="theme-option" for="theme-light" aria-label="Tema claro"><span class="theme-swatch light" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-dark"><label class="theme-option" for="theme-dark" aria-label="Tema escuro"><span class="theme-swatch dark" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-giyu"><label class="theme-option" for="theme-giyu" aria-label="Tema Giyu: vinho, verde e azul-neblina"><span class="theme-swatch giyu" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-tanjiro"><label class="theme-option" for="theme-tanjiro" aria-label="Tema Tanjiro: água, verde e azul-noturno"><span class="theme-swatch tanjiro" aria-hidden="true"></span></label></fieldset><div class="header-meta"><span class="live-dot" aria-hidden="true"></span><span>Atualizado em {gerado_legivel}</span></div></div>
 </header>
 
-<main class="dashboard-view">
-<section class="command-bar {resumo_tipo}" aria-label="Resumo executivo">
+<main class="dashboard-view" id="painel" tabindex="-1">
+<section class="command-bar {resumo_tipo}" id="resumo" aria-label="Resumo executivo">
   <div class="command-copy"><span class="eyebrow">Resumo executivo</span><strong>{resumo_status}</strong><span>{resumo_detalhe}</span></div>
-  <div class="command-actions"><span class="risk-badge {resumo_tipo}"><i aria-hidden="true"></i> {resumo_rotulo}</span><a href="#guards" class="action-link">Ver controles <span aria-hidden="true">→</span></a></div>
+  <div class="command-actions"><span class="risk-badge {resumo_tipo}"><i aria-hidden="true"></i> {resumo_rotulo}</span><a href="#prioridades" class="action-link">Ver pendencias <span aria-hidden="true">→</span></a></div>
 </section>
 
 <div class="tiles">{tiles}</div>
 
+<nav class="section-nav" aria-label="Navegacao do painel">
+  <a href="#resumo">Resumo</a><a href="#prioridades">Pendencias <span>{total_prioridades}</span></a><a href="#sprint">Sprint</a><a href="#guards">Controles</a><a href="#documentos-produto">Documentos</a><a href="#finops">Tokens</a><a href="#grafo">Conhecimento</a><a href="#historico">Historico</a>
+</nav>
+<p class="snapshot-note">Retrato local gerado em {gerado_legivel}. Os dados mudam quando o painel e gerado novamente.</p>
+
 <div class="grid">
-  <section class="card wide"><h2>Sprint ativa{ajuda_sprint}</h2>{sprint}</section>
-  <section class="card" id="guards"><h2>Guards{ajuda_guards}</h2>
-    <p class="sub">Executados agora, sobre a arvore de trabalho</p>{guards}</section>
-  <section class="card"><h2>FinOps de tokens{ajuda_finops}</h2>
+  <section class="card wide priority-card" id="prioridades"><h2>O que precisa de atencao <span class="section-count">{total_prioridades}</span></h2>
+    <p class="sub">Sinais dos artefatos para orientar a proxima revisao</p>{prioridades}</section>
+  <section class="card layout-sprint" id="sprint"><h2>Sprint ativa{ajuda_sprint}</h2>{sprint}</section>
+  <section class="card layout-guards" id="guards"><h2>Guards{ajuda_guards}</h2>
+    <p class="sub">Verificados ao gerar este retrato, sobre a arvore de trabalho</p>{guards}</section>
+  <section class="card wide" id="documentos-produto"><h2>Documentos do projeto</h2>
+    <p class="sub">Diagnostico, lacunas e modelos de referencia para a versao do produto</p>
+    <details class="section-details"><summary>Ver documentos e modelos <span class="section-count">{total_documentos}</span></summary>{documentos_produto}</details></section>
+  <section class="card" id="finops"><h2>FinOps de tokens{ajuda_finops}</h2>
     <p class="sub">Orcamento declarado x consumo observado</p>{finops}</section>
-  <section class="card"><h2>smoke-gate{ajuda_smoke}</h2>
-    <p class="sub">Gate de evidencia sobre codigo e schema</p>{smoke}</section>
-  <section class="card"><h2>Indice de conhecimento{ajuda_grafo}</h2>
-    <p class="sub">Grafo construido sobre a documentacao</p>{grafo}</section>
-  <section class="card"><h2>Loop autonomo{ajuda_loop}</h2>
-    <p class="sub">Estado em disco, nao na conversa</p>{loop}</section>
-  <section class="card"><h2>Consumo real de tokens{ajuda_tokens}</h2>
+  <section class="card" id="tokens"><h2>Consumo real de tokens{ajuda_tokens}</h2>
     <p class="sub">Medido nos transcripts locais, nao declarado</p>{tokens}</section>
-  <section class="card"><h2>Ritmo e ferramentas{ajuda_ritmo}</h2>
+  <section class="card" id="ritmo"><h2>Ritmo e ferramentas{ajuda_ritmo}</h2>
     <p class="sub">Como o trabalho se distribuiu</p>{ritmo}</section>
-  <section class="card"><h2>Protocolos{ajuda_protocolos}</h2>
+  <section class="card" id="smoke"><h2>smoke-gate{ajuda_smoke}</h2>
+    <p class="sub">Gate de evidencia sobre codigo e schema</p>{smoke}</section>
+  <section class="card" id="grafo"><h2>Indice de conhecimento{ajuda_grafo}</h2>
+    <p class="sub">Grafo construido sobre a documentacao</p>{grafo}</section>
+  <section class="card" id="loop"><h2>Loop autonomo{ajuda_loop}</h2>
+    <p class="sub">Estado em disco, nao na conversa</p>{loop}</section>
+  <section class="card wide" id="protocolos"><h2>Protocolos{ajuda_protocolos}</h2>
     <p class="sub">O que trava e o que se audita</p>{protocolos}</section>
 {historico}
 </div>
@@ -1858,7 +2225,7 @@ h2{{font-size:10px;margin-bottom:7px;letter-spacing:.12em}}.sub{{font-size:12px;
   <section class="about-cycle"><h3>O ciclo operacional</h3><ol class="cycle-steps"><li>Defina a sprint, o escopo, a autonomia e o orçamento.</li><li>Consulte o índice e registre fontes que sustentam a decisão.</li><li>Implemente uma mudança pequena e deixe o estado no plano.</li><li>Execute os guards; se reprovar, corrija o artefato ou a mudança.</li><li>Registre evidência, faça o commit e deixe o CI validar novamente.</li></ol></section>
 </main>
 
-<div popover id="diagrama-arquitetura" class="diagram-modal" role="dialog" aria-label="Diagrama de arquitetura ampliado"><div class="diagram-modal-head"><strong>Como uma mudança vira commit</strong><button type="button" class="diagram-close" popovertarget="diagrama-arquitetura" popovertargetaction="hide">Fechar</button></div><div class="diagram-modal-body">{arquitetura}</div></div>
+<div popover id="diagrama-arquitetura" class="diagram-modal" role="dialog" aria-label="Diagrama de arquitetura ampliado"><div class="diagram-modal-head"><strong>Como uma mudança vira commit</strong><button type="button" class="diagram-close" popovertarget="diagrama-arquitetura" popovertargetaction="hide">Fechar</button></div><div class="diagram-modal-body">{arquitetura_ampliada}</div></div>
 
 {janelas}
 <footer>Neural-Flow Framework — gerado por <code>scripts/nf_dashboard.py</code></footer>

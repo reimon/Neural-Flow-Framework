@@ -6,9 +6,9 @@
 
 Transforme intencao em mudanca verificavel, sem perder contexto, controle ou memoria.
 
-`v0.1.0` · `10 protocolos` · `7 guards executaveis` · `dashboard` · `MIT`
+`v0.1.0` · `11 protocolos` · `8 guards executaveis` · `gateway de acoes` · `dashboard` · `MIT`
 
-[Instalar em 5 minutos](#comece-em-5-minutos) · [Ver beneficios](#o-que-voce-ganha) · [Abrir o dashboard](#dashboard) · [Ler os protocolos](docs/protocols/README.md)
+[Instalar em 5 minutos](#comece-em-5-minutos) · [Verificar os documentos com IA](#verificar-os-documentos-do-projeto-com-ia) · [Ver beneficios](#o-que-voce-ganha) · [Abrir o dashboard](#dashboard) · [Ler os protocolos](docs/protocols/README.md)
 
 </div>
 
@@ -82,6 +82,56 @@ O instalador detecta o caminho mais seguro:
 
 O guia [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) percorre o mesmo fluxo com
 mais contexto e termina com um gate bloqueando um commit de verdade.
+
+## Verificar os documentos do projeto com IA
+
+O Neural-Flow ajuda a organizar a documentacao do produto antes das sprints de
+implementacao. Depois de instalar, abra seu projeto no assistente de IA que voce ja usa
+e envie a mensagem abaixo. Voce nao precisa procurar arquivos nem saber qual comando
+executar: o assistente faz o diagnostico e atualiza o dashboard para voce.
+
+```text
+Analise a documentacao deste projeto usando o Neural-Flow. Verifique quais destes seis
+documentos existem, quais parecem corresponder a cada papel e quais secoes ou informacoes
+estao faltando: PRD, TRD, Fluxo do App, UI/UX Design, Esquema Backend e Plano de
+Implementacao. Nao conclua equivalencia apenas pelo nome do arquivo; confira o conteudo.
+Se houver mais de um candidato, mostre as opcoes e pergunte qual devo usar.
+
+Rode o diagnostico do Neural-Flow, explique os resultados em linguagem simples e atualize
+o dashboard do projeto. Preserve os documentos existentes. Nao aprove documentos e nao
+marque nada como aprovado sem minha autorizacao explicita. Ao terminar, abra ou indique o
+caminho do dashboard atualizado e diga qual e o proximo passo recomendado.
+```
+
+O diagnostico considera estes seis papeis:
+
+| Documento | O que organiza |
+| --- | --- |
+| **PRD** | O que o produto faz, para quem, requisitos, metas e limites da versao. |
+| **TRD** | Arquitetura, tecnologias, integracoes, operacao, seguranca e custos com suas premissas. |
+| **Fluxo do App** | Jornadas, navegacao, perfis, permissoes e caminhos de erro. |
+| **UI/UX Design** | Identidade visual, componentes, acessibilidade e telas em seus diferentes estados. |
+| **Esquema Backend** | Entidades, tabelas, campos, relacionamentos, autenticacao e autorizacao. |
+| **Plano de implementacao** | Ordem de construcao, dependencias, requisitos e criterios de aceite. |
+
+O assistente procura arquivos Markdown do projeto, compara as secoes com os modelos do
+Neural-Flow e mostra ausencias, lacunas e candidatos ambiguos. Os exemplos oficiais ficam
+disponiveis no proprio dashboard, mesmo quando os documentos ainda nao existem. O painel
+e atualizado a partir do estado encontrado; abrir um exemplo ou gerar o diagnostico nao
+altera nem aprova os documentos reais.
+
+Para atualizar o painel manualmente, caso seu assistente nao consiga executar comandos,
+abra um terminal na pasta do projeto e rode:
+
+```bash
+python3 scripts/nf_product_docs.py --root .
+python3 scripts/nf_dashboard.py --root . --open
+```
+
+O primeiro comando lista os seis documentos e suas lacunas. O segundo gera e abre
+`.neural-flow/dashboard.html`. Para adotar um documento existente que o diagnostico nao
+conseguiu associar com seguranca, peca ao assistente para mapear seu caminho e suas secoes
+em `.neural-flow.json`; ele deve mostrar o mapeamento proposto antes de gravar.
 
 <details>
 <summary><strong>Se voce quer entender antes de instalar</strong></summary>
@@ -248,6 +298,7 @@ Os protocolos estao implementados e versionados em `docs/protocols/`.
 | Spec-First                            | Especificar e passar em gate antes de codificar    | docs/protocols/spec-first.md            |
 | Loop Autonomo                         | Execucao prolongada com estado em disco            | docs/protocols/autonomous-loop.md       |
 | Calibracao e Incerteza                | Grau de certeza explicito, derivado de evidencia   | docs/protocols/calibration.md           |
+| Action Gateway                        | Allowlist de comandos e aprovacao humana antes de risco alto | docs/protocols/action-gateway.md |
 
 Guia consolidado:
 
@@ -363,6 +414,9 @@ Para aplicar o Neural-Flow em qualquer projeto, copiar e preencher:
 | templates/loop/PROMPT-LOOP-template.md    | `build/PROMPT-LOOP.md`         | Folha de operacao do humano que dispara o loop             |
 | templates/githooks/pre-commit             | `.githooks/pre-commit`         | Gates rodando sobre o stage a cada commit                  |
 | scripts/validate_calibration.py           | `scripts/`                     | Guard executavel do protocolo de Calibracao                |
+| scripts/validate_action_policy.py         | `scripts/`                     | Guard da politica de acoes e dos riscos declarados         |
+| scripts/nf_action_gateway.py              | `scripts/`                     | Fronteira de execucao: allowlist, sprint, aprovacao e auditoria |
+| scripts/nf_sandbox.py                     | `scripts/`                     | Gate fail-closed ate existir adaptador de sandbox validado |
 | scripts/nf_dashboard.py                   | `scripts/`                     | Dashboard HTML auto-contido do estado da governanca        |
 | scripts/nf_diagrama.py                    | `scripts/`                     | Gera o diagrama de arquitetura a partir do registro de guards |
 | scripts/nf_agentes.py                     | `scripts/`                     | Corpo canonico das portas de entrada de agente (uma fonte, muitas portas) |
@@ -423,7 +477,7 @@ apenas os modos audit generico e MCP.
 | docs/Manifest-Dev-AI.md                     | Manifesto principal e regras obrigatorias do Neural-Flow |
 | docs/NEURAL-MEMORY.md                       | Seed document do banco vetorial — memoria institucional  |
 | docs/SPRINTS-MVP.md                         | Sprint de baseline para iniciar governanca no projeto    |
-| docs/protocols/README.md                    | Matriz operacional dos 10 protocolos + checklist de auditoria |
+| docs/protocols/README.md                    | Matriz operacional dos 11 protocolos + checklist de auditoria |
 | docs/protocols/neural-memory.md             | 6o protocolo — RAG vetorial + MCP                        |
 | docs/protocols/auditoria-mensal-template.md | Modelo oficial de auditoria mensal dos protocolos        |
 
@@ -561,11 +615,20 @@ python3 scripts/nf_dashboard.py --open
 ```
 
 Le os artefatos do repositorio e gera **um HTML auto-contido** com o estado da governanca:
-sprint ativa e progresso, os 7 guards executados na hora, FinOps de tokens (orcamento x
+sprint ativa e progresso, os 8 guards executados na hora, FinOps de tokens (orcamento x
 consumo por sprint), smoke-gate (versao e ultimo audit), o indice de conhecimento (nos,
 arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias pendentes,
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
 se **audita**.
+
+O resumo mostra as pendencias que os artefatos permitem verificar: controles reprovados,
+bloqueios, prazos vencidos, alertas de budget e divergencias. Cada pendencia leva a sua
+secao. A sprint mais recente em andamento fica em destaque; se houver varias, o painel
+pede revisao dos status. Sem controles ativos, informa a ausencia de verificacao.
+
+Os atalhos no topo facilitam a navegacao, os documentos podem ser expandidos sob demanda
+e o layout se adapta ao celular. O tema escolhido fica salvo no navegador. O painel e um
+retrato da geracao, sem atualizacao automatica dos dados.
 
 **Consumo real de tokens.** O dashboard le os transcripts locais do Claude Code e do Codex e mostra o
 consumo **medido** ao lado do **declarado** na sprint — entrada, saida, escrita e leitura de
@@ -653,6 +716,7 @@ item tem um protocolo que o garante, nao uma recomendacao que o sugere.
 | **Nao inventa dado de dominio** | Spec-First: dado ausente bloqueia o item; nunca vira valor plausivel |
 | **Nao contradiz decisao vigente** | ADR imutavel + `check_contradiction` com BLOCK acionando o Circuit Breaker |
 | **Nao expoe segredo nem destroi producao** | Aegis + `AI_SAFETY.md`: proibicoes absolutas e acoes que exigem confirmacao |
+| **Para antes de uma acao sensivel** | Action Gateway: allowlist versionada, risco declarado, sprint A0/A1 e aprovacao TTY para comando exato |
 
 Checklist de auditoria por protocolo: `docs/protocols/README.md`.
 

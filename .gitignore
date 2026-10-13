@@ -33,6 +33,7 @@ tests/**/__pycache__/
 # local a um clone.
 !.neural-flow/indice-regras.md
 !.neural-flow/indice-regras.json
+!.neural-flow/action-policy.json
 
 # Imagens de tema do dashboard: licenciamento e do dono do projeto.
 # O gerador as embute como data URI em toda pagina, entao elas se propagariam
@@ -47,3 +48,4 @@ audit-report.md
 .neural-flow/*
 !.neural-flow/indice-regras.md
 !.neural-flow/indice-regras.json
+!.neural-flow/action-policy.json
