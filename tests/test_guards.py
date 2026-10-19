@@ -1362,6 +1362,30 @@ class TestProductDocs(unittest.TestCase):
             self.assertNotIn("<script>alert", texto)
             self.assertIn("&lt;script&gt;", texto)
 
+    def test_dashboard_exibe_mapa_skills_guias_taticos_e_raio_x_projeto(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "dashboard.html"
+            self._gerar(RAIZ, saida)
+            texto = saida.read_text(encoding="utf-8")
+            for marcador in (
+                'id="skills"',
+                'id="sf-fluxo"',
+                'Fluxo Principal em 6 Etapas',
+                '3 On-Ramps + Saude Arquitetural',
+                'Smart Zone (~150k)',
+                'popovertarget="ficha-skill-tdd"',
+                'id="ficha-skill-tdd"',
+                'id="ficha-projeto"',
+                'Artefatos Nucleares de Governanca',
+                'Portas de Entrada Sincronizadas',
+                'Catalogo de ADRs do Projeto',
+            ):
+                with self.subTest(marcador=marcador):
+                    self.assertIn(marcador, texto)
+
+
 class TestTelemetriaDeTokens(unittest.TestCase):
     """Consumo REAL, lido dos transcripts locais — nao o declarado na sprint.
 
