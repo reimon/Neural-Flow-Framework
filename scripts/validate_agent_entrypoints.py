@@ -14,6 +14,8 @@ o que nao tem porta de entrada opera sem diretriz nenhuma.
       inexistente e pior que porta nenhuma.
   P4  As ancoras (`CLAUDE.md`) apontam para a fonte de verdade.
   P5  O indice de regras existe e esta em dia com as fontes.
+  P6  O catalogo de skills operacionais (`mattpocock/skills`) esta instalado em
+      `.agents/skills/` e `.claude/skills/` com invocacao autonoma habilitada.
 
 Ausencia de `AGENTS.md` = projeto sem governanca instalada = nada a validar
 (exit 0), como nos demais guards do framework.
@@ -36,7 +38,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nf_agentes import (  # noqa: E402
-    ANCORAS, INDICE_MD, MARCA, PORTAS, REFERENCIAS, REGERAR, VERSAO, corpo,
+    ANCORAS, DIRETORIOS_SKILLS, INDICE_MD, MARCA, PORTAS, REFERENCIAS,
+    REGERAR, SKILLS_OBRIGATORIAS, VERSAO, corpo,
 )
 from nf_guards import Resultado, eh_template, ler, relatar  # noqa: E402
 
@@ -125,6 +128,35 @@ def main() -> int:
             )
         else:
             res.verificado(INDICE_MD)
+
+    # P6 — catalogo de skills operacionais (mattpocock/skills)
+    for dir_skills in DIRETORIOS_SKILLS:
+        base_dir = raiz / dir_skills
+        if not base_dir.is_dir():
+            res.erro(
+                dir_skills, None, "P6",
+                f"diretorio de skills `{dir_skills}` ausente — regere com `{REGERAR}`",
+            )
+            continue
+        res.verificado(dir_skills)
+        for skill in SKILLS_OBRIGATORIAS:
+            rel_skill = f"{dir_skills}/{skill}/SKILL.md"
+            caminho_skill = raiz / rel_skill
+            linhas_skill = ler(caminho_skill)
+            if linhas_skill is None:
+                res.erro(
+                    rel_skill, None, "P6",
+                    f"skill obrigatoria `{skill}` ausente em `{dir_skills}` — "
+                    f"regere com `{REGERAR}`",
+                )
+                continue
+            texto_skill = "\n".join(linhas_skill)
+            if "disable-model-invocation: true" in texto_skill:
+                res.erro(
+                    rel_skill, 1, "P6",
+                    f"skill `{skill}` contem `disable-model-invocation: true`, "
+                    f"impedindo invocacao autonoma pelo agente — regere com `{REGERAR}`",
+                )
 
     return relatar("agent-entrypoints", res, PROTOCOLO, args.quiet)
 

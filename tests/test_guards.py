@@ -823,6 +823,27 @@ class TestInstalador(unittest.TestCase):
             subprocess.run(["bash", "-n", str(RAIZ / "install.sh")]).returncode, 0
         )
 
+    def test_skills_operacionais_sao_instaladas_e_habilitadas(self) -> None:
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_agentes import DIRETORIOS_SKILLS, SKILLS_OBRIGATORIAS
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            self._instalar(destino, "--mode", "greenfield")
+            for dir_rel in DIRETORIOS_SKILLS:
+                for skill in SKILLS_OBRIGATORIAS:
+                    caminho = destino / dir_rel / skill / "SKILL.md"
+                    with self.subTest(dir=dir_rel, skill=skill):
+                        self.assertTrue(caminho.is_file(), f"faltou {caminho}")
+                        texto = caminho.read_text(encoding="utf-8")
+                        self.assertNotIn("disable-model-invocation: true", texto)
+            for doc in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
+                texto_doc = (destino / doc).read_text(encoding="utf-8")
+                self.assertIn("mattpocock/skills", texto_doc)
+                self.assertIn(".agents/skills/", texto_doc)
+
 
 class TestDashboard(unittest.TestCase):
     """O dashboard le artefatos do repositorio e gera HTML auto-contido.
@@ -1091,6 +1112,54 @@ class TestDashboard(unittest.TestCase):
             self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", texto)
             self.assertNotIn("<script>alert(1)</script>", texto)
             self.assertIn("popover", texto)
+
+    def test_coletar_atualizacoes_detecta_pendencias_e_conformidade(self) -> None:
+        import tempfile
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_dashboard import coletar_atualizacoes
+
+        with tempfile.TemporaryDirectory() as t:
+            vazio = Path(t) / "vazio"
+            vazio.mkdir()
+            self.assertEqual(coletar_atualizacoes(vazio)["status"], "nao_instalado")
+
+            proj = Path(t) / "proj"
+            proj.mkdir()
+            (proj / "scripts").mkdir()
+            (proj / "scripts" / "nf_gate.py").write_text("# marker\n", encoding="utf-8")
+            diag = coletar_atualizacoes(proj)
+            self.assertTrue(diag["instalado"])
+            self.assertEqual(diag["status"], "pendente")
+            self.assertFalse(diag["skills_ok"])
+            self.assertTrue(len(diag["pendencias"]) > 0)
+
+        diag_raiz = coletar_atualizacoes(RAIZ)
+        self.assertTrue(diag_raiz["instalado"])
+        self.assertEqual(diag_raiz["status"], "atualizado")
+        self.assertTrue(diag_raiz["skills_ok"])
+        self.assertEqual(diag_raiz["skills_agents"], 27)
+        self.assertEqual(diag_raiz["skills_claude"], 27)
+        self.assertEqual(diag_raiz["portas_ok"], 8)
+        self.assertEqual(diag_raiz["pendencias"], [])
+
+    def test_dashboard_renderiza_secao_e_instrucoes_de_atualizacao(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "d.html"
+            proc = self._gerar(RAIZ / "tests" / "fixtures" / "demo", saida)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = saida.read_text(encoding="utf-8")
+
+            self.assertIn('id="atualizacoes"', texto)
+            self.assertIn('href="#atualizacoes"', texto)
+            self.assertIn('popovertarget="ajuda-atualizacoes"', texto)
+            self.assertIn("python3 scripts/nf_install.py --target .", texto)
+            self.assertIn("python3 scripts/nf_agentes.py --escrever", texto)
+            self.assertIn("python3 scripts/nf_gate.py", texto)
+            self.assertIn("AGENTS.md", texto)
+            self.assertIn("MEMORY.md", texto)
+
 
 
 class TestProductDocs(unittest.TestCase):
@@ -1911,6 +1980,37 @@ class TestPortasDeAgente(unittest.TestCase):
             self.assertIn("legacy/", texto, "instrucao do time foi apagada")
             self.assertIn("AGENTS.md", texto, "diretrizes nao foram anexadas")
             self.assertEqual(self._rodar(destino).returncode, 0)
+
+    def test_skill_ausente_ou_com_invocacao_bloqueada_trava(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            alvo = raiz / ".agents" / "skills" / "tdd" / "SKILL.md"
+            original = alvo.read_text(encoding="utf-8")
+
+            # Caso 1: skill com disable-model-invocation: true trava P6
+            alvo.write_text(
+                "---\nname: tdd\ndisable-model-invocation: true\n---\n" + original,
+                encoding="utf-8",
+            )
+            proc = self._rodar(raiz)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("[P6]", proc.stdout)
+
+            # Caso 2: skill ausente trava P6
+            alvo.unlink()
+            proc = self._rodar(raiz)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("[P6]", proc.stdout)
+
+            # Regerar restaura a skill e volta a passar
+            subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_agentes.py"), "--root", str(raiz),
+                 "--escrever"],
+                capture_output=True, text=True, check=True,
+            )
+            self.assertEqual(self._rodar(raiz).returncode, 0)
 
 
 class TestValidadorDoProjeto(unittest.TestCase):

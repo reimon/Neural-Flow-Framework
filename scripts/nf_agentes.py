@@ -92,6 +92,46 @@ LEEM_AGENTS_DIRETO = ("OpenAI Codex", "Jules", "Devin", "Factory")
 # so exige que ele aponte para a fonte de verdade, nao que repita o corpo.
 ANCORAS = ("CLAUDE.md",)
 
+# Diretorios onde o instalador publica as skills operacionais para descoberta
+# automatica (padrao multi-agente `.agents/skills` e descoberta nativa Claude
+# Code `.claude/skills`).
+DIRETORIOS_SKILLS: tuple[str, ...] = (
+    ".agents/skills",
+    ".claude/skills",
+)
+
+# Pacote oficial promovido de `mattpocock/skills` (engineering + productivity)
+# incorporado ao Neural-Flow (ADR-010).
+SKILLS_OBRIGATORIAS: tuple[str, ...] = (
+    "ask-matt",
+    "code-review",
+    "codebase-design",
+    "diagnosing-bugs",
+    "domain-modeling",
+    "grill-me",
+    "grill-with-docs",
+    "grilling",
+    "handoff",
+    "implement",
+    "implement-spec",
+    "improve-codebase-architecture",
+    "pr",
+    "prototype",
+    "research",
+    "retro",
+    "setup-matt-pocock-skills",
+    "tdd",
+    "teach",
+    "to-questionnaire",
+    "to-spec",
+    "to-tickets",
+    "triage",
+    "wait-what",
+    "wayfinder",
+    "wizard",
+    "writing-for-agents",
+)
+
 
 def corpo() -> str:
     """O texto unico que toda porta de entrada carrega."""
@@ -134,6 +174,33 @@ def corpo() -> str:
    explicitos — nunca `git add -A` nem `git add .`. Mensagem no padrao
    `Sprint N - <descricao>`.
 
+## Arsenal de skills operacionais (uso obrigatorio em conjunto com o Neural-Flow)
+
+Este projeto inclui o pacote de 27 skills operacionais de `mattpocock/skills` em
+`.agents/skills/<skill>/SKILL.md` e `.claude/skills/<skill>/SKILL.md`. Todo agente
+de IA trabalhando neste repositorio **deve** combinar as diretrizes e skills ja
+existentes do Neural-Flow (principios de execucao de Karpathy em `CLAUDE.md`,
+calibracao de confianca, `smoke-gate` e guards de `nf_gate.py`) com a leitura e
+aplicacao ativa dessas skills conforme a etapa da tarefa:
+
+- **Descoberta, entrevista e alinhamento:** `grill-me`, `grill-with-docs`,
+  `grilling`, `wait-what`, `to-questionnaire`, `research`, `wayfinder`,
+  `ask-matt`, `teach`.
+- **Especificacao, modelagem e planejamento:** `to-spec`, `domain-modeling`,
+  `codebase-design`, `to-tickets`, `writing-for-agents`.
+- **Implementacao, TDD, arquitetura e bugs:** `tdd` (ciclo red-green-refactor),
+  `implement`, `implement-spec`, `improve-codebase-architecture`,
+  `diagnosing-bugs`, `triage`, `prototype`, `wizard`, `setup-matt-pocock-skills`.
+- **Revisao, entrega e continuidade:** `code-review`, `pr`, `handoff`, `retro`.
+
+**Soberania dos guards do Neural-Flow (ADR-010):** as skills fornecem o metodo
+tatico; os contratos e guards deste repositorio sao soberanos. ADRs seguem o
+formato validado por `python3 scripts/nf_gate.py adr` (`docs/adr/ADR-<NNN>-<slug>.md`),
+especificacoes de modulo passam em `python3 scripts/nf_gate.py spec`, planos de
+execucao sao registrados em `docs/sprints/sprint-<NN>.md` (`nf_gate.py sprint`), e
+nenhuma instrucao de skill autoriza `git commit` ou `git push` sem confirmacao
+humana explicita.
+
 ## Se voce nao consegue ler `AGENTS.md`
 
 Pare e diga isso ao humano. Nao improvise diretriz: um agente que adivinha a
@@ -146,8 +213,43 @@ def conteudo(porta: Porta) -> str:
     return porta.cabecalho + corpo()
 
 
+def sincronizar_skills(raiz: Path, origem_templates: Path | None = None) -> int:
+    """Sincroniza `templates/skills/` para `.agents/skills/` e `.claude/skills/`.
+
+    Em projetos adotados onde `templates/skills/` nao existe, sincroniza arquivos
+    entre `.agents/skills/` e `.claude/skills/` caso um deles ja esteja populado.
+    """
+    base_templates = origem_templates or (Path(__file__).resolve().parent.parent / "templates" / "skills")
+    if base_templates.is_dir():
+        origem = base_templates
+    elif (raiz / ".agents/skills").is_dir():
+        origem = raiz / ".agents/skills"
+    elif (raiz / ".claude/skills").is_dir():
+        origem = raiz / ".claude/skills"
+    else:
+        return 0
+
+    copiados = 0
+    for dir_rel in DIRETORIOS_SKILLS:
+        base_destino = raiz / dir_rel
+        if base_destino.resolve() == origem.resolve():
+            continue
+        for arquivo_origem in sorted(origem.rglob("*")):
+            if not arquivo_origem.is_file():
+                continue
+            rel = arquivo_origem.relative_to(origem)
+            destino = base_destino / rel
+            dados_novos = arquivo_origem.read_bytes()
+            if destino.is_file() and destino.read_bytes() == dados_novos:
+                continue
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            destino.write_bytes(dados_novos)
+            copiados += 1
+    return copiados
+
+
 def escrever(raiz: Path, quiet: bool = False) -> int:
-    """Reescreve as portas a partir do corpo canonico.
+    """Reescreve as portas a partir do corpo canonico e sincroniza as skills.
 
     Sobrescreve **so** as portas — sao arquivos gerados, nunca conteudo do time.
     Porta que ja carrega o corpo (o caso do projeto brownfield que teve as
@@ -175,6 +277,7 @@ def escrever(raiz: Path, quiet: bool = False) -> int:
         escritas += 1
         if not quiet:
             print(f"  escrito: {porta.caminho}")
+    sincronizar_skills(raiz)
     if not quiet:
         print(f"portas de agente: {escritas} atualizada(s), {len(PORTAS)} no total")
     return 0

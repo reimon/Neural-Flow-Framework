@@ -157,6 +157,8 @@ class Dados:
     # arvore deste script). Quando isso acontece, a pagina nao pode instruir a
     # rodar `scripts/nf_gate.py` — nao existe la.
     guards_locais: bool = True
+    atualizacoes: dict = field(default_factory=dict)
+    skills: list[dict] = field(default_factory=list)
 
     @property
     def ativa(self) -> Sprint | None:
@@ -413,6 +415,389 @@ def _mtime(caminho: Path) -> str:
         return "?"
 
 
+def coletar_atualizacoes(raiz: Path) -> dict:
+    from nf_agentes import DIRETORIOS_SKILLS, MARCA, PORTAS, SKILLS_OBRIGATORIAS, VERSAO
+
+    tem_gate = (raiz / "scripts" / "nf_gate.py").is_file()
+    tem_agents = (raiz / "AGENTS.md").is_file()
+    tem_nf = (raiz / ".neural-flow").is_dir()
+    tem_portas = any((raiz / p.caminho).is_file() for p in PORTAS)
+
+    instalado = tem_gate or tem_agents or tem_nf or tem_portas
+    if not instalado:
+        return {
+            "instalado": False,
+            "status": "nao_instalado",
+            "versao_framework": f"v{VERSAO}",
+            "skills_total": len(SKILLS_OBRIGATORIAS),
+            "skills_agents": 0,
+            "skills_claude": 0,
+            "skills_ok": False,
+            "portas_total": len(PORTAS),
+            "portas_ok": 0,
+            "indice_ok": False,
+            "guards_ok": False,
+            "pendencias": ["Framework nao instalado neste diretorio."],
+        }
+
+    pendencias: list[str] = []
+
+    # 1. Skills operacionais (.agents/skills e .claude/skills)
+    total_skills = len(SKILLS_OBRIGATORIAS)
+    base_agents = raiz / ".agents" / "skills"
+    skills_agents = sum(1 for s in SKILLS_OBRIGATORIAS if (base_agents / s / "SKILL.md").is_file()) if base_agents.is_dir() else 0
+
+    base_claude = raiz / ".claude" / "skills"
+    skills_claude = sum(1 for s in SKILLS_OBRIGATORIAS if (base_claude / s / "SKILL.md").is_file()) if base_claude.is_dir() else 0
+
+    skills_ok = (skills_agents == total_skills and skills_claude == total_skills)
+    if not skills_ok:
+        pendencias.append(
+            f"Skills operacionais pendentes: .agents/skills ({skills_agents}/{total_skills}), "
+            f".claude/skills ({skills_claude}/{total_skills})"
+        )
+
+    # 2. Portas de entrada dos agentes
+    portas_total = len(PORTAS)
+    portas_conformes = 0
+    for p in PORTAS:
+        caminho = raiz / p.caminho
+        if caminho.is_file():
+            try:
+                texto = caminho.read_text(encoding="utf-8")
+                if MARCA in texto:
+                    portas_conformes += 1
+            except OSError:
+                pass
+    portas_ok = (portas_conformes == portas_total)
+    if not portas_ok:
+        pendencias.append(f"Portas de entrada desatualizadas ({portas_conformes}/{portas_total} conformes)")
+
+    # 3. Indice de regras
+    indice_ok = (raiz / ".neural-flow" / "indice-regras.md").is_file()
+    if not indice_ok:
+        pendencias.append("Indice de regras ausente (.neural-flow/indice-regras.md)")
+
+    # 4. Guards locais
+    guards_ok = tem_gate
+    if not guards_ok:
+        pendencias.append("Guards locais ausentes (scripts/nf_gate.py)")
+
+    status = "pendente" if pendencias else "atualizado"
+
+    return {
+        "instalado": True,
+        "status": status,
+        "versao_framework": f"v{VERSAO}",
+        "skills_total": total_skills,
+        "skills_agents": skills_agents,
+        "skills_claude": skills_claude,
+        "skills_ok": skills_ok,
+        "portas_total": portas_total,
+        "portas_ok": portas_conformes,
+        "indice_ok": indice_ok,
+        "guards_ok": guards_ok,
+        "pendencias": pendencias,
+    }
+
+
+CATALOGO_SKILLS: list[dict] = [
+    # ── 1. Descoberta e Alinhamento ──
+    {
+        "id": "ask-matt",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Roteador de Skills",
+        "comando": "/ask-matt",
+        "descricao": "Roteador inteligente para selecionar qual skill ou fluxo se encaixa na necessidade atual.",
+        "quando": "Quando o agente ou usuario esta em duvida sobre qual metodo tatico aplicar.",
+        "soberania": "Direciona para skills compativeis sem desviar das regras de AGENTS.md.",
+    },
+    {
+        "id": "grill-me",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Entrevista Rigorosa",
+        "comando": "/grill-me",
+        "descricao": "Entrevista implacavel e profunda para estressar premissas, lacunas e trade-offs de um plano.",
+        "quando": "Antes de iniciar uma sprint ou grande mudanca arquitetural.",
+        "soberania": "Conclusoes da entrevista sao formalizadas em docs/sprints/ e docs/adr/.",
+    },
+    {
+        "id": "grill-with-docs",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Entrevista com Documentacao",
+        "comando": "/grill-with-docs",
+        "descricao": "Entrevista de alinhamento que gera ADRs e itens de glossario de dominio durante o dialogo.",
+        "quando": "Quando uma decisao arquitetural precisa nascer acompanhada de registro formal.",
+        "soberania": "ADRs gerados devem seguir docs/adr/ADR-<NNN>-<slug>.md validado por nf_gate adr.",
+    },
+    {
+        "id": "grilling",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Stress-Test de Ideias",
+        "comando": "/grilling",
+        "descricao": "Questiona agressivamente hipoteses e premissas frageis para evitar retrabalho.",
+        "quando": "Sempre que uma solucao parecer complexa demais ou carecer de justificativa.",
+        "soberania": "Subordinado ao protocolo de Calibracao (evidencia antes de opiniao).",
+    },
+    {
+        "id": "wait-what",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Pausa e Reformulacao",
+        "comando": "/wait-what",
+        "descricao": "Interrompe e repensa a comunicacao quando uma explicacao ou proposta nao fez sentido.",
+        "quando": "Quando ha desalinhamento cognitivo ou confusao na troca com o agente.",
+        "soberania": "Retoma o foco na fonte de verdade e no indice de regras.",
+    },
+    {
+        "id": "to-questionnaire",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Gerador de Questionarios",
+        "comando": "/to-questionnaire",
+        "descricao": "Converte decisoes e lacunas de produto em questionario estruturado para o humano.",
+        "quando": "Quando o agente atinge nivel BAIXA de confianca e precisa de decisao humana.",
+        "soberania": "Cumpre o protocolo de Calibracao: BAIXA + acao irreversivel obriga a perguntar.",
+    },
+    {
+        "id": "research",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Investigacao Primaria",
+        "comando": "/research",
+        "descricao": "Pesquisa profunda em fontes primarias, documentacoes oficiais e codigo fonte.",
+        "quando": "Antes de propor alteracao em APIs, dependencias ou sistemas externos.",
+        "soberania": "Toda fonte consultada e registrada no Vetor de Contexto da sprint.",
+    },
+    {
+        "id": "wayfinder",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Mapeamento Estrategico",
+        "comando": "/wayfinder",
+        "descricao": "Mapeia grandes iniciativas que excedem uma unica sessao de contexto em tickets encadeados.",
+        "quando": "Para epicos, migracoes ou grandes refatoracoes de projeto.",
+        "soberania": "O macro-mapa se divide em sprints sequenciais em docs/sprints/.",
+    },
+    {
+        "id": "teach",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Transferencia de Saber",
+        "comando": "/teach",
+        "descricao": "Explica de forma interativa conceitos, arquiteturas e fluxos do proprio repositorio.",
+        "quando": "Para onboarding de desenvolvedores ou entendimento de modulos complexos.",
+        "soberania": "Baseia as explicacoes no grafo de conhecimento do Graphify.",
+    },
+
+    # ── 2. Especificacao e Modelagem ──
+    {
+        "id": "to-spec",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Sintetizador de Spec",
+        "comando": "/to-spec",
+        "descricao": "Converte discussoes e requisitos em uma especificacao tecnica formal e verificavel.",
+        "quando": "Apos a etapa de discovery e antes de iniciar o plano de tickets.",
+        "soberania": "Especificacoes de modulo devem atender ao guard nf_gate spec.",
+    },
+    {
+        "id": "domain-modeling",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Modelagem de Dominio",
+        "comando": "/domain-modeling",
+        "descricao": "Modela entidades, agregados, invariantes e relacionamentos da linguagem ubiqua.",
+        "quando": "Ao definir ou expandir as regras de negocio centrais do produto.",
+        "soberania": "Garante consistencia semantica com o PRD e o Esquema Backend.",
+    },
+    {
+        "id": "codebase-design",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Design de Modulos Profundos",
+        "comando": "/codebase-design",
+        "descricao": "Projeta interfaces estreitas com implementacoes ricas (deep modules do Ousterhout).",
+        "quando": "Ao desenhar interfaces publicas, facades ou subsistemas.",
+        "soberania": "Evita classes rasas e vazamento de implementacao na arquitetura.",
+    },
+    {
+        "id": "to-tickets",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Fatiador de Tracer Bullets",
+        "comando": "/to-tickets",
+        "descricao": "Decompoe especificacoes em fatias verticais com dependencias e bloqueios explicitos.",
+        "quando": "Ao preparar o backlog operacional para execucao guiada por IA.",
+        "soberania": "Mapeia as acoes no Checklist da sprint ativa em docs/sprints/.",
+    },
+    {
+        "id": "writing-for-agents",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Escrita para Agentes",
+        "comando": "/writing-for-agents",
+        "descricao": "Padroniza instrucoes e documentos para maximizar a assertividade dos modelos.",
+        "quando": "Ao redigir novas skills, regras ou diretrizes em AGENTS.md.",
+        "soberania": "Assegura clareza sem ambiguidade, evitando alucinacao por prompt difuso.",
+    },
+
+    # ── 3. Implementacao e TDD ──
+    {
+        "id": "tdd",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Test-Driven Development",
+        "comando": "/tdd",
+        "descricao": "Ciclo estrito red-green-refactor: primeiro teste falhando, codigo minimo, refatoracao.",
+        "quando": "Em toda implementacao de funcionalidade ou correcao de bug.",
+        "soberania": "Obrigatorio pelo protocolo Evidencia Sintetica: teste verde antes de pronto.",
+    },
+    {
+        "id": "implement",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Implementacao Tatica",
+        "comando": "/implement",
+        "descricao": "Executa a implementacao focada de tickets com boundaries bem definidos.",
+        "quando": "Ao transformar um ticket planejado em codigo real e testado.",
+        "soberania": "Segue o nivel de autonomia (A0-A3) declarado na sprint.",
+    },
+    {
+        "id": "implement-spec",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Implementacao de Spec",
+        "comando": "/implement-spec",
+        "descricao": "Implementa sistematicamente uma especificacao tecnica completa ja aprovada.",
+        "quando": "Ao construir um subsistema derivado de /to-spec.",
+        "soberania": "Proibido divergir da spec sem registrar divergencia formal.",
+    },
+    {
+        "id": "improve-codebase-architecture",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Melhoria Arquitetural",
+        "comando": "/improve-codebase-architecture",
+        "descricao": "Varre o codigo em busca de modulos rasos, acoplamento e oportunidade de aprofundamento.",
+        "quando": "Em etapas de refatoracao estrutural ou reducao de debito tecnico.",
+        "soberania": "Refatoracoes que alteram contratos exigem novo ADR.",
+    },
+    {
+        "id": "diagnosing-bugs",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Diagnostico Cientifico de Bugs",
+        "comando": "/diagnosing-bugs",
+        "descricao": "Loop sistematico de reproducao, isolamento de causa raiz e prova executavel.",
+        "quando": "Ao encontrar falhas complexas, regressions ou erros intermitentes.",
+        "soberania": "Exige teste de regressao que comprove a falha antes da correcao.",
+    },
+    {
+        "id": "triage",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Triagem e Briefing",
+        "comando": "/triage",
+        "descricao": "Triagem de bugs e pull requests com maquina de estados e briefs auto-contidos.",
+        "quando": "Ao receber demandas externas, incidentes ou issues de usuarios.",
+        "soberania": "Classifica o risco operacional antes de iniciar qualquer mudanca.",
+    },
+    {
+        "id": "prototype",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Prototipagem Descartavel",
+        "comando": "/prototype",
+        "descricao": "Constroi spike descartavel para validar viabilidade tecnica sem apego a codigo.",
+        "quando": "Ao testar uma hipotese ou biblioteca desconhecida.",
+        "soberania": "Codigo de prototipo nao entra em producao sem passar por TDD e guards.",
+    },
+    {
+        "id": "wizard",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Assistente Interativo",
+        "comando": "/wizard",
+        "descricao": "Gera wizards em bash para passos que apenas humanos possuem autoridade para executar.",
+        "quando": "Em configuracao de credenciais, secrets de CI ou infraestrutura critica.",
+        "soberania": "Alinhado a politica Aegis: agentes nunca tocam segredos de producao.",
+    },
+    {
+        "id": "setup-matt-pocock-skills",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Configurador de Ambiente",
+        "comando": "/setup-matt-pocock-skills",
+        "descricao": "Configura o issue tracker, rotulos de triagem e layout de documentacao do repo.",
+        "quando": "Na preparacao inicial do projeto para engenharia assistida por IA.",
+        "soberania": "Preserva a estrutura existente e os diretorios .agents/skills.",
+    },
+
+    # ── 4. Revisao, Entrega e Continuidade ──
+    {
+        "id": "code-review",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Code Review Duplo Eixo",
+        "comando": "/code-review",
+        "descricao": "Revisao paralela por subagentes em dois eixos: Padroes de Codigo e Aderencia a Spec.",
+        "quando": "Antes de abrir PR ou finalizar a entrega de uma sprint.",
+        "soberania": "Usa nf_gate e smoke-gate como avaliadores deterministas complementares.",
+    },
+    {
+        "id": "pr",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Autor de Pull Request",
+        "comando": "/pr",
+        "descricao": "Redige descricoes de PR de alto nivel com contexto, impacto e evidencias de teste.",
+        "quando": "Ao submeter mudancas para revisao da equipe.",
+        "soberania": "Nunca executa git commit ou git push sem autorizacao humana explicita.",
+    },
+    {
+        "id": "handoff",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Passagem de Bastao",
+        "comando": "/handoff",
+        "descricao": "Sintetiza o estado atual do trabalho em documento conciso para o proximo agente.",
+        "quando": "Ao final de uma sessao de trabalho ou troca de contexto de IA.",
+        "soberania": "Garante continuidade sem perda de contexto entre modelos diferentes.",
+    },
+    {
+        "id": "retro",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Retrospectiva Operacional",
+        "comando": "/retro",
+        "descricao": "Analisa o que funcionou bem, desperdicio de tokens e licoes aprendidas na sessao.",
+        "quando": "Apos conclusao de uma sprint ou marco significativo.",
+        "soberania": "Alimenta o MEMORY.md do projeto com padroes e decisoes consolidadas.",
+    },
+]
+
+
+def coletar_skills(raiz: Path) -> list[dict]:
+    base_agents = raiz / ".agents" / "skills"
+    base_claude = raiz / ".claude" / "skills"
+    resultado = []
+    for item in CATALOGO_SKILLS:
+        sk_id = item["id"]
+        em_agents = (base_agents / sk_id / "SKILL.md").is_file()
+        em_claude = (base_claude / sk_id / "SKILL.md").is_file()
+        dados = dict(item)
+        dados["em_agents"] = em_agents
+        dados["em_claude"] = em_claude
+        dados["ativa"] = em_agents and em_claude
+        resultado.append(dados)
+    return resultado
+
+
 def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
             transcripts: Path | None = None, dias: int = 30) -> Dados:
     return Dados(
@@ -428,6 +813,8 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
         tokens=coletar_tokens(raiz, dias=dias, diretorio=transcripts),
         janela_dias=dias,
         guards_locais=(raiz / "scripts" / "nf_gate.py").is_file(),
+        atualizacoes=coletar_atualizacoes(raiz),
+        skills=coletar_skills(raiz),
     )
 
 
@@ -681,6 +1068,34 @@ existe para evitar.</p>
 sessao curta e cara costuma indicar releitura pesada logo no inicio.</p>
 <p>Tudo vem dos transcripts locais; nada sai da sua maquina.</p>"""),
 
+    "atualizacoes": ("Atualizacoes e Versao", """
+<p><strong>O que e.</strong> Diagnostico das capacidades do framework instaladas neste
+projeto: portas de entrada dos agentes, catalogo de 27 skills operacionais em
+<code>.agents/skills/</code> e <code>.claude/skills/</code>, indice de regras e guards.</p>
+<p><strong>Atualizacao sem perda.</strong> O comando de atualizacao preserva 100% dos seus
+arquivos de negocio: seu <code>AGENTS.md</code>, <code>MEMORY.md</code>, sprints e
+configuracoes nao sao sobrescritos.</p>
+<p><strong>Como atualizar.</strong> Execute <code>python3 scripts/nf_install.py --target .</code>
+para sincronizar os templates e skills, seguido de <code>python3 scripts/nf_agentes.py --escrever</code>
+e <code>python3 scripts/nf_gate.py</code> para validar a conformidade.</p>"""),
+
+    "skills": ("Skills operacionais (mattpocock/skills)", """
+<p><strong>O que e.</strong> As 27 skills operacionais promovidas de <code>mattpocock/skills</code>
+e incorporadas ao Neural-Flow (ADR-010). Estao disponiveis em <code>.agents/skills/</code> e
+<code>.claude/skills/</code> para qualquer agente de IA.</p>
+<p><strong>Invocacao autonoma.</strong> Todas as skills possuem ativacao autonoma habilitada: o modelo
+seleciona e aplica cada skill conforme a fase da tarefa (Descoberta, Modelagem, Implementacao, Revisao).</p>
+<p><strong>Soberania dos guards.</strong> O metodo tatico vem das skills; o contrato, a governanca e a
+seguranca sao do Neural-Flow. Nenhuma skill executa <code>git commit</code> ou <code>git push</code> sem
+autorizacao humana explicita.</p>"""),
+
+    "projeto": ("Raio-X e Governanca do Projeto", """
+<p><strong>O que e.</strong> Visao consolidada da arquitetura de governanca, ferramentas de IA
+autorizadas, matriz de autonomia e integridade dos artefatos deste projeto.</p>
+<p><strong>Como o framework atua.</strong> O Neural-Flow opera como camada de supervisao entre o
+desenvolvedor e os modelos de IA, garantindo que intencao técnica vire mudanca verificavel e
+imutavel.</p>"""),
+
     "historico": ("Historico de sprints", """
 <p><strong>O que e.</strong> Todas as sprints do projeto, com progresso, nivel de autonomia e
 consumo de tokens contra o orcamento.</p>
@@ -760,6 +1175,11 @@ TRADUCOES_UI = {
     "Ver pendencias": "Review pending items",
     "Pendencias": "Pending items",
     "Controles": "Controls",
+    "Skills": "Skills",
+    "Projeto": "Project",
+    "Atualizacoes": "Updates",
+    "Atualizacoes e Versao": "Updates and Version",
+    "Integridade das capacidades instaladas e instrucoes de atualizacao": "Integrity of installed capabilities and update instructions",
     "Conhecimento": "Knowledge",
     "Historico": "History",
     "Documentos": "Documents",
@@ -1242,6 +1662,13 @@ def prioridades(d: Dados) -> list[tuple[str, str, str]]:
     if divergencias:
         itens.append((f"{divergencias} divergencias aguardando revisao",
                       "Revise as decisoes pendentes antes de continuar o loop.", "loop"))
+    if d.atualizacoes.get("status") == "pendente":
+        n_pend = len(d.atualizacoes.get("pendencias", []))
+        itens.append((
+            f"{n_pend} atualizacoes do framework disponiveis" if n_pend > 1 else "Atualizacao do framework disponivel",
+            "Sincronize skills operacionais e portas de entrada. Veja instrucoes na secao Atualizacoes.",
+            "atualizacoes",
+        ))
     return itens
 
 
@@ -1694,6 +2121,215 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         if linhas_doc else '<p class="vazio">Nenhum papel documental configurado.</p>'
     )
 
+    # ── Atualizacoes e Versao ──
+    info_up = d.atualizacoes or {}
+    status_up = info_up.get("status", "atualizado")
+    versao_up = info_up.get("versao_framework", "v1")
+    skills_tot = info_up.get("skills_total", 27)
+    skills_ag = info_up.get("skills_agents", 0)
+    skills_cl = info_up.get("skills_claude", 0)
+    portas_ok = info_up.get("portas_ok", 0)
+    portas_tot = info_up.get("portas_total", 8)
+    indice_ok = info_up.get("indice_ok", False)
+    guards_ok = info_up.get("guards_ok", False)
+    pendencias_up = info_up.get("pendencias", [])
+
+    if status_up == "atualizado":
+        banner_cls = "ok"
+        banner_tag = "Versao do framework"
+        banner_titulo = f"Instalacao conforme e atualizada · {versao_up}"
+        banner_sub = (
+            "Todas as 27 skills operacionais estao instaladas em .agents/skills e .claude/skills, "
+            "portas de entrada sincronizadas e guards ativos."
+        )
+    elif status_up == "nao_instalado":
+        banner_cls = "alerta"
+        banner_tag = "Nao instalado"
+        banner_titulo = "Neural-Flow ainda nao instalado neste projeto"
+        banner_sub = "Execute o instalador para configurar governanca, 27 skills operacionais e guards."
+    else:
+        banner_cls = "alerta"
+        banner_tag = "Atualizacao disponivel"
+        banner_titulo = f"{len(pendencias_up)} atualizacao(oes) pendente(s) · {versao_up}"
+        banner_sub = (
+            "Ha componentes ou capacidades recentes do framework prontas para sincronizacao neste projeto."
+        )
+
+    badge_skills = "ok" if (skills_ag == skills_tot and skills_cl == skills_tot) else ("pendente" if (skills_ag > 0 or skills_cl > 0) else "ausente")
+    badge_portas = "ok" if (portas_ok == portas_tot) else ("pendente" if portas_ok > 0 else "ausente")
+    badge_indice = "ok" if indice_ok else "ausente"
+    badge_guards = "ok" if guards_ok else "ausente"
+
+    grid_items = f"""<div class="update-grid">
+  <div class="update-item">
+    <div class="update-item-head"><strong>Skills Operacionais</strong><span class="update-badge {badge_skills}">{"OK" if badge_skills == "ok" else ("Pendente" if badge_skills == "pendente" else "Ausente")}</span></div>
+    <p>27 skills (mattpocock/skills): {skills_ag}/{skills_tot} em <code>.agents/skills</code>, {skills_cl}/{skills_tot} em <code>.claude/skills</code>.</p>
+  </div>
+  <div class="update-item">
+    <div class="update-item-head"><strong>Portas de Entrada</strong><span class="update-badge {badge_portas}">{"OK" if badge_portas == "ok" else ("Pendente" if badge_portas == "pendente" else "Ausente")}</span></div>
+    <p>{portas_ok}/{portas_tot} arquivos com marca e instrucoes de skills (Gemini, Claude, Copilot, Cursor...).</p>
+  </div>
+  <div class="update-item">
+    <div class="update-item-head"><strong>Indice de Regras</strong><span class="update-badge {badge_indice}">{"OK" if badge_indice == "ok" else "Ausente"}</span></div>
+    <p>Fonte de verdade compacta em <code>.neural-flow/indice-regras.md</code>.</p>
+  </div>
+  <div class="update-item">
+    <div class="update-item-head"><strong>Guards Locais</strong><span class="update-badge {badge_guards}">{"OK" if badge_guards == "ok" else "Ausente"}</span></div>
+    <p>Gate local de pre-commit e CI em <code>scripts/nf_gate.py</code>.</p>
+  </div>
+</div>"""
+
+    pendencias_html = ""
+    if pendencias_up:
+        lista_p = "".join(f"<li>{e(p)}</li>" for p in pendencias_up)
+        pendencias_html = f"""<div class="update-pendencias">
+  <strong>Diagnostico de itens pendentes:</strong>
+  <ul class="update-pendencias-list">{lista_p}</ul>
+</div>"""
+
+    instrucoes_html = """<div class="update-box">
+  <div class="update-box-head"><strong>Como atualizar este projeto com seguranca:</strong></div>
+  <p class="sub">A atualizacao e <strong>nao-destrutiva</strong>: seu <code>AGENTS.md</code>, <code>MEMORY.md</code>, <code>docs/sprints/</code> e codigo de negocio nunca sao sobrescritos.</p>
+  <ol class="update-steps">
+    <li><span class="update-step-num">1</span><div class="update-step-body"><strong>Sincronizar templates e skills operacionais:</strong><p>Copia as 27 skills para <code>.agents/skills/</code> e <code>.claude/skills/</code> preservando arquivos existentes:</p><code>python3 scripts/nf_install.py --target .</code></div></li>
+    <li><span class="update-step-num">2</span><div class="update-step-body"><strong>Regerar portas de entrada dos agentes:</strong><p>Atualiza as portas (GEMINI.md, Copilot, Cursor, etc.) com a versao e instrucoes de skills:</p><code>python3 scripts/nf_agentes.py --escrever</code></div></li>
+    <li><span class="update-step-num">3</span><div class="update-step-body"><strong>Validar conformidade com os guards:</strong><p>Executa a bateria de guards para certificar que tudo esta integro antes do commit:</p><code>python3 scripts/nf_gate.py</code></div></li>
+  </ol>
+</div>"""
+
+    corpo_atualizacoes = f"""<div class="update-banner {banner_cls}">
+  <div>
+    <span class="eyebrow">{e(banner_tag)}</span>
+    <h3>{e(banner_titulo)}</h3>
+    <p class="sub" style="margin-bottom:0">{e(banner_sub)}</p>
+  </div>
+</div>
+{grid_items}
+{pendencias_html}
+{instrucoes_html}"""
+
+    # ── Skills Operacionais (mattpocock/skills) ──
+    skills_lista = d.skills if d.skills else [dict(s, ativa=True, em_agents=True, em_claude=True) for s in CATALOGO_SKILLS]
+
+    def card_skill(s: dict) -> str:
+        st_cls = "ok" if s.get("ativa") else ("pendente" if (s.get("em_agents") or s.get("em_claude")) else "idle")
+        st_txt = "Ativa" if s.get("ativa") else ("Pendente" if (s.get("em_agents") or s.get("em_claude")) else "Ausente")
+        return (
+            f'<article class="skill-card">'
+            f'<div class="skill-card-head">'
+            f'<div><strong>{e(s["titulo"])}</strong><div style="margin-top:3px"><code class="skill-cmd">{e(s["comando"])}</code></div></div>'
+            f'<span class="pill {st_cls}"><span aria-hidden="true">&#9679;</span> {st_txt}</span>'
+            f'</div>'
+            f'<p class="skill-desc">{e(s["descricao"])}</p>'
+            f'<div class="skill-meta">'
+            f'<div class="skill-row"><strong>Quando usar:</strong> {e(s["quando"])}</div>'
+            f'<div class="skill-row skill-soberania"><strong>Soberania NF:</strong> {e(s["soberania"])}</div>'
+            f'</div>'
+            f'</article>'
+        )
+
+    fases_skills = [
+        ("descoberta", 1, "Descoberta e Alinhamento", "9 skills",
+         "Entrevista rigorosa, clareza conceitual, investigacao e alinhamento antes de qualquer linha de codigo."),
+        ("modelagem", 2, "Modelagem e Especificacao", "5 skills",
+         "Modelo de dominio, deep modules, tracer bullets e redacao otimizada para navegacao por agentes."),
+        ("implementacao", 3, "Implementacao e TDD", "9 skills",
+         "Ciclo estrito red-green-refactor, diagnostico cientifico de bugs, triagem e spikes descartaveis."),
+        ("revisao", 4, "Revisao e Entrega", "4 skills",
+         "Code review em dois eixos (padroes e spec), descricao de PR, passagem de bastao e retrospectiva."),
+    ]
+
+    blocos_fases = []
+    for cls_fase, num_fase, nome_fase, rotulo_fase, desc_fase in fases_skills:
+        itens_fase = [s for s in skills_lista if s.get("fase") == num_fase]
+        cards_html = "".join(card_skill(s) for s in itens_fase)
+        blocos_fases.append(
+            f'<div class="skill-group sg-{cls_fase}">'
+            f'<div class="skill-group-head">'
+            f'<div class="skill-group-title"><span class="skill-group-badge">{num_fase}</span>'
+            f'<div><h3>{e(nome_fase)}</h3><p class="skill-group-desc">{e(desc_fase)}</p></div></div>'
+            f'<span class="pill ok">{rotulo_fase}</span></div>'
+            f'<div class="skills-grid">{cards_html}</div>'
+            f'</div>'
+        )
+
+    filtro_skills_html = (
+        '<fieldset class="skills-nav-filter">'
+        '<legend style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Filtrar skills por fase</legend>'
+        '<input type="radio" name="sf-filter" id="sf-todas" checked><label class="skills-filter-tab" for="sf-todas">Todas as Skills <span>(27)</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-descoberta"><label class="skills-filter-tab" for="sf-descoberta">1. Descoberta & Alinhamento <span>(9)</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-modelagem"><label class="skills-filter-tab" for="sf-modelagem">2. Modelagem & Especificacao <span>(5)</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-implementacao"><label class="skills-filter-tab" for="sf-implementacao">3. Implementacao & TDD <span>(9)</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-revisao"><label class="skills-filter-tab" for="sf-revisao">4. Revisao & Entrega <span>(4)</span></label>'
+        '</fieldset>'
+    )
+
+    corpo_skills = (
+        '<div class="command-bar healthy" style="margin-bottom:16px">'
+        '<div class="command-copy"><span class="eyebrow" style="color:var(--st-good)">Arsenal Integrado (ADR-010)</span>'
+        '<strong>27 Skills Operacionais Prontas para Uso Autonomo</strong>'
+        '<span>Empacotadas de mattpocock/skills, com invocacao pelo modelo habilitada e governadas pelos guards do Neural-Flow.</span></div>'
+        '<div class="command-actions"><span class="risk-badge healthy"><i></i> Autonomia Habilitada</span></div></div>'
+        + filtro_skills_html +
+        f'<div class="skills-groups">{"".join(blocos_fases)}</div>'
+    )
+
+    # ── Raio-X e Governanca do Projeto ──
+    total_sprints = len(d.sprints)
+    sprints_concluidas = sum(1 for s in d.sprints if s.status == "concluida")
+    sprints_andamento = sum(1 for s in d.sprints if s.status == "em andamento")
+    total_adrs = d.adrs.get("total", 0)
+    adrs_aceitos = d.adrs.get("por_status", {}).get("aceito", 0)
+
+    corpo_projeto = f"""<div class="project-stats-grid">
+  <div class="project-stat-box">
+    <span class="eyebrow">Arquitetura de Governanca</span>
+    <h4>Neural-Flow Framework · v1</h4>
+    <p>Execucao controlada por artefatos persistentes e guards executaveis em stdlib pura (ADR-002). Nenhuma acao tecnica comeca sem contexto validado.</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> {f"{guards_pass}/{guards_ativos} Guards Ativos" if guards_ativos else "Nenhum Guard Ativo"}</span>
+      <span class="tool-chip"><i></i> 27 Skills Habilitadas</span>
+      <span class="tool-chip"><i></i> Zero Deps Externas</span>
+    </div>
+  </div>
+
+  <div class="project-stat-box">
+    <span class="eyebrow">Matriz de Autonomia e Git</span>
+    <h4>Autonomia A0 a A3 & Git Seguro</h4>
+    <p>Operacao sensivel (auth, segredos, billing, producao) opera estritamente em A0/A1. Commit e push automaticos sao terminantemente bloqueados sem aprovacao humana explicita.</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> Pre-commit Hook Ativo</span>
+      <span class="tool-chip"><i></i> CI Autorizativo</span>
+      <span class="tool-chip"><i></i> Safe Gatekeeper</span>
+    </div>
+  </div>
+
+  <div class="project-stat-box">
+    <span class="eyebrow">Portas de Entrada dos Agentes</span>
+    <h4>Ecossistema Multi-Ferramenta</h4>
+    <p>Diretrizes unificadas sincronizadas a partir de AGENTS.md para 8 portas padronizadas mais leitores diretos. Agentes operam sob a mesma constituicao.</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> Claude Code</span>
+      <span class="tool-chip"><i></i> Gemini Assist</span>
+      <span class="tool-chip"><i></i> Copilot</span>
+      <span class="tool-chip"><i></i> Cursor</span>
+      <span class="tool-chip"><i></i> Codex / Jules</span>
+      <span class="tool-chip"><i></i> Cline / Windsurf</span>
+    </div>
+  </div>
+
+  <div class="project-stat-box">
+    <span class="eyebrow">Ciclo de Decisao e Evidencia</span>
+    <h4>Decisao Rastreavel & FinOps</h4>
+    <p>ADRs imutaveis e sequenciais, plano persistente em disco e orcamento de tokens com Token Circuit Breaker integrado.</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> {total_adrs} ADRs ({adrs_aceitos} Aceitos)</span>
+      <span class="tool-chip"><i></i> {total_sprints} Sprints ({sprints_concluidas} Feitas)</span>
+      <span class="tool-chip"><i></i> FinOps Circuit Breaker</span>
+    </div>
+  </div>
+</div>"""
+
     botoes_quadro = {}
     for chave, (titulo, corpo) in AJUDA_QUADROS.items():
         if chave == "historico":
@@ -1756,6 +2392,9 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         ritmo=corpo_ritmo,
         protocolos=corpo_prot,
         documentos_produto=corpo_documentos,
+        atualizacoes=corpo_atualizacoes,
+        skills_secao=corpo_skills,
+        ficha_projeto=corpo_projeto,
         prioridades=corpo_prioridades,
         total_prioridades=len(pendencias),
         total_documentos=len(d.documentos_produto.get("documents", [])),
@@ -2158,6 +2797,68 @@ h2{{font-size:16px;font-weight:650;letter-spacing:-.02em;text-transform:none;mar
 .help{{position:relative;width:24px;height:24px;font-size:12px;flex:none}}
 .help::after{{content:"";position:absolute;inset:-5px}}
 .help-sm{{width:22px;height:22px}}
+.update-banner{{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 20px;border-radius:10px;border:1px solid var(--line);background:var(--surface);margin-bottom:16px}}
+.update-banner.ok{{border-color:var(--ok-borda);border-left:3px solid var(--st-good);background:var(--ok-fundo)}}
+.update-banner.alerta{{border-color:var(--alerta-borda);border-left:3px solid var(--st-warning);background:var(--alerta-fundo)}}
+.update-banner h3{{margin:4px 0 2px;font-size:16px;font-weight:650;color:var(--text)}}
+.update-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}}
+.update-item{{padding:14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}}
+.update-item-head{{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}}
+.update-item-head strong{{font-size:13px;color:var(--text)}}
+.update-badge{{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}}
+.update-badge.ok{{background:color-mix(in srgb,var(--st-good) 15%,transparent);color:var(--st-good)}}
+.update-badge.pendente{{background:color-mix(in srgb,var(--st-warning) 20%,transparent);color:var(--st-serious)}}
+.update-badge.ausente{{background:var(--muted-fill);color:var(--muted)}}
+.update-item p{{margin:0;font-size:12px;color:var(--text-2);line-height:1.5}}
+.update-box{{padding:18px 20px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:14px}}
+.update-box-head{{margin-bottom:8px}}
+.update-box-head strong{{font-size:14px;color:var(--text)}}
+.update-steps{{display:grid;gap:12px;margin:12px 0 0;padding:0;list-style:none}}
+.update-steps li{{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;align-items:start}}
+.update-step-num{{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--marca);color:var(--marca-t);font-size:11px;font-weight:700}}
+.update-step-body strong{{display:block;font-size:13px;color:var(--text);margin-bottom:2px}}
+.update-step-body p{{margin:0 0 6px;font-size:12px;color:var(--text-2);line-height:1.5}}
+.update-step-body code{{display:inline-block;padding:3px 8px;font-size:12px;background:var(--muted-fill);color:var(--text);border-radius:5px}}
+.update-pendencias{{padding:14px 18px;border:1px solid var(--alerta-borda);border-radius:9px;background:var(--alerta-fundo);margin-bottom:14px}}
+.update-pendencias strong{{font-size:13px;color:var(--text)}}
+.update-pendencias-list{{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--text-2);line-height:1.6}}
+/* Skills Operacionais (mattpocock/skills) */
+.skills-nav-filter{{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 18px;align-items:center}}
+.skills-nav-filter input{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+.skills-filter-tab{{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:1px solid var(--line);border-radius:20px;font-size:12px;font-weight:600;color:var(--text-2);cursor:pointer;background:var(--surface);transition:background .18s,color .18s,border-color .18s}}
+.skills-filter-tab:hover{{background:var(--acao-hover);color:var(--text)}}
+.skills-nav-filter input:checked + .skills-filter-tab{{background:var(--marca);color:var(--marca-t);border-color:var(--marca)}}
+.skills-nav-filter input:focus-visible + .skills-filter-tab{{outline:2px solid var(--series-1);outline-offset:2px}}
+.skills-groups{{display:grid;gap:20px}}
+.skill-group{{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:20px;box-shadow:var(--shadow)}}
+.skill-group-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}}
+.skill-group-title{{display:flex;align-items:center;gap:10px}}
+.skill-group-badge{{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--marca);color:var(--marca-t);font-size:11.5px;font-weight:750}}
+.skill-group-head h3{{margin:0;font-size:16px;font-weight:680;color:var(--text);letter-spacing:-.015em}}
+.skill-group-desc{{margin:4px 0 0;font-size:12.5px;color:var(--text-2)}}
+.skills-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}}
+.skill-card{{border:1px solid var(--line);border-radius:9px;padding:14px;background:color-mix(in srgb,var(--surface) 92%,var(--bg));display:flex;flex-direction:column;justify-content:space-between;gap:10px;transition:border-color .18s,transform .18s,box-shadow .18s}}
+.skill-card:hover{{border-color:var(--line-forte);transform:translateY(-1px);box-shadow:var(--shadow)}}
+.skill-card-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}}
+.skill-card-head strong{{font-size:13.5px;color:var(--text);font-weight:660}}
+.skill-cmd{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;padding:2px 6px;border-radius:4px;background:var(--muted-fill);color:var(--marca);font-weight:650}}
+.skill-desc{{margin:0;font-size:12px;line-height:1.55;color:var(--text-2)}}
+.skill-meta{{display:grid;gap:5px;font-size:11.5px;padding-top:8px;border-top:1px dashed var(--line);color:var(--muted);line-height:1.45}}
+.skill-row strong{{color:var(--text-2);font-weight:600}}
+.skill-soberania{{color:var(--marca);font-size:11px;line-height:1.4}}
+body:has(#sf-descoberta:checked) .skill-group:not(.sg-descoberta){{display:none}}
+body:has(#sf-modelagem:checked) .skill-group:not(.sg-modelagem){{display:none}}
+body:has(#sf-implementacao:checked) .skill-group:not(.sg-implementacao){{display:none}}
+body:has(#sf-revisao:checked) .skill-group:not(.sg-revisao){{display:none}}
+/* Raio-X do Projeto */
+.project-stats-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:16px}}
+.project-stat-box{{padding:18px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:flex;flex-direction:column;gap:6px}}
+.project-stat-box .eyebrow{{font-size:10px;letter-spacing:.08em;font-weight:720;text-transform:uppercase;color:var(--marca)}}
+.project-stat-box h4{{margin:0;font-size:15px;font-weight:660;color:var(--text)}}
+.project-stat-box p{{margin:0;font-size:12px;color:var(--text-2);line-height:1.55}}
+.project-tools-list{{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}}
+.tool-chip{{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--muted-fill);font-size:11px;font-weight:600;color:var(--text)}}
+.tool-chip i{{width:6px;height:6px;border-radius:50%;background:var(--st-good)}}
 .view-tab,.theme-option,.action-link,.doc-example-trigger,.pop-x,.diagram-close{{min-height:40px}}
 .theme-option{{width:40px}}
 .pop-x{{display:inline-flex;align-items:center;justify-content:center;min-width:40px}}
@@ -2188,7 +2889,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
 <div class="tiles">{tiles}</div>
 
 <nav class="section-nav" aria-label="Navegacao do painel">
-  <a href="#resumo">Resumo</a><a href="#prioridades">Pendencias <span>{total_prioridades}</span></a><a href="#sprint">Sprint</a><a href="#guards">Controles</a><a href="#documentos-produto">Documentos</a><a href="#finops">Tokens</a><a href="#grafo">Conhecimento</a><a href="#historico">Historico</a>
+  <a href="#resumo">Resumo</a><a href="#prioridades">Pendencias <span>{total_prioridades}</span></a><a href="#sprint">Sprint</a><a href="#guards">Controles</a><a href="#skills">Skills <span>27</span></a><a href="#ficha-projeto">Projeto</a><a href="#atualizacoes">Atualizacoes</a><a href="#documentos-produto">Documentos</a><a href="#finops">Tokens</a><a href="#grafo">Conhecimento</a><a href="#historico">Historico</a>
 </nav>
 <p class="snapshot-note">Retrato local gerado em {gerado_legivel}. Os dados mudam quando o painel e gerado novamente.</p>
 
@@ -2198,6 +2899,12 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
   <section class="card layout-sprint" id="sprint"><h2>Sprint ativa{ajuda_sprint}</h2>{sprint}</section>
   <section class="card layout-guards" id="guards"><h2>Guards{ajuda_guards}</h2>
     <p class="sub">Verificados ao gerar este retrato, sobre a arvore de trabalho</p>{guards}</section>
+  <section class="card wide" id="skills"><h2>Arsenal de Skills Operacionais (27){ajuda_skills}</h2>
+    <p class="sub">Metodos taticos de engenharia (mattpocock/skills) integrados e prontos para invocacao autonoma em 4 fases</p>{skills_secao}</section>
+  <section class="card wide" id="ficha-projeto"><h2>Raio-X e Governanca do Projeto{ajuda_projeto}</h2>
+    <p class="sub">Arquitetura de supervisao, matriz de autonomia e integridade dos artefatos</p>{ficha_projeto}</section>
+  <section class="card wide" id="atualizacoes"><h2>Atualizacoes e Versao{ajuda_atualizacoes}</h2>
+    <p class="sub">Integridade das capacidades instaladas e instrucoes de atualizacao</p>{atualizacoes}</section>
   <section class="card wide" id="documentos-produto"><h2>Documentos do projeto</h2>
     <p class="sub">Diagnostico, lacunas e modelos de referencia para a versao do produto</p>
     <details class="section-details"><summary>Ver documentos e modelos <span class="section-count">{total_documentos}</span></summary>{documentos_produto}</details></section>

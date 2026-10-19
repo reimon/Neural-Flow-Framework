@@ -29,6 +29,7 @@ erro mais caro (e mais comum) de agentes.
 | Auth/RBAC | `<middleware de auth>` | checagem inline |
 | `<outra capacidade>` | `<modulo>` | `<anti-padrao>` |
 | Executar acao do agente | `scripts/nf_action_gateway.py` + `nf_sandbox.py` + `.neural-flow/action-policy.json` | shell direto ou comando fora da allowlist |
+| Conduzir entrevista, spec, TDD, arquitetura e review | `.agents/skills/<skill>/SKILL.md` e `.claude/skills/<skill>/SKILL.md` (`mattpocock/skills`) + `CLAUDE.md` | improvisar fluxo sem consultar a skill da etapa |
 
 Em duvida sobre se algo ja existe: `grep` em `<diretorios de libs/services>` — ou
 consulte `<docs de arquitetura>`.
@@ -95,6 +96,26 @@ que o indice apontou. Comportamento ⇒ **executar**. Estado do trabalho ⇒ dis
 literal conhecido ⇒ `grep`. **`grep` para "entender" e anti-padrao** — custa ~48x mais
 tokens que a consulta ao indice.
 
+### 4.4 Arsenal de skills operacionais (`mattpocock/skills` + Neural-Flow)
+
+- **Uso obrigatorio em conjunto com as diretrizes do Neural-Flow:** alem dos principios de
+  execucao de Karpathy (`CLAUDE.md`), da calibracao de confianca e do `smoke-gate`, todo
+  agente deve ler e aplicar as 27 skills instaladas em `.agents/skills/<skill>/SKILL.md` e
+  `.claude/skills/<skill>/SKILL.md` conforme a fase do trabalho → guard: `nf_gate.py agentes` (`P6`).
+- **Descoberta, entrevista e alinhamento:** `grill-me`, `grill-with-docs`, `grilling`,
+  `wait-what`, `to-questionnaire`, `research`, `wayfinder`, `ask-matt`, `teach`.
+- **Especificacao, modelagem e planejamento:** `to-spec`, `domain-modeling`,
+  `codebase-design`, `to-tickets`, `writing-for-agents`.
+- **Implementacao, TDD, arquitetura e bugs:** `tdd` (red-green-refactor), `implement`,
+  `implement-spec`, `improve-codebase-architecture`, `diagnosing-bugs`, `triage`,
+  `prototype`, `wizard`, `setup-matt-pocock-skills`.
+- **Revisao, entrega e continuidade:** `code-review`, `pr`, `handoff`, `retro`.
+- **Soberania dos guards do Neural-Flow:** quando uma skill sugerir formato livre de ADR,
+  spec, ticket ou commit automatico, prevalecem os contratos e guards deste repositorio
+  (`docs/adr/ADR-<NNN>-<slug>.md` com `nf_gate.py adr`, `docs/modulos/<modulo>.md` com
+  `nf_gate.py spec`, `docs/sprints/sprint-<NN>.md` com `nf_gate.py sprint`, e proibicao de
+  `git commit` / `git push` sem autorizacao humana explicita).
+
 ## 5. Regras fixas do projeto
 
 - `<migrations sequenciais; nunca editar aplicada>`
@@ -124,6 +145,8 @@ cumprir:
 
 ## 8. Documentos de referencia
 
+- `.neural-flow/indice-regras.md` — indice de regras do projeto (uma linha por regra).
+- `.agents/skills/` e `.claude/skills/` — catalogo de 27 skills operacionais (`mattpocock/skills`).
 - `.github/AI_SAFETY.md` — proibicoes absolutas + acoes que exigem confirmacao.
 - `MEMORY.md` — decisoes/padroes consolidados.
 - `docs/adr/` — registros de decisao arquitetural (ADRs).
