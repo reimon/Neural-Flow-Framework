@@ -67,6 +67,26 @@ consulta passa a ser `graphify query`, com o `.md` como fallback.
 Regenerar: `python3 scripts/nf_indice_regras.py`. O JSON grava a impressao digital das
 fontes; se um documento de governanca muda e o indice nao e regerado, o guard trava.
 
+## Catalogo de skills operacionais (`mattpocock/skills`)
+
+Alem das portas de entrada e dos principios de execucao de Karpathy em `CLAUDE.md`, o
+instalador e `nf_agentes.py --escrever` sincronizam as 27 skills do pacote oficial
+promovido de `mattpocock/skills` (`engineering` + `productivity`) em `.agents/skills/`
+(padrao multi-agente) e `.claude/skills/` (descoberta nativa do Claude Code).
+
+As skills sao instaladas com invocacao autonoma pelo modelo habilitada (sem
+`disable-model-invocation: true`) e sob soberania dos contratos e guards do Neural-Flow
+(ADR-010):
+
+- **Descoberta e alinhamento:** `grill-me`, `grill-with-docs`, `grilling`, `wait-what`,
+  `to-questionnaire`, `research`, `wayfinder`, `ask-matt`, `teach`.
+- **Especificacao, modelagem e planejamento:** `to-spec`, `domain-modeling`,
+  `codebase-design`, `to-tickets`, `writing-for-agents`.
+- **Implementacao, TDD, arquitetura e bugs:** `tdd`, `implement`, `implement-spec`,
+  `improve-codebase-architecture`, `diagnosing-bugs`, `triage`, `prototype`, `wizard`,
+  `setup-matt-pocock-skills`.
+- **Revisao, entrega e continuidade:** `code-review`, `pr`, `handoff`, `retro`.
+
 ## Gate primario
 
 `agentes` — `scripts/validate_agent_entrypoints.py`, no `nf_gate` e no pre-commit.
@@ -78,12 +98,13 @@ fontes; se um documento de governanca muda e o indice nao e regerado, o guard tr
 | P3 | Porta que aponta para arquivo inexistente |
 | P4 | `CLAUDE.md` que nao cita `AGENTS.md` |
 | P5 | Indice de regras ausente ou desatualizado em relacao as fontes |
+| P6 | Diretorio de skills (`.agents/skills/` ou `.claude/skills/`) ausente, skill obrigatoria faltando ou `disable-model-invocation: true` presente |
 
 Ausencia de `AGENTS.md` = governanca nao instalada = nada a validar (exit 0), como nos
 demais guards.
 
 ## Falha critica
 
-Um agente operando num projeto Neural-Flow **sem** ter lido `AGENTS.md`. O sintoma tipico
-nao e um erro: e codigo plausivel que reimplementa infraestrutura existente e passa na
-revisao humana porque parece razoavel.
+Um agente operando num projeto Neural-Flow **sem** ter lido `AGENTS.md` ou sem o arsenal
+de skills operacionais ativo. O sintoma tipico nao e um erro: e codigo plausivel que
+reimplementa infraestrutura existente e passa na revisao humana porque parece razoavel.

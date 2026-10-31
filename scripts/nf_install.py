@@ -257,6 +257,23 @@ def instalar_governanca(inst: Instalacao, nome_projeto: str) -> None:
         if "<Nome do Projeto>" in texto:
             alvo.write_text(texto.replace("<Nome do Projeto>", nome_projeto), encoding="utf-8")
     instalar_portas_de_agente(inst)
+    instalar_skills(inst)
+
+
+def instalar_skills(inst: Instalacao) -> None:
+    """Instala o catalogo de skills operacionais (mattpocock/skills) em `.agents/skills` e `.claude/skills`."""
+    sys.path.insert(0, str(RAIZ_FW / "scripts"))
+    from nf_agentes import DIRETORIOS_SKILLS
+
+    origem_base = RAIZ_FW / "templates" / "skills"
+    if not origem_base.is_dir():
+        return
+    arquivos_skill = [p for p in sorted(origem_base.rglob("*")) if p.is_file()]
+    for dir_rel in DIRETORIOS_SKILLS:
+        destino_base = inst.alvo / dir_rel
+        for arquivo_origem in arquivos_skill:
+            rel = arquivo_origem.relative_to(origem_base)
+            inst.copiar(arquivo_origem, destino_base / rel)
 
 
 def instalar_portas_de_agente(inst: Instalacao) -> None:

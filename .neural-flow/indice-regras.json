@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "impressao_digital": "4de5cd5e6e1d5603",
+  "impressao_digital": "b2be877e68c6329b",
   "fontes": [
     ".github/AI_SAFETY.md",
     "AGENTS.md",
@@ -15,6 +15,7 @@
     "docs/adr/ADR-007-sandbox-do-gateway.md",
     "docs/adr/ADR-008-adaptadores-de-sandbox-validados.md",
     "docs/adr/ADR-009-base-documental-do-produto.md",
+    "docs/adr/ADR-010-skills-operacionais-de-agente.md",
     "docs/protocols/README.md",
     "docs/protocols/action-gateway.md",
     "docs/protocols/adr-governance.md",
@@ -174,7 +175,7 @@
       "id": "ARQ-001",
       "categoria": "arquitetura",
       "regra": "Todo script instalavel carrega NFGUARDASSINATURA — sem ela o nfgate se recusa a executar o arquivo, para nao chamar um homonimo do projeto com os nossos argumentos.",
-      "fonte": "AGENTS.md:47",
+      "fonte": "AGENTS.md:48",
       "secao": "2. Boundaries de camada",
       "guard": null
     },
@@ -182,7 +183,7 @@
       "id": "ARQ-002",
       "categoria": "arquitetura",
       "regra": "Toda acao do agente passa pelo gateway: a politica e uma allowlist versionada; risco sensivel ou irreversivel para em A0/A1 e pede aprovacao humana para o comando exato. O gateway registra hash, decisao e resultado, nunca o comando cru.",
-      "fonte": "AGENTS.md:49",
+      "fonte": "AGENTS.md:50",
       "secao": "2. Boundaries de camada",
       "guard": null
     },
@@ -190,7 +191,7 @@
       "id": "ARQ-003",
       "categoria": "arquitetura",
       "regra": "O instalador nunca sobrescreve artefato existente sem --force; colisao vira instalacao lado a lado (nf<nome>) ou anexo, sempre com aviso.",
-      "fonte": "AGENTS.md:52",
+      "fonte": "AGENTS.md:53",
       "secao": "2. Boundaries de camada",
       "guard": null
     },
@@ -198,7 +199,7 @@
       "id": "ARQ-004",
       "categoria": "arquitetura",
       "regra": "O instalador escreve na arvore de terceiros. Mudanca ali opera em A1 e so fecha com instalacao ponta a ponta executada, nunca com leitura do diff.",
-      "fonte": "AGENTS.md:64",
+      "fonte": "AGENTS.md:65",
       "secao": "3. Governanca do proprio framework",
       "guard": null
     },
@@ -206,7 +207,7 @@
       "id": "ARQ-005",
       "categoria": "arquitetura",
       "regra": "BAIXA e acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte.",
-      "fonte": "AGENTS.md:97",
+      "fonte": "AGENTS.md:98",
       "secao": "4.2 Quando reconsultar / quando perguntar",
       "guard": null
     },
@@ -214,7 +215,7 @@
       "id": "ARQ-006",
       "categoria": "arquitetura",
       "regra": "BAIXA e acao reversivel ⇒ siga conservador e registre a divergencia. Nao pergunte.",
-      "fonte": "AGENTS.md:99",
+      "fonte": "AGENTS.md:100",
       "secao": "4.2 Quando reconsultar / quando perguntar",
       "guard": null
     },
@@ -222,7 +223,7 @@
       "id": "ARQ-007",
       "categoria": "arquitetura",
       "regra": "Nao pergunte o que a spec ja responde — isso e falha de leitura, nao prudencia.",
-      "fonte": "AGENTS.md:100",
+      "fonte": "AGENTS.md:101",
       "secao": "4.2 Quando reconsultar / quando perguntar",
       "guard": null
     },
@@ -230,7 +231,7 @@
       "id": "ARQ-008",
       "categoria": "arquitetura",
       "regra": "Numeracao de ADR e sequencial e nunca reutilizada; ADR aceito e imutavel — mudanca de rumo gera ADR que o supera → guard: nfgate.py adr.",
-      "fonte": "AGENTS.md:114",
+      "fonte": "AGENTS.md:135",
       "secao": "5. Regras fixas do projeto",
       "guard": "nfgate"
     },
@@ -238,7 +239,7 @@
       "id": "ARQ-009",
       "categoria": "arquitetura",
       "regra": "Nunca commitar ou dar push sem autorizacao explicita.",
-      "fonte": "AGENTS.md:125",
+      "fonte": "AGENTS.md:146",
       "secao": "6. Git (regra fixa do usuario)",
       "guard": null
     },
@@ -246,7 +247,7 @@
       "id": "ARQ-010",
       "categoria": "arquitetura",
       "regra": "Stage apenas os proprios arquivos — nunca o WIP de outra sessao/terminal.",
-      "fonte": "AGENTS.md:127",
+      "fonte": "AGENTS.md:148",
       "secao": "6. Git (regra fixa do usuario)",
       "guard": null
     },
@@ -254,7 +255,7 @@
       "id": "EXE-001",
       "categoria": "execucao",
       "regra": "Pergunta sobre o projeto comeca no indice, nunca no grep. Varredura para \"entender\" custa ~48x mais tokens que a consulta ao indice.",
-      "fonte": "CLAUDE.md:68",
+      "fonte": "CLAUDE.md:90",
       "secao": "4. Antes de responder",
       "guard": null
     },
@@ -262,7 +263,7 @@
       "id": "EXE-002",
       "categoria": "execucao",
       "regra": "Confianca BAIXA + acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte. Reversivel ⇒ siga conservador e registre.",
-      "fonte": "CLAUDE.md:72",
+      "fonte": "CLAUDE.md:94",
       "secao": "4. Antes de responder",
       "guard": null
     },
@@ -270,7 +271,7 @@
       "id": "EXE-003",
       "categoria": "execucao",
       "regra": "Nunca commitar ou dar push sem autorizacao explicita.",
-      "fonte": "CLAUDE.md:77",
+      "fonte": "CLAUDE.md:99",
       "secao": "5. Git",
       "guard": null
     },
@@ -278,7 +279,7 @@
       "id": "EXE-004",
       "categoria": "execucao",
       "regra": "Stage com caminhos explicitos. Nunca git add -A nem git add ..",
-      "fonte": "CLAUDE.md:78",
+      "fonte": "CLAUDE.md:100",
       "secao": "5. Git",
       "guard": null
     },
@@ -587,6 +588,14 @@
       "guard": null
     },
     {
+      "id": "ADR-005",
+      "categoria": "decisao",
+      "regra": "Implementacao combina tdd + principios de Karpathy + smoke-gate + python3 scripts/nfgate.py, e nunca executa git commit ou git push sem autorizacao humana explicita.",
+      "fonte": "docs/adr/ADR-010-skills-operacionais-de-agente.md:67",
+      "secao": "Decisao",
+      "guard": null
+    },
+    {
       "id": "MEM-001",
       "categoria": "memoria",
       "regra": "Modelo obrigatorio de execucao: todo desenvolvimento organizado por sprints numeradas.",
@@ -630,7 +639,7 @@
       "id": "MEM-006",
       "categoria": "memoria",
       "regra": "Nunca sobrescrever trabalho do adotante. Colisao de script vira instalacao lado a lado (nf<nome>); porta de entrada que ja existia recebe as diretrizes anexadas. Sempre com aviso no relatorio.",
-      "fonte": "MEMORY.md:65",
+      "fonte": "MEMORY.md:71",
       "secao": "Instalador",
       "guard": null
     },
@@ -638,7 +647,7 @@
       "id": "MEM-007",
       "categoria": "memoria",
       "regra": "Template vai para o projeto via copiartemplate, nunca readtext direto: o cabecalho > TEMPLATE Neural-Flow desliga ehtemplate() e faz o artefato nascer invisivel para o gate.",
-      "fonte": "MEMORY.md:68",
+      "fonte": "MEMORY.md:74",
       "secao": "Instalador",
       "guard": null
     },
@@ -646,7 +655,7 @@
       "id": "MEM-008",
       "categoria": "memoria",
       "regra": "Sempre datar (data absoluta, nunca relativa).",
-      "fonte": "MEMORY.md:145",
+      "fonte": "MEMORY.md:151",
       "secao": "4. Solutions Log and Lessons Learned",
       "guard": null
     },
@@ -654,7 +663,7 @@
       "id": "MEM-009",
       "categoria": "memoria",
       "regra": "[ ] Rodar python3 scripts/nfazuresmoke.py num ambiente autenticado - trava o bloco 2 inteiro da Sprint 4; exige az login, nao ha como agente sem tenant fechar",
-      "fonte": "MEMORY.md:152",
+      "fonte": "MEMORY.md:158",
       "secao": "5. Pendencias ativas",
       "guard": null
     }

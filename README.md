@@ -717,6 +717,7 @@ item tem um protocolo que o garante, nao uma recomendacao que o sugere.
 | **Nao contradiz decisao vigente** | ADR imutavel + `check_contradiction` com BLOCK acionando o Circuit Breaker |
 | **Nao expoe segredo nem destroi producao** | Aegis + `AI_SAFETY.md`: proibicoes absolutas e acoes que exigem confirmacao |
 | **Para antes de uma acao sensivel** | Action Gateway: allowlist versionada, risco declarado, sprint A0/A1 e aprovacao TTY para comando exato |
+| **Opera com arsenal tatico padronizado** | 27 skills de `mattpocock/skills` instaladas em `.agents/skills/` e `.claude/skills/` com invocacao autonoma pelo modelo (TDD red-green-refactor, *deep modules*, *grilling*, fatias verticais, revisao e handoff) combinadas aos principios de Karpathy e sob soberania dos guards (`ADR-010`) |
 
 Checklist de auditoria por protocolo: `docs/protocols/README.md`.
 
@@ -741,6 +742,7 @@ python scripts/nf_gate.py --list     # o que existe e o que cada um garante
 | `nf_gate.py adr` | ADR Governance (A1-A6) | Numero duplicado, supersecao apontando para ADR inexistente, **ciclo de supersecao**, ADR aceito sem sprint de origem ou sem guard declarado |
 | `nf_gate.py spec` | Spec-First (P1-P4) | Spec sem secao obrigatoria, secao so com placeholder, invariante sem ID, aceite nao numerado |
 | `nf_gate.py calibration` | Calibracao (C1-C7) | Conclusao sem confianca ou verificacao observada, item fechado com BAIXA, divergencia irreversivel registrada em vez de perguntada |
+| `nf_gate.py agentes` | Portas de Entrada de Agente (P1-P6) | Porta ausente ou divergente, referencia pendurada, indice desatualizado, ou skill obrigatoria de `mattpocock/skills` ausente/com invocacao pelo modelo desabilitada |
 | `smoke-gate audit` / Action | Evidencia Sintetica | Drift SQL, IDOR, error leak, endpoint sem cobertura |
 
 Instalacao num projeto (qualquer stack — os guards sao Python stdlib puro, sem `pip install`):

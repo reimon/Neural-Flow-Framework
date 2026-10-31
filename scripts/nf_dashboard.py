@@ -157,6 +157,9 @@ class Dados:
     # arvore deste script). Quando isso acontece, a pagina nao pode instruir a
     # rodar `scripts/nf_gate.py` — nao existe la.
     guards_locais: bool = True
+    atualizacoes: dict = field(default_factory=dict)
+    skills: list[dict] = field(default_factory=list)
+    info_projeto: dict = field(default_factory=dict)
 
     @property
     def ativa(self) -> Sprint | None:
@@ -413,6 +416,793 @@ def _mtime(caminho: Path) -> str:
         return "?"
 
 
+def coletar_atualizacoes(raiz: Path) -> dict:
+    from nf_agentes import DIRETORIOS_SKILLS, MARCA, PORTAS, SKILLS_OBRIGATORIAS, VERSAO
+
+    tem_gate = (raiz / "scripts" / "nf_gate.py").is_file()
+    tem_agents = (raiz / "AGENTS.md").is_file()
+    tem_nf = (raiz / ".neural-flow").is_dir()
+    tem_portas = any((raiz / p.caminho).is_file() for p in PORTAS)
+
+    instalado = tem_gate or tem_agents or tem_nf or tem_portas
+    if not instalado:
+        return {
+            "instalado": False,
+            "status": "nao_instalado",
+            "versao_framework": f"v{VERSAO}",
+            "skills_total": len(SKILLS_OBRIGATORIAS),
+            "skills_agents": 0,
+            "skills_claude": 0,
+            "skills_ok": False,
+            "portas_total": len(PORTAS),
+            "portas_ok": 0,
+            "indice_ok": False,
+            "guards_ok": False,
+            "pendencias": ["Framework nao instalado neste diretorio."],
+        }
+
+    pendencias: list[str] = []
+
+    # 1. Skills operacionais (.agents/skills e .claude/skills)
+    total_skills = len(SKILLS_OBRIGATORIAS)
+    base_agents = raiz / ".agents" / "skills"
+    skills_agents = sum(1 for s in SKILLS_OBRIGATORIAS if (base_agents / s / "SKILL.md").is_file()) if base_agents.is_dir() else 0
+
+    base_claude = raiz / ".claude" / "skills"
+    skills_claude = sum(1 for s in SKILLS_OBRIGATORIAS if (base_claude / s / "SKILL.md").is_file()) if base_claude.is_dir() else 0
+
+    skills_ok = (skills_agents == total_skills and skills_claude == total_skills)
+    if not skills_ok:
+        pendencias.append(
+            f"Skills operacionais pendentes: .agents/skills ({skills_agents}/{total_skills}), "
+            f".claude/skills ({skills_claude}/{total_skills})"
+        )
+
+    # 2. Portas de entrada dos agentes
+    portas_total = len(PORTAS)
+    portas_conformes = 0
+    for p in PORTAS:
+        caminho = raiz / p.caminho
+        if caminho.is_file():
+            try:
+                texto = caminho.read_text(encoding="utf-8")
+                if MARCA in texto:
+                    portas_conformes += 1
+            except OSError:
+                pass
+    portas_ok = (portas_conformes == portas_total)
+    if not portas_ok:
+        pendencias.append(f"Portas de entrada desatualizadas ({portas_conformes}/{portas_total} conformes)")
+
+    # 3. Indice de regras
+    indice_ok = (raiz / ".neural-flow" / "indice-regras.md").is_file()
+    if not indice_ok:
+        pendencias.append("Indice de regras ausente (.neural-flow/indice-regras.md)")
+
+    # 4. Guards locais
+    guards_ok = tem_gate
+    if not guards_ok:
+        pendencias.append("Guards locais ausentes (scripts/nf_gate.py)")
+
+    status = "pendente" if pendencias else "atualizado"
+
+    return {
+        "instalado": True,
+        "status": status,
+        "versao_framework": f"v{VERSAO}",
+        "skills_total": total_skills,
+        "skills_agents": skills_agents,
+        "skills_claude": skills_claude,
+        "skills_ok": skills_ok,
+        "portas_total": portas_total,
+        "portas_ok": portas_conformes,
+        "indice_ok": indice_ok,
+        "guards_ok": guards_ok,
+        "pendencias": pendencias,
+    }
+
+
+CATALOGO_SKILLS: list[dict] = [
+    # ── 1. Descoberta e Alinhamento ──
+    {
+        "id": "ask-matt",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Roteador de Skills",
+        "comando": "/ask-matt",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Roteador inteligente sobre as 27 skills: analisa a situacao atual e indica qual fluxo (Main Flow, On-Ramp ou Standalone) e qual acao de fronteira de fase adotar.",
+        "quando": "Quando o agente ou humano tem duvida sobre qual skill invocar ou como gerenciar a janela de contexto.",
+        "entradas": "Contexto da conversa + estado atual da tarefa",
+        "saidas": "Recomendacao de rota tatica + decisao de Phase Boundary",
+        "conecta": ["/grill-with-docs", "/triage", "/diagnosing-bugs", "/wayfinder"],
+        "guias": ["SKILL.md", "PHASE-BOUNDARIES.md"],
+        "passos": [
+            "Identificar se o trabalho segue o fluxo principal (Idea -> Ship) ou um On-Ramp.",
+            "Consultar a arvore de decisao em PHASE-BOUNDARIES.md (Continue, /clear, /handoff, Subagent, /compact).",
+            "Ler o SKILL.md da skill recomendada antes de iniciar a execucao.",
+        ],
+        "soberania": "Direciona para skills compativeis sem desviar das regras de AGENTS.md e do State Protocol.",
+    },
+    {
+        "id": "grill-with-docs",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Entrevista com Documentacao",
+        "comando": "/grill-with-docs",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Porta de entrada oficial do fluxo Idea -> Ship em diretorios de codigo: conduz entrevista implacavel e deixa rastro persistente em GLOSSARY.md e ADRs.",
+        "quando": "No passo 1 de qualquer feature ou arquitetura nova dentro de um repositorio.",
+        "entradas": "Ideia inicial + arvore de trabalho do repositorio",
+        "saidas": "GLOSSARY.md atualizado + docs/adr/ADR-NNN-*.md",
+        "conecta": ["/domain-modeling", "/prototype", "/to-spec"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Explorar o codigo e indice existentes para descobrir fatos antes de perguntar.",
+            "Conduzir rodadas de entrevista focadas em decisoes de produto e fronteiras de dominio.",
+            "Consolidar termos ubiquos no glossario e decisoes dificeis de reverter em ADRs.",
+        ],
+        "soberania": "ADRs gerados devem seguir docs/adr/ADR-<NNN>-<slug>.md e passar em nf_gate.py adr.",
+    },
+    {
+        "id": "grill-me",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Entrevista Rigorosa (Stateless)",
+        "comando": "/grill-me",
+        "papel": "Standalone",
+        "fluxo_principal": True,
+        "descricao": "Entrevista profunda e implacavel para estressar premissas, lacunas e trade-offs de um plano quando nao se deseja gravar glossario local.",
+        "quando": "Antes de iniciar uma sprint, validar um plano abstrato ou explorar design sem alterar docs.",
+        "entradas": "Plano, proposta tecnica ou ideia bruta",
+        "saidas": "Entendimento alinhado e todas as ambiguidades resolvidas",
+        "conecta": ["/grilling", "/to-spec", "/to-tickets"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Mapear a arvore de decisoes pendentes e identificar dependencias entre escolhas.",
+            "Fazer uma pergunta de alto impacto por vez, recomendando a opcao mais simples.",
+            "Desafiar complexidade prematura ate que todas as premissas estejam firmes.",
+        ],
+        "soberania": "Conclusoes aprovadas sao registradas formalmente no snapshot de docs/sprints/.",
+    },
+    {
+        "id": "grilling",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Primitiva de Stress-Test",
+        "comando": "/grilling",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Motor primitivo de questionamento: separa o que e fato verificavel no codigo (dever do agente) do que e decisao de negocio (dever do humano).",
+        "quando": "Acionada internamente por /grill-with-docs, /triage e /wayfinder, ou diretamente para questionar hipoteses.",
+        "entradas": "Hipotese, proposta de arquitetura ou requisito ambiguo",
+        "saidas": "Fronteira de decisao limpa e validada",
+        "conecta": ["/grill-with-docs", "/grill-me", "/wayfinder"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Nunca perguntar ao humano o que o proprio codigo ou spec ja responde.",
+            "Avancar pela fronteira de incerteza resolvendo um ramo por rodada.",
+            "Ancorar cada resposta na classe de evidencia correspondente.",
+        ],
+        "soberania": "Subordinado ao protocolo de Calibracao (confianca declarada e baseada em evidencia).",
+    },
+    {
+        "id": "wait-what",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Pausa e Reformulacao",
+        "comando": "/wait-what",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Freio de emergencia comunicacional: interrompe e reexplica a ultima mensagem sem jargao, usando a linguagem ubiqua do projeto.",
+        "quando": "No meio de qualquer fluxo quando uma explicacao ou proposta nao ficou clara.",
+        "entradas": "Mensagem anterior que gerou duvida ou desalinhamento",
+        "saidas": "Reformulacao cristalina ancorada no vocabulario do dominio",
+        "conecta": ["/domain-modeling", "/grill-with-docs"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Identificar exatamente qual salto de contexto ou termo causou ruido.",
+            "Traduzir para linguagem direta usando os conceitos de GLOSSARY.md e AGENTS.md.",
+            "Confirmar alinhamento antes de retomar o fluxo tecnico.",
+        ],
+        "soberania": "Retoma o foco na fonte de verdade e no indice de regras (.neural-flow/indice-regras.md).",
+    },
+    {
+        "id": "to-questionnaire",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Gerador de Questionarios",
+        "comando": "/to-questionnaire",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Inverso do /grill-me: quando a resposta esta com um stakeholder externo, entrevista voce sobre o destinatario e gera um questionario cirurgico.",
+        "quando": "Quando o bloqueio depende de produto, juridico, seguranca ou outra equipe.",
+        "entradas": "Lacunas de negocio + perfil do destinatario",
+        "saidas": "Questionario estruturado pronto para envio",
+        "conecta": ["/grill-with-docs", "/to-spec"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Mapear quem respondera o documento e qual contexto essa pessoa domina.",
+            "Formular perguntas fechadas com opcoes claras e implicacoes de cada escolha.",
+            "Alimentar as respostas recebidas de volta em /grill-with-docs ou /to-spec.",
+        ],
+        "soberania": "Cumpre o protocolo de Calibracao: BAIXA + acao irreversivel obriga a perguntar.",
+    },
+    {
+        "id": "research",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Investigacao Primaria",
+        "comando": "/research",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Delega pesquisa profunda a um subagente em background contra fontes primarias (codigo, RFCs, docs oficiais) e grava relatorio citado em Markdown.",
+        "quando": "Antes de integrar APIs, bibliotecas ou subsistemas complexos.",
+        "entradas": "Pergunta tecnica + fontes primarias alvo",
+        "saidas": "Arquivo Markdown com citacoes verificaveis no repositorio",
+        "conecta": ["/grill-with-docs", "/to-spec"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Isolar a leitura pesada em subagente para nao poluir a Smart Zone da sessao principal.",
+            "Priorizar codigo-fonte, especificacoes oficiais e testes reais sobre opinioes secundarias.",
+            "Consolidar achados com links e referencias exatas de linha.",
+        ],
+        "soberania": "Toda fonte consultada e registrada na secao Vetor de Contexto da sprint (nf_gate.py context).",
+    },
+    {
+        "id": "wayfinder",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Mapeamento Estrategico",
+        "comando": "/wayfinder",
+        "papel": "On-Ramp",
+        "fluxo_principal": False,
+        "descricao": "On-Ramp para esforcos gigantescos ou nebulosos que nao cabem em uma sessao: constroi um mapa compartilhado de tickets de decisao.",
+        "quando": "Em projetos greenfield amplos, migracoes arquiteturais ou epicos multi-sprint.",
+        "entradas": "Objetivo macro de longo prazo com caminho ainda incerto",
+        "saidas": "Grafo de tickets de decisao resolvidos -> pronto para /to-spec",
+        "conecta": ["/to-spec", "/to-tickets", "/grilling"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Criar tickets de decisao (nao de codigo) para dissipar a nevoa arquitetural passo a passo.",
+            "Resolver cada ticket de decisao por entrevista e prototipagem quando necessario.",
+            "Quando o caminho estiver limpo, entregar para /to-spec colapsar em plano executavel.",
+        ],
+        "soberania": "O macro-mapa e fatiado em sprints sequenciais validadas em docs/sprints/.",
+    },
+    {
+        "id": "teach",
+        "categoria": "Descoberta e Alinhamento",
+        "fase": 1,
+        "titulo": "Transferencia de Saber",
+        "comando": "/teach",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Transforma o repositorio em ambiente de aprendizado guiado em multiplas sessoes, com missoes praticas, glossario e registro de evolucao.",
+        "quando": "Para onboarding de engenheiros ou dominio de um novo paradigma/arquitetura.",
+        "entradas": "Topico ou modulo a dominar + nivel atual do desenvolvedor",
+        "saidas": "Missoes praticas + registro de aprendizado estruturado",
+        "conecta": ["/domain-modeling", "/ask-matt"],
+        "guias": ["SKILL.md", "MISSION-FORMAT.md", "LEARNING-RECORD-FORMAT.md", "GLOSSARY-FORMAT.md", "RESOURCES-FORMAT.md"],
+        "passos": [
+            "Estruturar plano pedagogico incremental ancorado em codigo real.",
+            "Propor missoes praticas verificaveis e registrar progresso entre sessoes.",
+            "Consolidar conceitos no formato padrao de glossario e recursos.",
+        ],
+        "soberania": "Baseia a exploracao estrutural no grafo de conhecimento do Graphify (~48x menos tokens).",
+    },
+
+    # ── 2. Especificacao e Modelagem ──
+    {
+        "id": "to-spec",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Sintetizador de Spec",
+        "comando": "/to-spec",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Passo 3 do fluxo principal: sintetiza tudo o que foi decidido na entrevista (/grill-with-docs) em uma especificacao tecnica formal, sem reabrir entrevista.",
+        "quando": "Logo apos o alinhamento na mesma janela de contexto (Smart Zone) para builds multi-sessao.",
+        "entradas": "Decisoes da entrevista + ADRs + glossario na janela ativa",
+        "saidas": "Especificacao tecnica completa e estruturada",
+        "conecta": ["/to-tickets", "/implement-spec"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Manter a mesma janela de contexto de /grill-with-docs para preservar todo o raciocinio.",
+            "Estruturar escopo, contratos de interface, estados de erro e criterios de aceite.",
+            "Encaminhar imediatamente para /to-tickets antes de limpar o contexto.",
+        ],
+        "soberania": "Especificacoes de modulo seguem docs/modulos/<modulo>.md e passam em nf_gate.py spec.",
+    },
+    {
+        "id": "domain-modeling",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Modelagem de Dominio",
+        "comando": "/domain-modeling",
+        "papel": "Vocabulario Base",
+        "fluxo_principal": False,
+        "descricao": "Camada de vocabulario subjacente: desafia termos vagos ou sobrecarregados, mantem GLOSSARY.md limpo e formaliza decisoes em ADRs.",
+        "quando": "Acionada continuamente por /grill-with-docs ou diretamente ao modelar regras de negocio.",
+        "entradas": "Conceitos de negocio, entidades e termos em disputa",
+        "saidas": "Linguagem ubiqua em GLOSSARY.md + ADRs de dominio",
+        "conecta": ["/grill-with-docs", "/codebase-design", "/to-spec"],
+        "guias": ["SKILL.md", "ADR-FORMAT.md", "GLOSSARY-FORMAT.md"],
+        "passos": [
+            "Detectar palavras sobrecarregadas (ex.: 'conta' ou 'usuario' com multiplos sentidos).",
+            "Definir limites claros de agregados, invariantes e ciclo de vida das entidades.",
+            "Registrar decisoes estruturais seguindo o contrato de ADR do projeto.",
+        ],
+        "soberania": "Soberania do formato docs/adr/ADR-<NNN>-<slug>.md validado por nf_gate.py adr.",
+    },
+    {
+        "id": "codebase-design",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Design de Modulos Profundos",
+        "comando": "/codebase-design",
+        "papel": "Vocabulario Base",
+        "fluxo_principal": False,
+        "descricao": "Vocabulario de arquitetura de modulos profundos (Ousterhout): muita capacidade escondida atras de uma interface pequena em uma costura (seam) limpa.",
+        "quando": "Ao projetar interfaces publicas, escolher onde testar ou aprofundar modulos rasos.",
+        "entradas": "Candidatos a refatoracao ou desenho de novo modulo",
+        "saidas": "Design comparativo (Design It Twice) com interface enxuta e testavel",
+        "conecta": ["/tdd", "/improve-codebase-architecture", "/implement"],
+        "guias": ["SKILL.md", "DEEPENING.md", "DESIGN-IT-TWICE.md"],
+        "passos": [
+            "Aplicar Design It Twice: comparar pelo menos duas interfaces radicalmente diferentes.",
+            "Maximizar profundidade: esconder complexidade interna atras de poucos metodos claros.",
+            "Posicionar seams limpos para permitir testes de integracao sem mocks frageis.",
+        ],
+        "soberania": "Respeita os boundaries de camada da Secao 2 de AGENTS.md (guard nao importa guard).",
+    },
+    {
+        "id": "to-tickets",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Fatiador de Tracer Bullets",
+        "comando": "/to-tickets",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Quebra a spec em fatias verticais ponta-a-ponta (tracer bullets), declarando explicitamente as arestas de bloqueio (blocking edges) entre tickets.",
+        "quando": "Imediatamente apos /to-spec, encerrando a primeira janela de contexto antes da construcao.",
+        "entradas": "Especificacao tecnica aprovada",
+        "saidas": "Grafo de tickets auto-contidos com dependencias de bloqueio",
+        "conecta": ["/implement", "/implement-spec"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Evitar fatias horizontais (so banco, depois so API); cada ticket atravessa as camadas.",
+            "Declarar arestas de bloqueio para definir a fronteira de execucao paralela.",
+            "Escrever cada ticket de forma auto-contida para que /implement rode com /clear entre eles.",
+        ],
+        "soberania": "Sincroniza os itens acionaveis no Checklist Operacional da sprint em docs/sprints/.",
+    },
+    {
+        "id": "writing-for-agents",
+        "categoria": "Modelagem e Especificacao",
+        "fase": 2,
+        "titulo": "Escrita para Agentes",
+        "comando": "/writing-for-agents",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Referencia de engenharia de prompts e documentos consumidos por agentes: como estruturar skills, AGENTS.md, CLAUDE.md e contratos sem ambiguidade.",
+        "quando": "Ao criar ou editar skills, atualizar diretrizes em AGENTS.md ou escrever protocolos.",
+        "entradas": "Diretriz, regra arquitetural ou fluxo de trabalho",
+        "saidas": "Documento de alta densidade e zero ambiguidade para LLMs",
+        "conecta": ["/retro", "/ask-matt"],
+        "guias": ["SKILL.md", "SKILL-MECHANICS.md"],
+        "passos": [
+            "Substituir conselhos vagos por regras verificaveis e tabelas de decisao direta.",
+            "Manter concisao extrema para preservar a Smart Zone de tokens do modelo.",
+            "Acoplar toda nova diretriz ao guard executavel correspondente.",
+        ],
+        "soberania": "Alinhado ao Principio n. 0 do Neural-Flow: documentacao orienta, guard obriga.",
+    },
+
+    # ── 3. Implementacao e TDD ──
+    {
+        "id": "tdd",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Test-Driven Development",
+        "comando": "/tdd",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Motor central de construcao: ciclo estrito Red-Green-Refactor uma fatia vertical por vez, testando comportamentos na interface publica sem mocks desnecessarios.",
+        "quando": "Em toda construcao de codigo, seja via /implement, /implement-spec ou diretamente.",
+        "entradas": "Comportamento especificado ou criterio de aceite do ticket",
+        "saidas": "Codigo testado, refatorado e com suite 100% verde",
+        "conecta": ["/codebase-design", "/implement", "/code-review"],
+        "guias": ["SKILL.md", "tests.md", "mocking.md"],
+        "passos": [
+            "RED: escrever um unico teste falhando que descreve o comportamento na costura publica.",
+            "GREEN: escrever o codigo mais simples possivel para fazer o teste passar.",
+            "REFACTOR: eliminar duplicacao e aprofundar modulos mantendo os testes verdes.",
+        ],
+        "soberania": "Garante o protocolo Evidencia Sintetica e confianca ALTA antes de fechar qualquer item.",
+    },
+    {
+        "id": "implement",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Implementacao Tatica",
+        "comando": "/implement",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Executa um ticket auto-contido (ou feature pequena) conduzindo /tdd fatia por fatia e encerrando com /code-review sobre o diff produzido.",
+        "quando": "Para executar cada ticket gerado por /to-tickets (limpando contexto com /clear entre tickets).",
+        "entradas": "Ticket auto-contido ou escopo direto de sessao unica",
+        "saidas": "Mudanca cirurgica implementada, testada e revisada",
+        "conecta": ["/tdd", "/code-review", "/pr"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Ler os criterios de aceite e fronteiras do ticket em uma janela limpa.",
+            "Conduzir ciclos curtos de /tdd ate cumprir todos os requisitos do ticket.",
+            "Disparar /code-review (Standards + Spec) antes de considerar o ticket concluido.",
+        ],
+        "soberania": "Opera dentro do nivel de autonomia (A0-A3) da sprint e valida com nf_gate.py.",
+    },
+    {
+        "id": "implement-spec",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Orquestrador de Spec",
+        "comando": "/implement-spec",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Orquestra a construcao completa de uma spec: le os tickets como grafo de tarefas, despacha subagentes em paralelo na fronteira pronta e integra o resultado.",
+        "quando": "Quando se deseja orquestrar multiplos tickets desbloqueados em paralelo via subagentes.",
+        "entradas": "Spec completa + grafo de tickets de /to-tickets",
+        "saidas": "Branch de integracao com todos os tickets implementados e revisados",
+        "conecta": ["/to-tickets", "/tdd", "/code-review"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Identificar todos os tickets na fronteira sem bloqueios pendentes.",
+            "Despachar subagentes implementadores (cada um rodando /tdd no seu escopo).",
+            "Executar /code-review global sobre a branch integrada ao final.",
+        ],
+        "soberania": "Proibido divergir da spec sem registrar em build/DIVERGENCIAS.md; sem commit automatico.",
+    },
+    {
+        "id": "improve-codebase-architecture",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Auditoria de Arquitetura",
+        "comando": "/improve-codebase-architecture",
+        "papel": "Saude Arquitetural",
+        "fluxo_principal": False,
+        "descricao": "Varre o repositorio em busca de modulos rasos, acoplamento excessivo e vazamento de abstracao, apresentando um relatorio visual HTML e entrevistando sobre a melhoria.",
+        "quando": "Em manutencao evolutiva para manter o codigo navegavel por humanos e agentes.",
+        "entradas": "Arvore de codigo do repositorio",
+        "saidas": "Relatorio HTML de oportunidades de aprofundamento + proposta de design",
+        "conecta": ["/codebase-design", "/grill-with-docs", "/to-spec"],
+        "guias": ["SKILL.md", "HTML-REPORT.md"],
+        "passos": [
+            "Mapear onde a complexidade de interface supera a complexidade de implementacao.",
+            "Apresentar candidatos de aprofundamento (deepening) com impacto na testabilidade.",
+            "Conduzir /grilling sobre o candidato escolhido e levar para /grill-with-docs.",
+        ],
+        "soberania": "Mudancas arquiteturais estruturais exigem ADR aceito (nf_gate.py adr).",
+    },
+    {
+        "id": "diagnosing-bugs",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Diagnostico Cientifico de Bugs",
+        "comando": "/diagnosing-bugs",
+        "papel": "On-Ramp",
+        "fluxo_principal": False,
+        "descricao": "On-Ramp para bugs dificeis, intermitentes ou regressoes: proibe teorizar no escuro ate construir um loop de feedback curto (um comando que ja fica vermelho neste bug).",
+        "quando": "Quando algo quebrou, esta lento ou falha de forma nao trivial.",
+        "entradas": "Sintoma de falha, stack trace ou regressao observada",
+        "saidas": "Reproducao deterministica + correcao com teste de regressao",
+        "conecta": ["/tdd", "/retro", "/improve-codebase-architecture"],
+        "guias": ["SKILL.md", "scripts/hitl-loop.template.sh"],
+        "passos": [
+            "Estabelecer comando unico de reproducao rapida que falha de forma consistente.",
+            "Formular hipotese falsificavel, instrumentar e isolar a causa raiz com evidencia.",
+            "Corrigir com teste de regressao e rodar /retro na mesma sessao.",
+        ],
+        "soberania": "Cumpre Calibracao ALTA: bug so fecha com teste de regressao reproduzivel.",
+    },
+    {
+        "id": "triage",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Triagem e Briefing",
+        "comando": "/triage",
+        "papel": "On-Ramp",
+        "fluxo_principal": False,
+        "descricao": "On-Ramp para issues brutas e PRs externos: move demandas por uma maquina de estados (categorizacao, verificacao, grilling) ate produzir briefs prontos para agentes.",
+        "quando": "Ao processar fila de bugs reportados ou solicitacoes externas (nao usar para tickets de /to-tickets).",
+        "entradas": "Issues brutas ou PRs externos nao triados",
+        "saidas": "Agent-Ready Briefs validados e prontos para /implement",
+        "conecta": ["/grilling", "/implement"],
+        "guias": ["SKILL.md", "AGENT-BRIEF.md", "OUT-OF-SCOPE.md"],
+        "passos": [
+            "Verificar se a issue pertence ao escopo do produto (OUT-OF-SCOPE.md).",
+            "Reproduzir e localizar os pontos de codigo afetados.",
+            "Redigir Agent-Ready Brief completo (AGENT-BRIEF.md) para execucao limpa.",
+        ],
+        "soberania": "Classifica o nivel de autonomia (A0-A3) antes de autorizar a execucao.",
+    },
+    {
+        "id": "prototype",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Prototipagem Descartavel",
+        "comando": "/prototype",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Desvio tatico no passo 2 do fluxo principal: constroi programa pequeno e descartavel para responder a uma pergunta de estado, logica ou UI que o papel nao resolve.",
+        "quando": "Quando uma duvida de design exige ver o codigo ou a interface rodando.",
+        "entradas": "Pergunta especifica de design (via /handoff)",
+        "saidas": "Resposta pratica validada + branch prototype/<nome> como fonte primaria",
+        "conecta": ["/handoff", "/grill-with-docs", "/to-spec"],
+        "guias": ["SKILL.md", "LOGIC.md", "UI.md"],
+        "passos": [
+            "Receber o contexto via /handoff em diretorio ou branch isolada.",
+            "Construir spike rapido focado exclusivamente em responder a pergunta aberta.",
+            "Devolver o aprendizado via /handoff para a thread principal de /grill-with-docs.",
+        ],
+        "soberania": "Codigo de prototipo nunca vai para main sem ser reconstruido via /tdd e nf_gate.py.",
+    },
+    {
+        "id": "wizard",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Assistente Interativo Humano",
+        "comando": "/wizard",
+        "papel": "Standalone",
+        "fluxo_principal": False,
+        "descricao": "Gera um script bash interativo passo-a-passo para tarefas que somente um humano pode realizar (provisionar credenciais, secrets de CI, paineis externos).",
+        "quando": "Quando o agente encontra uma barreira de permissao, segredo ou infraestrutura externa.",
+        "entradas": "Procedimento manual que exige credenciais ou acao humana",
+        "saidas": "Script bash interativo baseado em template.sh",
+        "conecta": ["/implement", "/setup-matt-pocock-skills"],
+        "guias": ["SKILL.md", "template.sh"],
+        "passos": [
+            "Identificar todos os passos manuais, URLs de dashboards e variaveis necessarias.",
+            "Gerar wizard interativo que guia o humano, valida entradas e grava com seguranca.",
+            "Transformar procedimentos repetitivos em automacao assistida versionada.",
+        ],
+        "soberania": "Cumpre a politica Aegis (.github/AI_SAFETY.md): zero segredo em prompt ou commit.",
+    },
+    {
+        "id": "setup-matt-pocock-skills",
+        "categoria": "Implementacao e TDD",
+        "fase": 3,
+        "titulo": "Configurador de Ambiente",
+        "comando": "/setup-matt-pocock-skills",
+        "papel": "Setup",
+        "fluxo_principal": False,
+        "descricao": "Pre-condicao de configuracao: define o issue tracker (GitHub, GitLab ou arquivos locais), vocabulario de labels de triagem e layout de docs de dominio.",
+        "quando": "Executado uma vez antes do primeiro fluxo de engenharia no repositorio.",
+        "entradas": "Estrutura do repositorio e preferencia de issue tracker",
+        "saidas": "Configuracao de tracker, labels e layout de dominio",
+        "conecta": ["/grill-with-docs", "/triage", "/to-tickets"],
+        "guias": ["SKILL.md", "domain.md", "triage-labels.md", "issue-tracker-local.md", "issue-tracker-github.md", "issue-tracker-gitlab.md"],
+        "passos": [
+            "Detectar ou configurar o rastreador de tickets (local ou remoto).",
+            "Padronizar rotulos de triagem e estrutura de documentacao de dominio.",
+            "Habilitar as convencoes assumidas por /to-tickets e /triage.",
+        ],
+        "soberania": "Opera em harmonia com nf_install.py e preserva .agents/skills e .claude/skills.",
+    },
+
+    # ── 4. Revisao, Entrega e Continuidade ──
+    {
+        "id": "code-review",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Code Review Duplo Eixo",
+        "comando": "/code-review",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Revisa as mudancas desde um ponto fixo em dois eixos paralelos via subagentes: Standards (padroes documentados do repo) e Spec (aderencia ao requisito).",
+        "quando": "Ao fechar cada ticket em /implement, ao finalizar /implement-spec ou antes de abrir PR.",
+        "entradas": "Diff da branch/commit + padroes do repo (AGENTS.md) + spec/ticket",
+        "saidas": "Relatorio lado a lado de conformidade tecnica e funcional",
+        "conecta": ["/implement", "/pr", "/retro"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Disparar subagente 1 (Standards): auditar codigo contra AGENTS.md e CLAUDE.md.",
+            "Disparar subagente 2 (Spec): auditar mudancas contra criterios da spec e sprint.",
+            "Consolidar achados lado a lado e bloquear entrega ate zerar desvios criticos.",
+        ],
+        "soberania": "Complementado obrigatoriamente por python3 scripts/nf_gate.py e smoke-gate.",
+    },
+    {
+        "id": "pr",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Autor de Pull Request",
+        "comando": "/pr",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Modela o corpo do Pull Request com a menor evidencia visual que prova a mudanca, comparativo antes/depois e classificacao de decisao (one-way vs two-way door).",
+        "quando": "Ao preparar a submissao de uma entrega validada para revisao do time.",
+        "entradas": "Commits da branch + evidencias de teste + contexto da sprint",
+        "saidas": "Descricao de PR estruturada, concisa e baseada em prova",
+        "conecta": ["/code-review", "/retro"],
+        "guias": ["SKILL.md", "CREDITS.md"],
+        "passos": [
+            "Sintetizar o problema, a solucao adotada e o impacto arquitetural.",
+            "Anexar evidencia real de execucao (testes, nf_gate, antes/depois).",
+            "Destacar decisoes irreversiveis (one-way doors) para atencao do revisor.",
+        ],
+        "soberania": "Soberania absoluta da Secao 6 de AGENTS.md: nunca commitar ou dar push sem ordem explicita.",
+    },
+    {
+        "id": "handoff",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Passagem de Bastao",
+        "comando": "/handoff",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Compacta a conversa atual em um documento Markdown portavel para abrir nova sessao em outro diretorio, branch de prototipo, colega ou novo agente.",
+        "quando": "Ao cruzar fronteiras de fase que exigem mudar de diretorio, harness ou isolar um /prototype.",
+        "entradas": "Estado cognitivo da sessao atual + objetivo da proxima etapa",
+        "saidas": "Documento de handoff auto-contido e portavel",
+        "conecta": ["/prototype", "/implement", "/grill-with-docs"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Extrair decisoes tomadas, restricoes descobertas e arquivos relevantes.",
+            "Omitir ruido de tentativa-e-erro para entregar contexto limpo ao proximo agente.",
+            "Explicitar a pergunta exata ou acao que a nova sessao deve resolver.",
+        ],
+        "soberania": "Complementa o estado persistente em disco (docs/sprints/ e build/DIARIO.md).",
+    },
+    {
+        "id": "retro",
+        "categoria": "Revisao e Entrega",
+        "fase": 4,
+        "titulo": "Retrospectiva Operacional",
+        "comando": "/retro",
+        "papel": "Fluxo Principal",
+        "fluxo_principal": True,
+        "descricao": "Passo 4 que fecha o loop Idea -> Ship: analisa a sessao concluida e melhora o AMBIENTE do agente (guards, ponteiros de navegacao, AGENTS.md, MEMORY.md).",
+        "quando": "Ao final de cada build ou correcao de bug, antes de limpar a janela da sessao.",
+        "entradas": "Historico da sessao atual (ou transcript JSONL)",
+        "saidas": "Melhorias em guards, regras de AGENTS.md e registros em MEMORY.md",
+        "conecta": ["/writing-for-agents", "/improve-codebase-architecture"],
+        "guias": ["SKILL.md"],
+        "passos": [
+            "Identificar onde o agente perdeu tempo, releu arquivos em excesso ou errou.",
+            "Converter erros mecanicos em checks deterministicos (guards em nf_gate.py).",
+            "Converter aprendizados de julgamento em padroes consolidados em MEMORY.md.",
+        ],
+        "soberania": "Fecha o ciclo evolucionario do Neural-Flow: toda falha vira guard ou memoria.",
+    },
+]
+
+
+def coletar_skills(raiz: Path) -> list[dict]:
+    base_agents = raiz / ".agents" / "skills"
+    base_claude = raiz / ".claude" / "skills"
+    resultado = []
+    for item in CATALOGO_SKILLS:
+        sk_id = item["id"]
+        em_agents = (base_agents / sk_id / "SKILL.md").is_file()
+        em_claude = (base_claude / sk_id / "SKILL.md").is_file()
+        dados = dict(item)
+        dados["em_agents"] = em_agents
+        dados["em_claude"] = em_claude
+        dados["ativa"] = em_agents and em_claude
+        resultado.append(dados)
+    return resultado
+
+
+def coletar_projeto(raiz: Path) -> dict:
+    from nf_agentes import MARCA, PORTAS
+
+    artefatos_def = [
+        ("AGENTS.md", "Constituicao dos Agentes", "Fonte de verdade unica e mapa de capacidades"),
+        ("CLAUDE.md", "Principios de Execucao", "Principios de Karpathy e comandos de verificacao"),
+        (".neural-flow/indice-regras.md", "Indice de Regras", "Consulta rapida (~48x menos tokens que grep)"),
+        (".github/AI_SAFETY.md", "Politica Aegis (Safety)", "Proibicoes absolutas e operacoes sensiveis"),
+        ("MEMORY.md", "Memoria Consolidada", "Decisoes estaveis e padroes arquiteturais"),
+        (".neural-flow/action-policy.json", "Action Gateway Policy", "Allowlist de comandos e matriz A0-A3"),
+        (".githooks/pre-commit", "Pre-Commit Gate", "Bloqueio local antes do commit"),
+        (".github/workflows/neural-flow-gates.yml", "Pipeline CI Gate", "Validacao autoritativa em Pull Requests"),
+    ]
+    artefatos = []
+    for rel, nome, desc in artefatos_def:
+        existe = (raiz / rel).is_file()
+        artefatos.append({"caminho": rel, "nome": nome, "descricao": desc, "presente": existe})
+
+    regras_count = 0
+    idx_json = raiz / ".neural-flow" / "indice-regras.json"
+    idx_md = raiz / ".neural-flow" / "indice-regras.md"
+    if idx_json.is_file():
+        try:
+            dados_idx = json.loads(idx_json.read_text(encoding="utf-8"))
+            regras_count = len(dados_idx.get("regras", [])) if isinstance(dados_idx, dict) else len(dados_idx)
+        except (json.JSONDecodeError, OSError):
+            pass
+    if not regras_count and idx_md.is_file():
+        try:
+            regras_count = sum(1 for l in idx_md.read_text(encoding="utf-8").splitlines() if l.strip().startswith("- **["))
+        except OSError:
+            pass
+
+    acoes_safe = 0
+    acoes_confirm = 0
+    acoes_lista = []
+    pol_path = raiz / ".neural-flow" / "action-policy.json"
+    if pol_path.is_file():
+        try:
+            pol = json.loads(pol_path.read_text(encoding="utf-8"))
+            acoes = pol.get("actions", [])
+            lista_bruta = acoes.values() if isinstance(acoes, dict) else (acoes if isinstance(acoes, list) else [])
+            for cfg in lista_bruta:
+                if isinstance(cfg, dict):
+                    req = bool(cfg.get("requires_human_approval")) or cfg.get("risk") in ("high", "critical", "sensitive", "irreversible")
+                    if req:
+                        acoes_confirm += 1
+                    else:
+                        acoes_safe += 1
+                    acoes_lista.append({
+                        "id": str(cfg.get("id", "?")),
+                        "descricao": str(cfg.get("description", "")),
+                        "risco": str(cfg.get("risk", "safe")),
+                        "aprovacao": req,
+                    })
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    portas_lista = [
+        {
+            "ferramenta": "OpenAI Codex / Jules / Devin / Factory",
+            "caminho": "AGENTS.md",
+            "tipo": "Fonte primaria",
+            "ok": (raiz / "AGENTS.md").is_file(),
+        },
+        {
+            "ferramenta": "Claude Code",
+            "caminho": "CLAUDE.md",
+            "tipo": "Porta + Karpathy",
+            "ok": (raiz / "CLAUDE.md").is_file(),
+        },
+    ]
+    for p in PORTAS:
+        arq = raiz / p.caminho
+        ok = False
+        if arq.is_file():
+            try:
+                ok = MARCA in arq.read_text(encoding="utf-8")
+            except OSError:
+                ok = False
+        portas_lista.append({
+            "ferramenta": p.ferramenta,
+            "caminho": p.caminho,
+            "tipo": "Porta sincronizada",
+            "ok": ok,
+        })
+
+    scripts_count = len(list((raiz / "scripts").glob("*.py"))) if (raiz / "scripts").is_dir() else 0
+    tests_count = len(list((raiz / "tests").glob("test_*.py"))) if (raiz / "tests").is_dir() else 0
+    protocols_count = (
+        len([p for p in (raiz / "docs" / "protocols").glob("*.md") if p.name.lower() != "readme.md"])
+        if (raiz / "docs" / "protocols").is_dir() else 0
+    )
+
+    return {
+        "artefatos": artefatos,
+        "regras_count": regras_count,
+        "acoes_safe": acoes_safe,
+        "acoes_confirm": acoes_confirm,
+        "acoes_lista": acoes_lista,
+        "portas": portas_lista,
+        "scripts_count": scripts_count,
+        "tests_count": tests_count,
+        "protocols_count": protocols_count,
+    }
+
+
 def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
             transcripts: Path | None = None, dias: int = 30) -> Dados:
     return Dados(
@@ -428,6 +1218,9 @@ def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
         tokens=coletar_tokens(raiz, dias=dias, diretorio=transcripts),
         janela_dias=dias,
         guards_locais=(raiz / "scripts" / "nf_gate.py").is_file(),
+        atualizacoes=coletar_atualizacoes(raiz),
+        skills=coletar_skills(raiz),
+        info_projeto=coletar_projeto(raiz),
     )
 
 
@@ -681,6 +1474,34 @@ existe para evitar.</p>
 sessao curta e cara costuma indicar releitura pesada logo no inicio.</p>
 <p>Tudo vem dos transcripts locais; nada sai da sua maquina.</p>"""),
 
+    "atualizacoes": ("Atualizacoes e Versao", """
+<p><strong>O que e.</strong> Diagnostico das capacidades do framework instaladas neste
+projeto: portas de entrada dos agentes, catalogo de 27 skills operacionais em
+<code>.agents/skills/</code> e <code>.claude/skills/</code>, indice de regras e guards.</p>
+<p><strong>Atualizacao sem perda.</strong> O comando de atualizacao preserva 100% dos seus
+arquivos de negocio: seu <code>AGENTS.md</code>, <code>MEMORY.md</code>, sprints e
+configuracoes nao sao sobrescritos.</p>
+<p><strong>Como atualizar.</strong> Execute <code>python3 scripts/nf_install.py --target .</code>
+para sincronizar os templates e skills, seguido de <code>python3 scripts/nf_agentes.py --escrever</code>
+e <code>python3 scripts/nf_gate.py</code> para validar a conformidade.</p>"""),
+
+    "skills": ("Skills operacionais (mattpocock/skills)", """
+<p><strong>O que e.</strong> As 27 skills operacionais promovidas de <code>mattpocock/skills</code>
+e incorporadas ao Neural-Flow (ADR-010). Estao disponiveis em <code>.agents/skills/</code> e
+<code>.claude/skills/</code> para qualquer agente de IA.</p>
+<p><strong>Invocacao autonoma.</strong> Todas as skills possuem ativacao autonoma habilitada: o modelo
+seleciona e aplica cada skill conforme a fase da tarefa (Descoberta, Modelagem, Implementacao, Revisao).</p>
+<p><strong>Soberania dos guards.</strong> O metodo tatico vem das skills; o contrato, a governanca e a
+seguranca sao do Neural-Flow. Nenhuma skill executa <code>git commit</code> ou <code>git push</code> sem
+autorizacao humana explicita.</p>"""),
+
+    "projeto": ("Raio-X e Governanca do Projeto", """
+<p><strong>O que e.</strong> Visao consolidada da arquitetura de governanca, ferramentas de IA
+autorizadas, matriz de autonomia e integridade dos artefatos deste projeto.</p>
+<p><strong>Como o framework atua.</strong> O Neural-Flow opera como camada de supervisao entre o
+desenvolvedor e os modelos de IA, garantindo que intencao técnica vire mudanca verificavel e
+imutavel.</p>"""),
+
     "historico": ("Historico de sprints", """
 <p><strong>O que e.</strong> Todas as sprints do projeto, com progresso, nivel de autonomia e
 consumo de tokens contra o orcamento.</p>
@@ -760,6 +1581,11 @@ TRADUCOES_UI = {
     "Ver pendencias": "Review pending items",
     "Pendencias": "Pending items",
     "Controles": "Controls",
+    "Skills": "Skills",
+    "Projeto": "Project",
+    "Atualizacoes": "Updates",
+    "Atualizacoes e Versao": "Updates and Version",
+    "Integridade das capacidades instaladas e instrucoes de atualizacao": "Integrity of installed capabilities and update instructions",
     "Conhecimento": "Knowledge",
     "Historico": "History",
     "Documentos": "Documents",
@@ -836,6 +1662,8 @@ TRADUCOES_UI = {
     "Custo de manutencao": "Maintenance cost",
     "Visão de execução, risco e governança do projeto": "Execution, risk and governance view",
     "Seção do dashboard": "Dashboard section",
+    "Operação": "Operations",
+    "Governança": "Governance",
     "Painel": "Dashboard",
     "O Neural-Flow": "About Neural-Flow",
     "Escolha a paleta do dashboard": "Choose the dashboard palette",
@@ -1077,8 +1905,20 @@ def script_interface() -> str:
       else link.removeAttribute('aria-current');
     });
   };
-  window.addEventListener('hashchange', select);
+  const govIds = new Set(['skills', 'ficha-projeto', 'atualizacoes', 'documentos-produto', 'protocolos', 'governanca']);
+  const syncView = () => {
+    const hash = (location.hash || '').replace('#', '');
+    if (govIds.has(hash)) {
+      const el = document.getElementById('view-gov');
+      if (el) el.checked = true;
+    } else if (hash === 'sobre' || hash === 'view-about') {
+      const el = document.getElementById('view-about');
+      if (el) el.checked = true;
+    }
+  };
+  window.addEventListener('hashchange', () => { select(); syncView(); });
   select();
+  syncView();
   document.querySelector('.skip-link').addEventListener('click', () => {
     document.getElementById('view-dashboard').checked = true;
   });
@@ -1242,6 +2082,13 @@ def prioridades(d: Dados) -> list[tuple[str, str, str]]:
     if divergencias:
         itens.append((f"{divergencias} divergencias aguardando revisao",
                       "Revise as decisoes pendentes antes de continuar o loop.", "loop"))
+    if d.atualizacoes.get("status") == "pendente":
+        n_pend = len(d.atualizacoes.get("pendencias", []))
+        itens.append((
+            f"{n_pend} atualizacoes do framework disponiveis" if n_pend > 1 else "Atualizacao do framework disponivel",
+            "Sincronize skills operacionais e portas de entrada. Veja instrucoes na secao Atualizacoes.",
+            "atualizacoes",
+        ))
     return itens
 
 
@@ -1694,6 +2541,457 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         if linhas_doc else '<p class="vazio">Nenhum papel documental configurado.</p>'
     )
 
+    # ── Atualizacoes e Versao ──
+    info_up = d.atualizacoes or {}
+    status_up = info_up.get("status", "atualizado")
+    versao_up = info_up.get("versao_framework", "v1")
+    skills_tot = info_up.get("skills_total", 27)
+    skills_ag = info_up.get("skills_agents", 0)
+    skills_cl = info_up.get("skills_claude", 0)
+    portas_ok = info_up.get("portas_ok", 0)
+    portas_tot = info_up.get("portas_total", 8)
+    indice_ok = info_up.get("indice_ok", False)
+    guards_ok = info_up.get("guards_ok", False)
+    pendencias_up = info_up.get("pendencias", [])
+
+    if status_up == "atualizado":
+        banner_cls = "ok"
+        banner_tag = "Versao do framework"
+        banner_titulo = f"Instalacao conforme e atualizada · {versao_up}"
+        banner_sub = (
+            "Todas as 27 skills operacionais estao instaladas em .agents/skills e .claude/skills, "
+            "portas de entrada sincronizadas e guards ativos."
+        )
+    elif status_up == "nao_instalado":
+        banner_cls = "alerta"
+        banner_tag = "Nao instalado"
+        banner_titulo = "Neural-Flow ainda nao instalado neste projeto"
+        banner_sub = "Execute o instalador para configurar governanca, 27 skills operacionais e guards."
+    else:
+        banner_cls = "alerta"
+        banner_tag = "Atualizacao disponivel"
+        banner_titulo = f"{len(pendencias_up)} atualizacao(oes) pendente(s) · {versao_up}"
+        banner_sub = (
+            "Ha componentes ou capacidades recentes do framework prontas para sincronizacao neste projeto."
+        )
+
+    badge_skills = "ok" if (skills_ag == skills_tot and skills_cl == skills_tot) else ("pendente" if (skills_ag > 0 or skills_cl > 0) else "ausente")
+    badge_portas = "ok" if (portas_ok == portas_tot) else ("pendente" if portas_ok > 0 else "ausente")
+    badge_indice = "ok" if indice_ok else "ausente"
+    badge_guards = "ok" if guards_ok else "ausente"
+
+    grid_items = f"""<div class="update-grid">
+  <div class="update-item">
+    <div class="update-item-head"><strong>Skills Operacionais</strong><span class="update-badge {badge_skills}">{"OK" if badge_skills == "ok" else ("Pendente" if badge_skills == "pendente" else "Ausente")}</span></div>
+    <p>27 skills (mattpocock/skills): {skills_ag}/{skills_tot} em <code>.agents/skills</code>, {skills_cl}/{skills_tot} em <code>.claude/skills</code>.</p>
+  </div>
+  <div class="update-item">
+    <div class="update-item-head"><strong>Portas de Entrada</strong><span class="update-badge {badge_portas}">{"OK" if badge_portas == "ok" else ("Pendente" if badge_portas == "pendente" else "Ausente")}</span></div>
+    <p>{portas_ok}/{portas_tot} arquivos com marca e instrucoes de skills (Gemini, Claude, Copilot, Cursor...).</p>
+  </div>
+  <div class="update-item">
+    <div class="update-item-head"><strong>Indice de Regras</strong><span class="update-badge {badge_indice}">{"OK" if badge_indice == "ok" else "Ausente"}</span></div>
+    <p>Fonte de verdade compacta em <code>.neural-flow/indice-regras.md</code>.</p>
+  </div>
+  <div class="update-item">
+    <div class="update-item-head"><strong>Guards Locais</strong><span class="update-badge {badge_guards}">{"OK" if badge_guards == "ok" else "Ausente"}</span></div>
+    <p>Gate local de pre-commit e CI em <code>scripts/nf_gate.py</code>.</p>
+  </div>
+</div>"""
+
+    pendencias_html = ""
+    if pendencias_up:
+        lista_p = "".join(f"<li>{e(p)}</li>" for p in pendencias_up)
+        pendencias_html = f"""<div class="update-pendencias">
+  <strong>Diagnostico de itens pendentes:</strong>
+  <ul class="update-pendencias-list">{lista_p}</ul>
+</div>"""
+
+    instrucoes_html = """<div class="update-box">
+  <div class="update-box-head"><strong>Como atualizar este projeto com seguranca:</strong></div>
+  <p class="sub">A atualizacao e <strong>nao-destrutiva</strong>: seu <code>AGENTS.md</code>, <code>MEMORY.md</code>, <code>docs/sprints/</code> e codigo de negocio nunca sao sobrescritos.</p>
+  <ol class="update-steps">
+    <li><span class="update-step-num">1</span><div class="update-step-body"><strong>Sincronizar templates e skills operacionais:</strong><p>Copia as 27 skills para <code>.agents/skills/</code> e <code>.claude/skills/</code> preservando arquivos existentes:</p><code>python3 scripts/nf_install.py --target .</code></div></li>
+    <li><span class="update-step-num">2</span><div class="update-step-body"><strong>Regerar portas de entrada dos agentes:</strong><p>Atualiza as portas (GEMINI.md, Copilot, Cursor, etc.) com a versao e instrucoes de skills:</p><code>python3 scripts/nf_agentes.py --escrever</code></div></li>
+    <li><span class="update-step-num">3</span><div class="update-step-body"><strong>Validar conformidade com os guards:</strong><p>Executa a bateria de guards para certificar que tudo esta integro antes do commit:</p><code>python3 scripts/nf_gate.py</code></div></li>
+  </ol>
+</div>"""
+
+    corpo_atualizacoes = f"""<div class="update-banner {banner_cls}">
+  <div>
+    <span class="eyebrow">{e(banner_tag)}</span>
+    <h3>{e(banner_titulo)}</h3>
+    <p class="sub" style="margin-bottom:0">{e(banner_sub)}</p>
+  </div>
+</div>
+{grid_items}
+{pendencias_html}
+{instrucoes_html}"""
+
+    # ── Skills Operacionais (mattpocock/skills) ──
+    skills_lista = d.skills if d.skills else [dict(s, ativa=True, em_agents=True, em_claude=True) for s in CATALOGO_SKILLS]
+    skills_ativas_cnt = sum(1 for s in skills_lista if s.get("ativa"))
+    skills_total_cnt = len(skills_lista)
+    skills_fluxo_cnt = sum(1 for s in skills_lista if s.get("fluxo_principal"))
+
+    def modal_skill(s: dict) -> str:
+        pop_id = f"ficha-skill-{s['id']}"
+        passos_li = "".join(
+            f'<li><span class="skill-step-idx">{idx}</span><span>{e(passo)}</span></li>'
+            for idx, passo in enumerate(s.get("passos", []), 1)
+        )
+        conecta_chips = "".join(f'<code class="skill-chip">{e(c)}</code>' for c in s.get("conecta", []))
+        guias_chips = "".join(
+            f'<code class="skill-chip guide">{e(g)}</code>' for g in s.get("guias", [])
+        ) or '<span class="muted small">Embutido em SKILL.md (sem arquivo auxiliar externo)</span>'
+        fluxo_badge = (
+            '<span class="skill-role-badge main">Fluxo Principal · Idea → Ship</span>'
+            if s.get("fluxo_principal")
+            else f'<span class="skill-role-badge">{e(s.get("papel", "Operacional"))}</span>'
+        )
+        return (
+            f'<div popover id="{pop_id}" class="pop doc-pop" role="dialog" aria-label="Guia tatico — {e(s["titulo"])}">'
+            f'<div class="doc-pop-head">'
+            f'<div><span class="eyebrow" style="color:var(--marca)">Ficha Tatica da Skill · Fase {s.get("fase", 1)}</span>'
+            f'<h3>{e(s["titulo"])} <code class="skill-cmd">{e(s["comando"])}</code></h3></div>'
+            f'<button type="button" class="pop-x" popovertarget="{pop_id}" popovertargetaction="hide" aria-label="Fechar">×</button>'
+            f'</div>'
+            f'<div class="doc-pop-body skill-pop-body">'
+            f'<div class="skill-pop-top">{fluxo_badge}'
+            f'<span class="skill-path-tag"><code>.agents/skills/{e(s["id"])}/SKILL.md</code></span>'
+            f'<span class="skill-path-tag"><code>.claude/skills/{e(s["id"])}/SKILL.md</code></span></div>'
+            f'<p class="skill-pop-desc">{e(s["descricao"])}</p>'
+            f'<div class="skill-pop-io">'
+            f'<div class="skill-io-box"><span class="eyebrow">Quando acionar</span><p>{e(s["quando"])}</p></div>'
+            f'<div class="skill-io-box"><span class="eyebrow">Entrada esperada</span><p>{e(s.get("entradas", "Contexto da tarefa"))}</p></div>'
+            f'<div class="skill-io-box"><span class="eyebrow">Saida produzida</span><p>{e(s.get("saidas", "Artefato ou decisao validada"))}</p></div>'
+            f'</div>'
+            f'<div class="skill-pop-section"><h4>Passo a passo tatico da skill</h4>'
+            f'<ol class="skill-steps-list">{passos_li}</ol></div>'
+            f'<div class="skill-pop-dual">'
+            f'<div class="skill-pop-section"><h4>Conecta com</h4><div class="skill-chip-row">{conecta_chips}</div></div>'
+            f'<div class="skill-pop-section"><h4>Arquivos de apoio no pacote</h4><div class="skill-chip-row">{guias_chips}</div></div>'
+            f'</div>'
+            f'<div class="skill-pop-sovereignty"><strong>Regra de Soberania Neural-Flow (ADR-010):</strong> {e(s["soberania"])}</div>'
+            f'</div></div>'
+        )
+
+    def card_skill(s: dict) -> str:
+        st_cls = "ok" if s.get("ativa") else ("pendente" if (s.get("em_agents") or s.get("em_claude")) else "idle")
+        st_txt = "Ativa" if s.get("ativa") else ("Pendente" if (s.get("em_agents") or s.get("em_claude")) else "Ausente")
+        main_cls = " sc-main-flow" if s.get("fluxo_principal") else ""
+        papel_cls = "main" if s.get("fluxo_principal") else "aux"
+        papel_txt = s.get("papel", "Operacional")
+        pop_id = f"ficha-skill-{s['id']}"
+        conecta_html = "".join(f'<code class="skill-chip">{e(c)}</code>' for c in s.get("conecta", [])[:3])
+        guias_lista = s.get("guias", [])
+        guias_badge = (
+            f'<span class="skill-guide-count">+{len(guias_lista)} {"guia" if len(guias_lista) == 1 else "guias"}</span>'
+            if guias_lista else ""
+        )
+        return (
+            f'<article class="skill-card{main_cls}">'
+            f'<div class="skill-card-top">'
+            f'<div class="skill-card-head">'
+            f'<div><div class="skill-title-row"><strong>{e(s["titulo"])}</strong>{guias_badge}</div>'
+            f'<div class="skill-badges-row"><code class="skill-cmd">{e(s["comando"])}</code>'
+            f'<span class="skill-role-badge {papel_cls}">{e(papel_txt)}</span></div></div>'
+            f'<span class="pill {st_cls}"><span aria-hidden="true">&#9679;</span> {st_txt}</span>'
+            f'</div>'
+            f'<p class="skill-desc">{e(s["descricao"])}</p>'
+            f'</div>'
+            f'<div class="skill-meta">'
+            f'<div class="skill-row"><strong>Quando usar:</strong> {e(s["quando"])}</div>'
+            f'<div class="skill-io-grid">'
+            f'<div class="skill-io-cell"><span>Entrada</span><strong>{e(s.get("entradas", "—"))}</strong></div>'
+            f'<div class="skill-io-cell"><span>Saida</span><strong>{e(s.get("saidas", "—"))}</strong></div>'
+            f'</div>'
+            f'<div class="skill-row skill-soberania"><strong>Soberania NF:</strong> {e(s["soberania"])}</div>'
+            f'<div class="skill-card-foot">'
+            f'<div class="skill-chip-row">{conecta_html}</div>'
+            f'<button type="button" class="skill-detail-btn" popovertarget="{pop_id}">Ver guia tatico ↗</button>'
+            f'</div>'
+            f'</div>'
+            f'</article>'
+        )
+
+    for s_item in skills_lista:
+        janelas.append(modal_skill(s_item))
+
+    fases_skills = [
+        ("descoberta", 1, "Descoberta, Entrevista e Alinhamento", "9 skills",
+         "Entrevista implacavel, alinhamento com ADRs/glossario, pesquisa de fontes primarias e decomposicao de ambiguidades antes do codigo."),
+        ("modelagem", 2, "Especificacao, Modelagem e Planejamento", "5 skills",
+         "Sintese em especificacao estruturada, modelo de dominio (ubiquitous language), deep modules e tickets tracer-bullet."),
+        ("implementacao", 3, "Implementacao, TDD, Arquitetura e Bugs", "9 skills",
+         "Ciclo estrito red-green-refactor, execucao de spec/tickets, auditoria de acoplamento, diagnostico cientifico e prototipos."),
+        ("revisao", 4, "Revisao, Entrega e Continuidade", "4 skills",
+         "Auditoria em dois eixos paralelos (Standards + Spec), corpo de PR rastreavel, handoff entre sessoes e retrospectiva."),
+    ]
+
+    blocos_fases = []
+    for cls_fase, num_fase, nome_fase, rotulo_fase, desc_fase in fases_skills:
+        itens_fase = [s for s in skills_lista if s.get("fase") == num_fase]
+        ativas_fase = sum(1 for s in itens_fase if s.get("ativa"))
+        total_fase = len(itens_fase)
+        status_fase = f"{ativas_fase}/{total_fase} ativas" if total_fase else rotulo_fase
+        cards_html = "".join(card_skill(s) for s in itens_fase)
+        blocos_fases.append(
+            f'<div class="skill-group sg-{cls_fase}">'
+            f'<div class="skill-group-head">'
+            f'<div class="skill-group-title"><span class="skill-group-badge">{num_fase}</span>'
+            f'<div><h3>{e(nome_fase)}</h3><p class="skill-group-desc">{e(desc_fase)}</p></div></div>'
+            f'<span class="pill ok"><span aria-hidden="true">&#9679;</span> {e(status_fase)}</span></div>'
+            f'<div class="skills-grid">{cards_html}</div>'
+            f'</div>'
+        )
+
+    mapa_arquitetura_skills = """<div class="skills-flow-map">
+  <div class="flow-col flow-col-main">
+    <div class="flow-col-head">
+      <span class="eyebrow">Caminho Critico · Idea → Ship</span>
+      <h4>Fluxo Principal em 6 Etapas</h4>
+      <p>O pipeline padrao de ponta a ponta desenhado por Matt Pocock e ancorado nos gates do Neural-Flow.</p>
+    </div>
+    <ol class="flow-pipeline">
+      <li><span class="flow-num">01</span><div><strong>Entrevista &amp; Decisao</strong><p><code>/grill-with-docs</code> ou <code>/grill-me</code> estressam premissas e gravam ADRs (<code>nf_gate.py adr</code>).</p></div></li>
+      <li><span class="flow-num">02</span><div><strong>Desvio Opcional: Spike</strong><p><code>/prototype</code> valida UI ou modelo de estado em branch isolada descartavel.</p></div></li>
+      <li><span class="flow-num">03</span><div><strong>Spec &amp; Tracer Bullets</strong><p><code>/to-spec</code> formaliza <code>docs/modulos/</code> (<code>nf_gate.py spec</code>) e <code>/to-tickets</code> fatia em fatias verticais.</p></div></li>
+      <li><span class="flow-num">04</span><div><strong>Execucao + TDD Estrito</strong><p><code>/implement</code> + <code>/tdd</code> rodam um teste por vez (Red → Green → Refactor) no escopo da sprint.</p></div></li>
+      <li><span class="flow-num">05</span><div><strong>Review Duplo &amp; PR</strong><p><code>/code-review</code> audita Standards + Spec em paralelo; <code>/pr</code> redige a entrega apos <code>nf_gate.py</code> verde.</p></div></li>
+      <li><span class="flow-num">06</span><div><strong>Retro &amp; Evolucao</strong><p><code>/retro</code> + <code>/writing-for-agents</code> transformam atritos da sessao em regras permanentes.</p></div></li>
+    </ol>
+  </div>
+  <div class="flow-col">
+    <div class="flow-col-head">
+      <span class="eyebrow">Portas de Entrada Taticas</span>
+      <h4>3 On-Ramps + Saude Arquitetural</h4>
+      <p>Nem todo trabalho comeca de uma ideia em branco. Entre pelo ponto exato do problema:</p>
+    </div>
+    <div class="flow-cards-stack">
+      <div class="flow-mini-card">
+        <div class="flow-mini-top"><strong>1. Fila Bruta de Issues/PRs</strong><code class="skill-cmd">/triage</code></div>
+        <p>Classifica bugs, features e duvidas em estado bruto e produz briefs prontos para agentes.</p>
+      </div>
+      <div class="flow-mini-card">
+        <div class="flow-mini-top"><strong>2. Bug Dificil ou Regressao</strong><code class="skill-cmd">/diagnosing-bugs</code></div>
+        <p>Loop cientifico: reproduzir → isolar → hipotese → testar → corrigir com teste de regressao via <code>/tdd</code>.</p>
+      </div>
+      <div class="flow-mini-card">
+        <div class="flow-mini-top"><strong>3. Iniciativa Multi-Sessao</strong><code class="skill-cmd">/wayfinder</code></div>
+        <p>Mapeia trabalho grande demais para uma sessao como grafo de tickets de decisao.</p>
+      </div>
+      <div class="flow-mini-card highlight">
+        <div class="flow-mini-top"><strong>Saude &amp; Deep Modules</strong><code class="skill-cmd">/improve-codebase-architecture</code></div>
+        <p>Escaneia acoplamento e modulos rasos, gera relatorio HTML e conduz refatoracao estrutural.</p>
+      </div>
+    </div>
+  </div>
+  <div class="flow-col">
+    <div class="flow-col-head">
+      <span class="eyebrow">Camada de Vocabulario &amp; Contexto</span>
+      <h4>Base Conceitual &amp; Smart Zone (~150k)</h4>
+      <p>Duas skills de vocabulario alimentam todas as demais, e 5 fronteiras protegem a janela de contexto:</p>
+    </div>
+    <div class="flow-cards-stack">
+      <div class="flow-mini-card">
+        <div class="flow-mini-top"><strong>Linguagem Ubiqua</strong><code class="skill-cmd">/domain-modeling</code></div>
+        <p>Alinha termos do negocio com os tipos do codigo e mantem <code>GLOSSARY.md</code> sem sinonimos ambiguos.</p>
+      </div>
+      <div class="flow-mini-card">
+        <div class="flow-mini-top"><strong>Interfaces Profundas</strong><code class="skill-cmd">/codebase-design</code></div>
+        <p>Principios de John Ousterhout: interface simples escondendo implementacao rica e testavel na fronteira.</p>
+      </div>
+      <div class="flow-boundary-box">
+        <strong>Fronteiras de Fase (Smart Zone ~150k tokens)</strong>
+        <p>A qualidade do raciocinio degrada apos ~150k tokens. Em cada transicao de fase, escolha:</p>
+        <div class="boundary-pills">
+          <span class="boundary-pill"><strong>Continue</strong> &lt;100k tokens</span>
+          <span class="boundary-pill"><strong>/clear</strong> artefato salvo em disco</span>
+          <span class="boundary-pill"><strong>/handoff</strong> 100k–150k tokens</span>
+          <span class="boundary-pill"><strong>Subagent</strong> leitura pesada isolada</span>
+          <span class="boundary-pill"><strong>/compact</strong> recurso de emergencia</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>"""
+
+    filtro_skills_html = (
+        '<fieldset class="skills-nav-filter">'
+        '<legend style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Filtrar skills por fase</legend>'
+        f'<input type="radio" name="sf-filter" id="sf-todas" checked><label class="skills-filter-tab" for="sf-todas">Todas as Skills <span>({skills_total_cnt})</span></label>'
+        f'<input type="radio" name="sf-filter" id="sf-fluxo"><label class="skills-filter-tab" for="sf-fluxo">Fluxo Principal: Idea → Ship <span>({skills_fluxo_cnt})</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-descoberta"><label class="skills-filter-tab" for="sf-descoberta">1. Descoberta &amp; Alinhamento <span>(9)</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-modelagem"><label class="skills-filter-tab" for="sf-modelagem">2. Modelagem &amp; Especificacao <span>(5)</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-implementacao"><label class="skills-filter-tab" for="sf-implementacao">3. Implementacao &amp; TDD <span>(9)</span></label>'
+        '<input type="radio" name="sf-filter" id="sf-revisao"><label class="skills-filter-tab" for="sf-revisao">4. Revisao &amp; Entrega <span>(4)</span></label>'
+        '</fieldset>'
+    )
+
+    status_skills_str = f"{skills_ativas_cnt}/{skills_total_cnt}" if skills_total_cnt else "—"
+    corpo_skills = (
+        '<div class="command-bar healthy" style="margin-bottom:18px">'
+        '<div class="command-copy"><span class="eyebrow" style="color:var(--st-good)">Arsenal Integrado (ADR-010 · mattpocock/skills)</span>'
+        f'<strong>{e(status_skills_str)} Skills Operacionais Prontas para Invocacao Autonoma e Manual</strong>'
+        '<span>Instaladas simultaneamente em <code>.agents/skills/</code> e <code>.claude/skills/</code> com <code>disable-model-invocation: false</code> e subordinadas aos guards do Neural-Flow. Clique em <em>Ver guia tatico</em> em qualquer card para abrir o passo a passo completo.</span></div>'
+        '<div class="command-actions"><span class="risk-badge healthy"><i></i> Autonomia + Guards Ativos</span></div></div>'
+        + mapa_arquitetura_skills
+        + filtro_skills_html
+        + f'<div class="skills-groups">{"".join(blocos_fases)}</div>'
+    )
+
+    # ── Raio-X e Governanca do Projeto ──
+    total_sprints = len(d.sprints)
+    sprints_concluidas = sum(1 for s in d.sprints if s.status == "concluida")
+    sprints_andamento = sum(1 for s in d.sprints if s.status == "em andamento")
+    total_adrs = d.adrs.get("total", 0)
+    adrs_aceitos = d.adrs.get("por_status", {}).get("aceito", 0)
+
+    info_p = d.info_projeto or {}
+    regras_total = info_p.get("regras_total", 19)
+    acoes_seguras = info_p.get("acoes_seguras", 3)
+    acoes_aprovacao = info_p.get("acoes_aprovacao", 3)
+    scripts_total = info_p.get("scripts_total", 21)
+    testes_total = info_p.get("testes_total", 2)
+    protocolos_total = info_p.get("protocolos_total", len(PROTOCOLOS))
+
+    artefatos_core = info_p.get("artefatos_core") or [
+        {"nome": "AGENTS.md", "caminho": "AGENTS.md", "papel": "Fonte unica de verdade (tool-agnostica)", "guard": "nf_gate.py agentes", "existe": True},
+        {"nome": "CLAUDE.md", "caminho": "CLAUDE.md", "papel": "Principios de execucao Karpathy + Skills", "guard": "nf_gate.py agentes", "existe": True},
+        {"nome": "Indice de Regras", "caminho": ".neural-flow/indice-regras.md", "papel": "Mapa estruturado de regras e guards", "guard": "nf_indice_regras.py", "existe": True},
+        {"nome": "AI Safety Policy", "caminho": ".github/AI_SAFETY.md", "papel": "Proibicoes absolutas e acoes criticas", "guard": "A0/A1 Gatekeeper", "existe": True},
+        {"nome": "Memoria Consolidada", "caminho": "MEMORY.md", "papel": "Padroes e aprendizados permanentes", "guard": "Ciclo de revisao", "existe": True},
+        {"nome": "Action Policy Gateway", "caminho": ".neural-flow/action-policy.json", "papel": "Allowlist de comandos e sandbox", "guard": "nf_action_gateway.py", "existe": True},
+        {"nome": "Pre-commit Hook", "caminho": ".githooks/pre-commit", "papel": "Bloqueio local antes do commit", "guard": "nf_gate.py", "existe": True},
+        {"nome": "CI Autorizativo", "caminho": ".github/workflows/neural-flow-gates.yml", "papel": "Verificacao soberana no GitHub Actions", "guard": "CI Pipeline", "existe": True},
+    ]
+    portas_agentes = info_p.get("portas_agentes") or [
+        {"ferramenta": "OpenAI Codex / Jules / Devin", "arquivo": "AGENTS.md", "modo": "Leitura direta da fonte", "existe": True},
+        {"ferramenta": "Claude Code (Anthropic)", "arquivo": "CLAUDE.md", "modo": "Principios Karpathy + 27 Skills", "existe": True},
+        {"ferramenta": "Gemini Code Assist / CLI", "arquivo": "GEMINI.md", "modo": "Porta gerada e sincronizada", "existe": True},
+        {"ferramenta": "GitHub Copilot", "arquivo": ".github/copilot-instructions.md", "modo": "Porta gerada e sincronizada", "existe": True},
+        {"ferramenta": "Cursor IDE", "arquivo": ".cursor/rules/neural-flow.mdc", "modo": "Regra MDC alwaysApply: true", "existe": True},
+        {"ferramenta": "Cline", "arquivo": ".clinerules", "modo": "Porta gerada e sincronizada", "existe": True},
+        {"ferramenta": "Windsurf", "arquivo": ".windsurfrules", "modo": "Porta gerada e sincronizada", "existe": True},
+        {"ferramenta": "Amp / Sourcegraph", "arquivo": "AGENT.md", "modo": "Porta gerada e sincronizada", "existe": True},
+        {"ferramenta": "Aider", "arquivo": "CONVENTIONS.md", "modo": "Porta gerada e sincronizada", "existe": True},
+        {"ferramenta": "Hermes Agent", "arquivo": "HERMES.md", "modo": "Porta gerada e sincronizada", "existe": True},
+    ]
+
+    art_ok_cnt = sum(1 for a in artefatos_core if a.get("existe"))
+    art_tot_cnt = len(artefatos_core)
+    art_ratio_str = f"{art_ok_cnt}/{art_tot_cnt}" if art_tot_cnt else "—"
+
+    portas_ok_cnt = sum(1 for p in portas_agentes if p.get("existe"))
+    portas_tot_cnt = len(portas_agentes)
+    portas_ratio_str = f"{portas_ok_cnt}/{portas_tot_cnt}" if portas_tot_cnt else "—"
+
+    linhas_artefatos = "".join(
+        f'<div class="inv-row">'
+        f'<div class="inv-main"><strong>{e(a["nome"])}</strong><code>{e(a["caminho"])}</code><span class="inv-role">{e(a["papel"])}</span></div>'
+        f'<div class="inv-side"><span class="inv-guard">{e(a["guard"])}</span>'
+        f'<span class="pill {"ok" if a.get("existe") else "idle"}"><span aria-hidden="true">&#9679;</span> {"Ativo" if a.get("existe") else "Opcional"}</span></div>'
+        f'</div>'
+        for a in artefatos_core
+    )
+
+    linhas_portas = "".join(
+        f'<div class="inv-row">'
+        f'<div class="inv-main"><strong>{e(p["ferramenta"])}</strong><code>{e(p["arquivo"])}</code><span class="inv-role">{e(p["modo"])}</span></div>'
+        f'<div class="inv-side"><span class="pill {"ok" if p.get("existe") else "bad"}"><span aria-hidden="true">&#9679;</span> {"Sincronizada" if p.get("existe") else "Ausente"}</span></div>'
+        f'</div>'
+        for p in portas_agentes
+    )
+
+    adrs_lista_proj = d.adrs.get("lista", [])
+    if adrs_lista_proj:
+        cards_adrs = "".join(
+            f'<div class="adr-card">'
+            f'<div class="adr-card-top"><code class="adr-num">{e("-".join(a.get("arquivo", "ADR").replace(".md", "").split("-")[:2]))}</code>'
+            f'<span class="pill {"ok" if a.get("status") == "aceito" else "idle"}"><span aria-hidden="true">&#9679;</span> {e(a.get("status", "proposto").capitalize())}</span></div>'
+            f'<strong>{e(a.get("titulo") or a.get("arquivo", ""))}</strong>'
+            f'<span class="adr-meta"><code>docs/adr/{e(a.get("arquivo", ""))}</code></span>'
+            f'</div>'
+            for a in adrs_lista_proj
+        )
+        bloco_adrs_html = (
+            f'<div class="project-subpanel" style="margin-top:16px">'
+            f'<div class="project-subpanel-head">'
+            f'<div><span class="eyebrow">Decisoes Arquiteturais Imutaveis</span><h4>Catalogo de ADRs do Projeto ({total_adrs})</h4></div>'
+            f'<span class="pill ok"><span aria-hidden="true">&#9679;</span> {adrs_aceitos} Aceitos · Sequenciais</span>'
+            f'</div>'
+            f'<div class="adr-grid">{cards_adrs}</div>'
+            f'</div>'
+        )
+    else:
+        bloco_adrs_html = ""
+
+    corpo_projeto = f"""<div class="project-stats-grid">
+  <div class="project-stat-box">
+    <span class="eyebrow">Pilar 1 · Supervisao em 3 Camadas</span>
+    <h4>Karpathy + 27 Skills + Guards</h4>
+    <p>Combina postura comportamental (<code>CLAUDE.md</code>), metodo tatico por etapa (<code>mattpocock/skills</code>) e validadores deterministicos em stdlib pura (ADR-002 e ADR-010).</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> {f"{guards_pass}/{guards_ativos} Guards Verdes" if guards_ativos else "Guards sob demanda"}</span>
+      <span class="tool-chip"><i></i> {regras_total} Regras Indexadas</span>
+      <span class="tool-chip"><i></i> {scripts_total} Scripts Stdlib</span>
+    </div>
+  </div>
+
+  <div class="project-stat-box">
+    <span class="eyebrow">Pilar 2 · Matriz de Autonomia A0–A3</span>
+    <h4>Action Gateway &amp; Git Seguro</h4>
+    <p>Escopos sensiveis (auth, segredos, migracoes, billing, producao) exigem A0/A1. Toda acao passa por allowlist versionada; <code>git commit</code> e <code>git push</code> exigem ordem explicita.</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> {acoes_seguras} Acoes Allowlist</span>
+      <span class="tool-chip"><i></i> {acoes_aprovacao} Acoes A0/A1</span>
+      <span class="tool-chip"><i></i> Commit/Push Protegidos</span>
+    </div>
+  </div>
+
+  <div class="project-stat-box">
+    <span class="eyebrow">Pilar 3 · Protocolo de Calibracao</span>
+    <h4>Evidencia Antes de Conclusao</h4>
+    <p>Toda afirmacao tecnica declara nivel de confianca lido da evidencia: <strong>ALTA</strong> (execucao verificada), <strong>MEDIA</strong> (contrato/ADR vigente) ou <strong>BAIXA</strong> (inferencia — nunca fecha item).</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> {protocolos_total} Protocolos Ativos</span>
+      <span class="tool-chip"><i></i> {testes_total} Suites de Teste</span>
+      <span class="tool-chip"><i></i> smoke-gate Integrado</span>
+    </div>
+  </div>
+
+  <div class="project-stat-box">
+    <span class="eyebrow">Pilar 4 · Economia de Contexto &amp; FinOps</span>
+    <h4>Indice Primeiro &amp; Estado em Disco</h4>
+    <p>Consultar <code>.neural-flow/indice-regras.md</code> ou o grafo antes de varrer codigo economiza ~48x em tokens. Sprints, ADRs e diario mantem a memoria fora do chat.</p>
+    <div class="project-tools-list">
+      <span class="tool-chip"><i></i> {total_adrs} ADRs ({adrs_aceitos} Aceitos)</span>
+      <span class="tool-chip"><i></i> {total_sprints} Sprints ({sprints_concluidas} Concluidas{f", {sprints_andamento} Ativa" if sprints_andamento else ""})</span>
+      <span class="tool-chip"><i></i> Circuit Breaker Ativo</span>
+    </div>
+  </div>
+</div>
+
+<div class="project-dual-grid">
+  <div class="project-subpanel">
+    <div class="project-subpanel-head">
+      <div><span class="eyebrow">Inspecao em Disco</span><h4>Artefatos Nucleares de Governanca</h4></div>
+      <span class="pill ok"><span aria-hidden="true">&#9679;</span> {e(art_ratio_str)} Presentes</span>
+    </div>
+    <div class="inv-list">{linhas_artefatos}</div>
+  </div>
+
+  <div class="project-subpanel">
+    <div class="project-subpanel-head">
+      <div><span class="eyebrow">Compatibilidade Multi-Agente</span><h4>Portas de Entrada Sincronizadas</h4></div>
+      <span class="pill ok"><span aria-hidden="true">&#9679;</span> {e(portas_ratio_str)} Sincronizadas</span>
+    </div>
+    <div class="inv-list">{linhas_portas}</div>
+  </div>
+</div>
+{bloco_adrs_html}"""
+
     botoes_quadro = {}
     for chave, (titulo, corpo) in AJUDA_QUADROS.items():
         if chave == "historico":
@@ -1756,6 +3054,9 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         ritmo=corpo_ritmo,
         protocolos=corpo_prot,
         documentos_produto=corpo_documentos,
+        atualizacoes=corpo_atualizacoes,
+        skills_secao=corpo_skills,
+        ficha_projeto=corpo_projeto,
         prioridades=corpo_prioridades,
         total_prioridades=len(pendencias),
         total_documentos=len(d.documentos_produto.get("documents", [])),
@@ -2096,7 +3397,7 @@ header{{margin-bottom:20px;padding-bottom:19px;border-bottom:1px solid var(--lin
 .brand-lockup{{display:flex;align-items:center;gap:12px}}.brand-mark{{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--marca);color:var(--marca-t);font-size:10px;font-weight:760;letter-spacing:.08em}}.brand-lockup h1{{font-size:20px;font-weight:720;letter-spacing:-.035em;line-height:1.05}}.brand-lockup h1 span{{font-weight:500}}.brand-lockup p{{margin:4px 0 0;font-size:12px;color:var(--muted)}}
 .header-meta{{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}}.live-dot{{width:7px;height:7px;border-radius:50%;background:var(--st-good);box-shadow:0 0 0 3px color-mix(in srgb, var(--st-good) 18%, transparent)}}
 .header-tools{{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}}.view-tabs,.theme-picker,.language-picker{{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--surface);box-shadow:0 1px 0 rgba(255,255,255,.16) inset}}.view-tabs legend,.view-tabs input,.theme-picker legend,.theme-picker input,.language-picker legend,.language-picker input{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}.view-tab,.theme-option{{position:relative;display:grid;place-items:center;border-radius:6px;cursor:pointer;transition:background .18s,transform .18s}}.view-tab{{min-height:27px;padding:0 9px;font-size:11px;font-weight:650;color:var(--text-2)}}.theme-option{{width:29px;height:27px}}.view-tab:hover,.theme-option:hover{{background:var(--acao-hover)}}.view-tab:active,.theme-option:active{{transform:scale(.96)}}.view-tabs input:focus-visible + .view-tab,.theme-picker input:focus-visible + .theme-option,.language-picker input:focus-visible + .view-tab{{outline:2px solid var(--series-1);outline-offset:2px}}.view-tabs input:checked + .view-tab,.theme-picker input:checked + .theme-option,.language-picker input:checked + .view-tab{{background:var(--muted-fill);color:var(--text)}}.theme-swatch{{display:block;width:15px;height:15px;border-radius:50%;border:1px solid rgba(255,255,255,.46);box-shadow:0 0 0 1px rgba(18,35,45,.18)}}.theme-swatch.light{{background:linear-gradient(135deg,#f7fafb 0 50%,#146c84 50%)}}.theme-swatch.dark{{background:linear-gradient(135deg,#171a1f 0 50%,#5fb3c9 50%)}}.theme-swatch.giyu{{background:conic-gradient(#6f3549 0 25%,#d08350 0 50%,#356b5a 0 75%,#dbe8eb 0)}}.theme-swatch.tanjiro{{background:conic-gradient(#43c9e8 0 25%,#43bf91 0 50%,#08192b 0 75%,#d87e8f 0)}}
-.about-view{{display:none}}body:has(#view-about:checked) .dashboard-view{{display:none}}body:has(#view-about:checked) .about-view{{display:block}}.about-hero{{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);gap:14px;align-items:stretch;margin-top:4px}}.about-copy,.architecture-figure,.about-block{{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}}.about-copy{{padding:30px}}.about-kicker{{margin:0 0 9px;color:var(--marca);font-size:10px;font-weight:720;letter-spacing:.13em;text-transform:uppercase}}.about-copy h2{{display:block;margin:0 0 12px;font-size:27px;line-height:1.1;letter-spacing:-.035em;text-transform:none;color:var(--text)}}.about-copy h2::after{{display:none}}.about-copy p{{max-width:62ch;margin:0;color:var(--text-2);font-size:14px;line-height:1.72}}.about-copy p+p{{margin-top:12px}}.architecture-figure{{margin:0;padding:14px;display:flex;flex-direction:column;justify-content:center;overflow:hidden}}.architecture-trigger{{all:unset;position:relative;display:block;cursor:zoom-in;border-radius:8px;overflow:hidden}}.architecture-trigger:focus-visible{{outline:2px solid var(--series-1);outline-offset:3px}}.architecture-trigger svg{{display:block;width:100%;height:auto;border-radius:8px;transition:transform .35s cubic-bezier(.16,1,.3,1)}}.architecture-trigger:hover svg{{transform:scale(1.018)}}.architecture-trigger svg line,.architecture-trigger svg path[stroke],.diagram-modal-body svg line,.diagram-modal-body svg path[stroke]{{stroke-dasharray:10 14;stroke-dashoffset:0;animation:diagram-flow 1.6s linear infinite}}.architecture-trigger svg line:nth-of-type(2n),.architecture-trigger svg path[stroke]:nth-of-type(2n),.diagram-modal-body svg line:nth-of-type(2n),.diagram-modal-body svg path[stroke]:nth-of-type(2n){{animation-delay:.24s}}.architecture-hint{{position:absolute;right:10px;bottom:10px;padding:4px 7px;border:1px solid rgba(255,255,255,.45);border-radius:5px;background:rgba(18,36,48,.78);color:#fff;font-size:10px;font-weight:680;opacity:0;transform:translateY(4px);transition:opacity .18s,transform .18s}}.architecture-trigger:hover .architecture-hint,.architecture-trigger:focus-visible .architecture-hint{{opacity:1;transform:translateY(0)}}.architecture-figure figcaption{{padding:10px 4px 0;color:var(--muted);font-size:11px;line-height:1.45}}.diagram-modal{{width:min(1240px,94vw);max-height:92dvh;margin:auto;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);box-shadow:var(--shadow)}}.diagram-modal:popover-open{{display:flex;flex-direction:column;animation:diagram-pop .28s cubic-bezier(.16,1,.3,1)}}.diagram-modal::backdrop{{background:rgba(9,18,25,.62);backdrop-filter:blur(3px)}}.diagram-modal-head{{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}}.diagram-modal-head strong{{font-size:14px}}.diagram-close{{all:unset;cursor:pointer;padding:5px 8px;border:1px solid var(--line);border-radius:6px;color:var(--text-2);font-size:12px;font-weight:650}}.diagram-close:hover{{background:var(--acao-hover);color:var(--text)}}.diagram-close:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}.diagram-modal-body{{padding:14px;overflow:auto}}.diagram-modal-body svg{{display:block;width:100%;height:auto;min-width:760px;border-radius:8px}}@keyframes diagram-flow{{to{{stroke-dashoffset:-96}}}}@keyframes diagram-pop{{from{{opacity:0;transform:scale(.96) translateY(8px)}}to{{opacity:1;transform:scale(1) translateY(0)}}}}.about-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}}.about-block{{padding:22px}}.about-block h3{{margin:0 0 8px;font-size:14px;letter-spacing:-.01em}}.about-block p{{margin:0;color:var(--text-2);font-size:13px;line-height:1.65}}.about-principles{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin:14px 0 0;padding:0;list-style:none;border-top:1px solid var(--line)}}.about-principles li{{padding:13px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2);line-height:1.5}}.about-principles strong{{display:block;margin-bottom:2px;color:var(--text);font-size:12.5px}}.about-cycle{{margin-top:14px;padding:24px 26px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}}.about-cycle h3{{margin:0 0 13px;font-size:14px}}.cycle-steps{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none;counter-reset:cycle}}.cycle-steps li{{position:relative;padding:12px 10px 12px 32px;border-top:2px solid var(--series-1);color:var(--text-2);font-size:12px;line-height:1.45;counter-increment:cycle}}.cycle-steps li::before{{content:counter(cycle,decimal-leading-zero);position:absolute;left:0;top:10px;color:var(--marca);font-size:10px;font-weight:740;letter-spacing:.06em}}
+.about-view,.gov-view{{display:none}}body:has(#view-about:checked) .dashboard-view,body:has(#view-gov:checked) .dashboard-view{{display:none}}body:has(#view-about:checked) .about-view{{display:block}}body:has(#view-gov:checked) .gov-view{{display:block}}.about-hero{{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);gap:14px;align-items:stretch;margin-top:4px}}.about-copy,.architecture-figure,.about-block{{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}}.about-copy{{padding:30px}}.about-kicker{{margin:0 0 9px;color:var(--marca);font-size:10px;font-weight:720;letter-spacing:.13em;text-transform:uppercase}}.about-copy h2{{display:block;margin:0 0 12px;font-size:27px;line-height:1.1;letter-spacing:-.035em;text-transform:none;color:var(--text)}}.about-copy h2::after{{display:none}}.about-copy p{{max-width:62ch;margin:0;color:var(--text-2);font-size:14px;line-height:1.72}}.about-copy p+p{{margin-top:12px}}.architecture-figure{{margin:0;padding:14px;display:flex;flex-direction:column;justify-content:center;overflow:hidden}}.architecture-trigger{{all:unset;position:relative;display:block;cursor:zoom-in;border-radius:8px;overflow:hidden}}.architecture-trigger:focus-visible{{outline:2px solid var(--series-1);outline-offset:3px}}.architecture-trigger svg{{display:block;width:100%;height:auto;border-radius:8px;transition:transform .35s cubic-bezier(.16,1,.3,1)}}.architecture-trigger:hover svg{{transform:scale(1.018)}}.architecture-trigger svg line,.architecture-trigger svg path[stroke],.diagram-modal-body svg line,.diagram-modal-body svg path[stroke]{{stroke-dasharray:10 14;stroke-dashoffset:0;animation:diagram-flow 1.6s linear infinite}}.architecture-trigger svg line:nth-of-type(2n),.architecture-trigger svg path[stroke]:nth-of-type(2n),.diagram-modal-body svg line:nth-of-type(2n),.diagram-modal-body svg path[stroke]:nth-of-type(2n){{animation-delay:.24s}}.architecture-hint{{position:absolute;right:10px;bottom:10px;padding:4px 7px;border:1px solid rgba(255,255,255,.45);border-radius:5px;background:rgba(18,36,48,.78);color:#fff;font-size:10px;font-weight:680;opacity:0;transform:translateY(4px);transition:opacity .18s,transform .18s}}.architecture-trigger:hover .architecture-hint,.architecture-trigger:focus-visible .architecture-hint{{opacity:1;transform:translateY(0)}}.architecture-figure figcaption{{padding:10px 4px 0;color:var(--muted);font-size:11px;line-height:1.45}}.diagram-modal{{width:min(1240px,94vw);max-height:92dvh;margin:auto;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);box-shadow:var(--shadow)}}.diagram-modal:popover-open{{display:flex;flex-direction:column;animation:diagram-pop .28s cubic-bezier(.16,1,.3,1)}}.diagram-modal::backdrop{{background:rgba(9,18,25,.62);backdrop-filter:blur(3px)}}.diagram-modal-head{{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}}.diagram-modal-head strong{{font-size:14px}}.diagram-close{{all:unset;cursor:pointer;padding:5px 8px;border:1px solid var(--line);border-radius:6px;color:var(--text-2);font-size:12px;font-weight:650}}.diagram-close:hover{{background:var(--acao-hover);color:var(--text)}}.diagram-close:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}.diagram-modal-body{{padding:14px;overflow:auto}}.diagram-modal-body svg{{display:block;width:100%;height:auto;min-width:760px;border-radius:8px}}@keyframes diagram-flow{{to{{stroke-dashoffset:-96}}}}@keyframes diagram-pop{{from{{opacity:0;transform:scale(.96) translateY(8px)}}to{{opacity:1;transform:scale(1) translateY(0)}}}}.about-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}}.about-block{{padding:22px}}.about-block h3{{margin:0 0 8px;font-size:14px;letter-spacing:-.01em}}.about-block p{{margin:0;color:var(--text-2);font-size:13px;line-height:1.65}}.about-principles{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin:14px 0 0;padding:0;list-style:none;border-top:1px solid var(--line)}}.about-principles li{{padding:13px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2);line-height:1.5}}.about-principles strong{{display:block;margin-bottom:2px;color:var(--text);font-size:12.5px}}.about-cycle{{margin-top:14px;padding:24px 26px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}}.about-cycle h3{{margin:0 0 13px;font-size:14px}}.cycle-steps{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none;counter-reset:cycle}}.cycle-steps li{{position:relative;padding:12px 10px 12px 32px;border-top:2px solid var(--series-1);color:var(--text-2);font-size:12px;line-height:1.45;counter-increment:cycle}}.cycle-steps li::before{{content:counter(cycle,decimal-leading-zero);position:absolute;left:0;top:10px;color:var(--marca);font-size:10px;font-weight:740;letter-spacing:.06em}}
 .command-bar{{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:17px 20px 17px 22px;margin-bottom:14px;border:1px solid var(--alerta-borda);border-left:3px solid var(--st-critical);border-radius:10px;background:var(--alerta-fundo);box-shadow:var(--shadow)}}.command-bar.healthy{{border-color:var(--ok-borda);border-left-color:var(--st-good);background:var(--ok-fundo)}}
 .command-copy{{display:grid;gap:2px}}.eyebrow,.tile-k{{font-size:10px;letter-spacing:.1em;font-weight:700;text-transform:uppercase}}.eyebrow{{color:var(--st-critical)}}.command-bar.healthy .eyebrow{{color:var(--st-good)}}.command-copy strong{{font-size:14px;letter-spacing:-.01em}}.command-copy>span:last-child{{font-size:12px;color:var(--text-2)}}.command-actions{{display:flex;gap:14px;align-items:center;white-space:nowrap}}.risk-badge{{display:inline-flex;align-items:center;gap:6px;color:var(--alerta-texto);font-size:12px;font-weight:650}}.risk-badge i{{width:7px;height:7px;border-radius:50%;background:var(--st-critical)}}.risk-badge.healthy{{color:var(--st-good)}}.risk-badge.healthy i{{background:var(--st-good)}}.action-link{{border:1px solid var(--line-forte);border-radius:7px;padding:7px 10px;color:var(--marca);text-decoration:none;font-size:12px;font-weight:650;transition:background .18s,transform .18s}}.action-link:hover{{background:var(--acao-hover);transform:translateY(-1px)}}
 .tiles{{grid-template-columns:1.35fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px}}.tile{{min-height:110px;padding:16px 18px;border-radius:10px;box-shadow:none;justify-content:center}}.tile::before{{height:3px}}.tile-v{{font-size:31px;color:var(--text)}}.tile-s{{font-size:12px}}.tile.bad{{background:var(--tile-ruim);border-color:var(--tile-ruim-b)}}
@@ -2158,14 +3459,152 @@ h2{{font-size:16px;font-weight:650;letter-spacing:-.02em;text-transform:none;mar
 .help{{position:relative;width:24px;height:24px;font-size:12px;flex:none}}
 .help::after{{content:"";position:absolute;inset:-5px}}
 .help-sm{{width:22px;height:22px}}
+.update-banner{{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 20px;border-radius:10px;border:1px solid var(--line);background:var(--surface);margin-bottom:16px}}
+.update-banner.ok{{border-color:var(--ok-borda);border-left:3px solid var(--st-good);background:var(--ok-fundo)}}
+.update-banner.alerta{{border-color:var(--alerta-borda);border-left:3px solid var(--st-warning);background:var(--alerta-fundo)}}
+.update-banner h3{{margin:4px 0 2px;font-size:16px;font-weight:650;color:var(--text)}}
+.update-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}}
+.update-item{{padding:14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}}
+.update-item-head{{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}}
+.update-item-head strong{{font-size:13px;color:var(--text)}}
+.update-badge{{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}}
+.update-badge.ok{{background:color-mix(in srgb,var(--st-good) 15%,transparent);color:var(--st-good)}}
+.update-badge.pendente{{background:color-mix(in srgb,var(--st-warning) 20%,transparent);color:var(--st-serious)}}
+.update-badge.ausente{{background:var(--muted-fill);color:var(--muted)}}
+.update-item p{{margin:0;font-size:12px;color:var(--text-2);line-height:1.5}}
+.update-box{{padding:18px 20px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:14px}}
+.update-box-head{{margin-bottom:8px}}
+.update-box-head strong{{font-size:14px;color:var(--text)}}
+.update-steps{{display:grid;gap:12px;margin:12px 0 0;padding:0;list-style:none}}
+.update-steps li{{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;align-items:start}}
+.update-step-num{{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--marca);color:var(--marca-t);font-size:11px;font-weight:700}}
+.update-step-body strong{{display:block;font-size:13px;color:var(--text);margin-bottom:2px}}
+.update-step-body p{{margin:0 0 6px;font-size:12px;color:var(--text-2);line-height:1.5}}
+.update-step-body code{{display:inline-block;padding:3px 8px;font-size:12px;background:var(--muted-fill);color:var(--text);border-radius:5px}}
+.update-pendencias{{padding:14px 18px;border:1px solid var(--alerta-borda);border-radius:9px;background:var(--alerta-fundo);margin-bottom:14px}}
+.update-pendencias strong{{font-size:13px;color:var(--text)}}
+.update-pendencias-list{{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--text-2);line-height:1.6}}
+/* Skills Operacionais (mattpocock/skills) */
+.skills-flow-map{{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:14px;margin-bottom:18px}}
+.flow-col{{border:1px solid var(--line);border-radius:11px;padding:18px;background:color-mix(in srgb,var(--surface) 94%,var(--bg));display:flex;flex-direction:column;gap:12px}}
+.flow-col-main{{border-top:3px solid var(--marca);background:var(--surface)}}
+.flow-col-head .eyebrow{{font-size:10px;letter-spacing:.08em;font-weight:740;text-transform:uppercase;color:var(--marca)}}
+.flow-col-head h4{{margin:2px 0 4px;font-size:15px;font-weight:680;color:var(--text)}}
+.flow-col-head p{{margin:0;font-size:12px;color:var(--text-2);line-height:1.5}}
+.flow-pipeline{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
+.flow-pipeline li{{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--bg) 60%,var(--surface))}}
+.flow-num{{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:var(--marca);color:var(--marca-t);font:700 10.5px/1 ui-monospace,monospace}}
+.flow-pipeline strong{{display:block;font-size:12.5px;color:var(--text);margin-bottom:2px}}
+.flow-pipeline p{{margin:0;font-size:11.5px;color:var(--text-2);line-height:1.45}}
+.flow-cards-stack{{display:grid;gap:9px}}
+.flow-mini-card{{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}}
+.flow-mini-card.highlight{{border-left:3px solid var(--series-1)}}
+.flow-mini-top{{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}}
+.flow-mini-top strong{{font-size:12.5px;color:var(--text)}}
+.flow-mini-card p{{margin:0;font-size:11.5px;color:var(--text-2);line-height:1.45}}
+.flow-boundary-box{{padding:12px;border:1px dashed var(--line-forte);border-radius:8px;background:color-mix(in srgb,var(--muted-fill) 45%,var(--surface))}}
+.flow-boundary-box>strong{{display:block;font-size:12.5px;color:var(--text);margin-bottom:3px}}
+.flow-boundary-box>p{{margin:0 0 8px;font-size:11.5px;color:var(--text-2);line-height:1.45}}
+.boundary-pills{{display:flex;flex-wrap:wrap;gap:5px}}
+.boundary-pill{{font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--line);background:var(--surface);color:var(--text-2)}}
+.boundary-pill strong{{color:var(--marca)}}
+.skills-nav-filter{{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 18px;padding:0;border:none;align-items:center}}
+.skills-nav-filter input{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+.skills-filter-tab{{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--line);border-radius:20px;font-size:12px;font-weight:620;color:var(--text-2);cursor:pointer;background:var(--surface);transition:background .18s,color .18s,border-color .18s}}
+.skills-filter-tab:hover{{background:var(--acao-hover);color:var(--text)}}
+.skills-nav-filter input:checked + .skills-filter-tab{{background:var(--marca);color:var(--marca-t);border-color:var(--marca)}}
+.skills-nav-filter input:focus-visible + .skills-filter-tab{{outline:2px solid var(--series-1);outline-offset:2px}}
+.skills-groups{{display:grid;gap:20px}}
+.skill-group{{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:20px;box-shadow:var(--shadow)}}
+.skill-group-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}}
+.skill-group-title{{display:flex;align-items:center;gap:10px}}
+.skill-group-badge{{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--marca);color:var(--marca-t);font-size:12px;font-weight:750}}
+.skill-group-head h3{{margin:0;font-size:16px;font-weight:680;color:var(--text);letter-spacing:-.015em}}
+.skill-group-desc{{margin:4px 0 0;font-size:12.5px;color:var(--text-2)}}
+.skills-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}}
+.skill-card{{border:1px solid var(--line);border-radius:10px;padding:15px;background:color-mix(in srgb,var(--surface) 92%,var(--bg));display:flex;flex-direction:column;justify-content:space-between;gap:12px;transition:border-color .18s,transform .18s,box-shadow .18s}}
+.skill-card.sc-main-flow{{border-top:2px solid var(--marca)}}
+.skill-card:hover{{border-color:var(--line-forte);transform:translateY(-1px);box-shadow:var(--shadow)}}
+.skill-card-top{{display:grid;gap:8px}}
+.skill-card-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}}
+.skill-title-row{{display:flex;align-items:center;gap:6px;flex-wrap:wrap}}
+.skill-card-head strong{{font-size:14px;color:var(--text);font-weight:670}}
+.skill-guide-count{{font-size:10px;font-weight:650;padding:1px 6px;border-radius:999px;background:var(--muted-fill);color:var(--text-2)}}
+.skill-badges-row{{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px}}
+.skill-cmd{{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;padding:2px 6px;border-radius:4px;background:var(--muted-fill);color:var(--marca);font-weight:650}}
+.skill-role-badge{{font-size:10px;font-weight:680;padding:2px 7px;border-radius:4px;border:1px solid var(--line);color:var(--text-2);background:var(--surface)}}
+.skill-role-badge.main{{border-color:color-mix(in srgb,var(--marca) 40%,var(--line));color:var(--marca);background:color-mix(in srgb,var(--marca) 10%,var(--surface))}}
+.skill-desc{{margin:0;font-size:12px;line-height:1.55;color:var(--text-2)}}
+.skill-meta{{display:grid;gap:8px;font-size:11.5px;padding-top:10px;border-top:1px dashed var(--line);color:var(--muted);line-height:1.45}}
+.skill-row strong{{color:var(--text-2);font-weight:620}}
+.skill-io-grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:7px 9px;border-radius:7px;background:var(--surface);border:1px solid var(--line)}}
+.skill-io-cell{{display:flex;flex-direction:column;gap:2px;min-width:0}}
+.skill-io-cell span{{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}}
+.skill-io-cell strong{{font-size:11px;color:var(--text);font-weight:560;line-height:1.35;overflow-wrap:anywhere}}
+.skill-soberania{{color:var(--marca);font-size:11px;line-height:1.42}}
+.skill-card-foot{{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding-top:4px}}
+.skill-chip-row{{display:flex;flex-wrap:wrap;gap:4px}}
+.skill-chip{{font-size:10.5px;padding:2px 6px;border-radius:4px;background:var(--muted-fill);color:var(--text-2)}}
+.skill-chip.guide{{color:var(--marca)}}
+.skill-detail-btn{{all:unset;cursor:pointer;font-size:11.5px;font-weight:660;color:var(--marca);padding:4px 9px;border:1px solid var(--line-forte);border-radius:6px;background:var(--surface);transition:background .15s,border-color .15s}}
+.skill-detail-btn:hover{{background:var(--acao-hover);border-color:var(--marca)}}
+.skill-detail-btn:focus-visible{{outline:2px solid var(--series-1);outline-offset:2px}}
+.skill-pop-body{{display:grid;gap:16px}}
+.skill-pop-top{{display:flex;flex-wrap:wrap;gap:8px;align-items:center}}
+.skill-path-tag code{{font-size:11px;color:var(--text-2)}}
+.skill-pop-desc{{margin:0;font-size:13.5px;line-height:1.6;color:var(--text)}}
+.skill-pop-io{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}}
+.skill-io-box{{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}}
+.skill-io-box .eyebrow{{color:var(--marca);display:block;margin-bottom:4px}}
+.skill-io-box p{{margin:0;font-size:12.5px;color:var(--text-2);line-height:1.5}}
+.skill-pop-section h4{{margin:0 0 8px;font-size:13px;font-weight:670;color:var(--text)}}
+.skill-steps-list{{list-style:none;margin:0;padding:0;display:grid;gap:8px}}
+.skill-steps-list li{{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:12.5px;color:var(--text-2);line-height:1.5}}
+.skill-step-idx{{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--marca);color:var(--marca-t);font-size:11px;font-weight:700}}
+.skill-pop-dual{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}
+.skill-pop-sovereignty{{padding:12px 14px;border-left:3px solid var(--marca);border-radius:6px;background:color-mix(in srgb,var(--marca) 8%,var(--surface));font-size:12.5px;color:var(--text);line-height:1.5}}
+body:has(#sf-fluxo:checked) .skill-card:not(.sc-main-flow){{display:none}}
+body:has(#sf-descoberta:checked) .skill-group:not(.sg-descoberta){{display:none}}
+body:has(#sf-modelagem:checked) .skill-group:not(.sg-modelagem){{display:none}}
+body:has(#sf-implementacao:checked) .skill-group:not(.sg-implementacao){{display:none}}
+body:has(#sf-revisao:checked) .skill-group:not(.sg-revisao){{display:none}}
+/* Raio-X do Projeto */
+.project-stats-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:16px}}
+.project-stat-box{{padding:18px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:flex;flex-direction:column;gap:6px}}
+.project-stat-box .eyebrow{{font-size:10px;letter-spacing:.08em;font-weight:720;text-transform:uppercase;color:var(--marca)}}
+.project-stat-box h4{{margin:0;font-size:15px;font-weight:660;color:var(--text)}}
+.project-stat-box p{{margin:0;font-size:12px;color:var(--text-2);line-height:1.55}}
+.project-tools-list{{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:8px}}
+.tool-chip{{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--muted-fill);font-size:11px;font-weight:600;color:var(--text)}}
+.tool-chip i{{width:6px;height:6px;border-radius:50%;background:var(--st-good)}}
+.project-dual-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}
+.project-subpanel{{border:1px solid var(--line);border-radius:10px;padding:18px;background:var(--surface)}}
+.project-subpanel-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding-bottom:12px;margin-bottom:10px;border-bottom:1px solid var(--line)}}
+.project-subpanel-head .eyebrow{{font-size:10px;letter-spacing:.08em;font-weight:720;text-transform:uppercase;color:var(--marca)}}
+.project-subpanel-head h4{{margin:2px 0 0;font-size:14.5px;font-weight:670;color:var(--text)}}
+.inv-list{{display:grid;gap:6px}}
+.inv-row{{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--bg) 55%,var(--surface));flex-wrap:wrap}}
+.inv-main{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}}
+.inv-main strong{{font-size:12.5px;color:var(--text)}}
+.inv-main code{{font-size:11px;color:var(--marca)}}
+.inv-role{{font-size:11.5px;color:var(--text-2)}}
+.inv-side{{display:flex;align-items:center;gap:8px;margin-left:auto}}
+.inv-guard{{font:11px/1.3 ui-monospace,monospace;color:var(--muted)}}
+.adr-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}}
+.adr-card{{padding:12px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--bg) 55%,var(--surface));display:flex;flex-direction:column;gap:5px}}
+.adr-card-top{{display:flex;justify-content:space-between;align-items:center;gap:8px}}
+.adr-num{{font-weight:700;color:var(--marca);font-size:11px}}
+.adr-card strong{{font-size:12.5px;color:var(--text);line-height:1.4}}
+.adr-meta{{font-size:11px;color:var(--muted)}}
+.section-nav{{backdrop-filter:blur(10px);background:color-mix(in srgb,var(--surface) 90%,transparent)}}
 .view-tab,.theme-option,.action-link,.doc-example-trigger,.pop-x,.diagram-close{{min-height:40px}}
 .theme-option{{width:40px}}
 .pop-x{{display:inline-flex;align-items:center;justify-content:center;min-width:40px}}
 .skip-link{{position:absolute;left:16px;top:12px;z-index:5;transform:translateY(-180%);background:var(--surface);color:var(--marca);padding:12px 16px;border:1px solid var(--marca);border-radius:6px}}
 .skip-link:focus{{transform:none}}
 a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visible{{outline:2px solid var(--marca);outline-offset:4px}}
-@media(max-width:960px){{.wrap{{padding:24px 20px 48px}}.grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.grid>.card{{grid-column:span 1}}.grid>.wide,.grid>.layout-sprint,.grid>.layout-guards{{grid-column:1/-1}}.tiles{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
-@media(max-width:640px){{html{{scroll-padding-top:24px}}.wrap{{padding:18px 12px 40px}}header{{gap:16px}}.header-tools{{gap:10px;justify-content:flex-start;flex-wrap:wrap}}.header-meta{{width:100%}}.section-nav{{position:static;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:thin}}.section-nav a{{flex:none;min-height:44px}}.grid{{grid-template-columns:minmax(0,1fr);gap:16px}}.grid>.card,.grid>.wide{{grid-column:1/-1}}.card{{padding:20px 16px}}.priority-list{{grid-template-columns:1fr}}.tiles{{gap:10px}}.tile{{padding:16px 12px;min-height:120px}}.tile-v{{font-size:28px}}.tile-s{{font-size:11px}}.command-copy strong{{font-size:18px}}.command-actions{{flex-wrap:wrap;gap:10px;white-space:normal}}.fin{{grid-template-columns:70px minmax(0,1fr)}}.fin-v{{grid-column:1/-1;text-align:right}}.kv{{grid-template-columns:repeat(2,minmax(0,1fr))}}.view-tab,.theme-option,.action-link,.doc-example-trigger,.diagram-close{{min-height:44px}}.row{{gap:20px}}.ses{{grid-template-columns:minmax(0,1fr) auto}}.ses-v{{grid-column:2}}.ses-n{{overflow-wrap:anywhere}}}}
+@media(max-width:960px){{.wrap{{padding:24px 20px 48px}}.grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}.grid>.card{{grid-column:span 1}}.grid>.wide,.grid>.layout-sprint,.grid>.layout-guards{{grid-column:1/-1}}.tiles{{grid-template-columns:repeat(2,minmax(0,1fr))}}.skills-flow-map,.project-dual-grid,.skill-pop-dual{{grid-template-columns:1fr}}}}
+@media(max-width:640px){{html{{scroll-padding-top:24px}}.wrap{{padding:18px 12px 40px}}header{{gap:16px}}.header-tools{{gap:10px;justify-content:flex-start;flex-wrap:wrap}}.header-meta{{width:100%}}.section-nav{{position:static;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:thin}}.section-nav a{{flex:none;min-height:44px}}.grid{{grid-template-columns:minmax(0,1fr);gap:16px}}.grid>.card,.grid>.wide{{grid-column:1/-1}}.card{{padding:20px 16px}}.priority-list{{grid-template-columns:1fr}}.tiles{{gap:10px}}.tile{{padding:16px 12px;min-height:120px}}.tile-v{{font-size:28px}}.tile-s{{font-size:11px}}.command-copy strong{{font-size:18px}}.command-actions{{flex-wrap:wrap;gap:10px;white-space:normal}}.fin{{grid-template-columns:70px minmax(0,1fr)}}.fin-v{{grid-column:1/-1;text-align:right}}.kv{{grid-template-columns:repeat(2,minmax(0,1fr))}}.view-tab,.theme-option,.action-link,.doc-example-trigger,.diagram-close{{min-height:44px}}.row{{gap:20px}}.ses{{grid-template-columns:minmax(0,1fr) auto}}.ses-v{{grid-column:2}}.ses-n{{overflow-wrap:anywhere}}.skill-io-grid{{grid-template-columns:1fr}}}}
 @media(max-width:360px){{.tiles{{grid-template-columns:1fr}}.kv{{grid-template-columns:1fr}}}}
 @media(max-width:640px){{.theme-option{{width:44px}}.help::after{{inset:-10px}}}}
 @media(prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}*,*::before,*::after{{animation:none!important;transition:none!important}}}}
@@ -2176,7 +3615,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
 <div class="wrap">
 <header>
   <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">NF</span><div><h1>{projeto} <span>· Neural-Flow</span></h1><p>Visão de execução, risco e governança do projeto</p></div></div>
-  <div class="header-tools"><fieldset class="view-tabs"><legend>Seção do dashboard</legend><input type="radio" name="view" id="view-dashboard" checked><label class="view-tab" for="view-dashboard">Painel</label><input type="radio" name="view" id="view-about"><label class="view-tab" for="view-about">O Neural-Flow</label></fieldset>{idioma_controle}<fieldset class="theme-picker"><legend>Escolha a paleta do dashboard</legend><input type="radio" name="theme" id="theme-light" checked><label class="theme-option" for="theme-light" aria-label="Tema claro"><span class="theme-swatch light" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-dark"><label class="theme-option" for="theme-dark" aria-label="Tema escuro"><span class="theme-swatch dark" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-giyu"><label class="theme-option" for="theme-giyu" aria-label="Tema Giyu: vinho, verde e azul-neblina"><span class="theme-swatch giyu" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-tanjiro"><label class="theme-option" for="theme-tanjiro" aria-label="Tema Tanjiro: água, verde e azul-noturno"><span class="theme-swatch tanjiro" aria-hidden="true"></span></label></fieldset><div class="header-meta"><span class="live-dot" aria-hidden="true"></span><span>Atualizado em {gerado_legivel}</span></div></div>
+  <div class="header-tools"><fieldset class="view-tabs"><legend>Seção do dashboard</legend><input type="radio" name="view" id="view-dashboard" checked><label class="view-tab" for="view-dashboard">Operação</label><input type="radio" name="view" id="view-gov"><label class="view-tab" for="view-gov">Governança</label><input type="radio" name="view" id="view-about"><label class="view-tab" for="view-about">O Neural-Flow</label></fieldset>{idioma_controle}<fieldset class="theme-picker"><legend>Escolha a paleta do dashboard</legend><input type="radio" name="theme" id="theme-light" checked><label class="theme-option" for="theme-light" aria-label="Tema claro"><span class="theme-swatch light" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-dark"><label class="theme-option" for="theme-dark" aria-label="Tema escuro"><span class="theme-swatch dark" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-giyu"><label class="theme-option" for="theme-giyu" aria-label="Tema Giyu: vinho, verde e azul-neblina"><span class="theme-swatch giyu" aria-hidden="true"></span></label><input type="radio" name="theme" id="theme-tanjiro"><label class="theme-option" for="theme-tanjiro" aria-label="Tema Tanjiro: água, verde e azul-noturno"><span class="theme-swatch tanjiro" aria-hidden="true"></span></label></fieldset><div class="header-meta"><span class="live-dot" aria-hidden="true"></span><span>Atualizado em {gerado_legivel}</span></div></div>
 </header>
 
 <main class="dashboard-view" id="painel" tabindex="-1">
@@ -2188,7 +3627,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
 <div class="tiles">{tiles}</div>
 
 <nav class="section-nav" aria-label="Navegacao do painel">
-  <a href="#resumo">Resumo</a><a href="#prioridades">Pendencias <span>{total_prioridades}</span></a><a href="#sprint">Sprint</a><a href="#guards">Controles</a><a href="#documentos-produto">Documentos</a><a href="#finops">Tokens</a><a href="#grafo">Conhecimento</a><a href="#historico">Historico</a>
+  <a href="#resumo">Resumo</a><a href="#prioridades">Pendencias <span>{total_prioridades}</span></a><a href="#sprint">Sprint</a><a href="#guards">Controles</a><a href="#finops">Tokens</a><a href="#smoke">smoke-gate</a><a href="#grafo">Conhecimento</a><a href="#loop">Loop</a><a href="#historico">Historico</a>
 </nav>
 <p class="snapshot-note">Retrato local gerado em {gerado_legivel}. Os dados mudam quando o painel e gerado novamente.</p>
 
@@ -2198,9 +3637,6 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
   <section class="card layout-sprint" id="sprint"><h2>Sprint ativa{ajuda_sprint}</h2>{sprint}</section>
   <section class="card layout-guards" id="guards"><h2>Guards{ajuda_guards}</h2>
     <p class="sub">Verificados ao gerar este retrato, sobre a arvore de trabalho</p>{guards}</section>
-  <section class="card wide" id="documentos-produto"><h2>Documentos do projeto</h2>
-    <p class="sub">Diagnostico, lacunas e modelos de referencia para a versao do produto</p>
-    <details class="section-details"><summary>Ver documentos e modelos <span class="section-count">{total_documentos}</span></summary>{documentos_produto}</details></section>
   <section class="card" id="finops"><h2>FinOps de tokens{ajuda_finops}</h2>
     <p class="sub">Orcamento declarado x consumo observado</p>{finops}</section>
   <section class="card" id="tokens"><h2>Consumo real de tokens{ajuda_tokens}</h2>
@@ -2213,9 +3649,33 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
     <p class="sub">Grafo construido sobre a documentacao</p>{grafo}</section>
   <section class="card" id="loop"><h2>Loop autonomo{ajuda_loop}</h2>
     <p class="sub">Estado em disco, nao na conversa</p>{loop}</section>
+{historico}
+</div>
+</main>
+
+<main class="gov-view" id="governanca" tabindex="-1">
+<section class="command-bar healthy" id="resumo-gov" aria-label="Governança e Referência">
+  <div class="command-copy"><span class="eyebrow" style="color:var(--st-good)">Governança & Referência</span><strong>Supervisão, Diretrizes e Capacidades Instaladas</strong><span>Estrutura de métodos táticos, matriz de autonomia e integridade dos artefatos</span></div>
+  <div class="command-actions"><a href="#skills" class="action-link">Ver skills <span aria-hidden="true">→</span></a></div>
+</section>
+
+<nav class="section-nav" aria-label="Navegacao de governanca">
+  <a href="#skills">Skills <span>27</span></a><a href="#ficha-projeto">Projeto</a><a href="#atualizacoes">Atualizacoes</a><a href="#documentos-produto">Documentos <span>{total_documentos}</span></a><a href="#protocolos">Protocolos</a>
+</nav>
+<p class="snapshot-note">Informações estruturais e capacidades do projeto. Permanecem estáveis entre sprints.</p>
+
+<div class="grid">
+  <section class="card wide" id="skills"><h2>Arsenal de Skills Operacionais (27){ajuda_skills}</h2>
+    <p class="sub">Metodos taticos de engenharia (mattpocock/skills) integrados e prontos para invocacao autonoma em 4 fases</p>{skills_secao}</section>
+  <section class="card wide" id="ficha-projeto"><h2>Raio-X e Governanca do Projeto{ajuda_projeto}</h2>
+    <p class="sub">Arquitetura de supervisao, matriz de autonomia e integridade dos artefatos</p>{ficha_projeto}</section>
+  <section class="card wide" id="atualizacoes"><h2>Atualizacoes e Versao{ajuda_atualizacoes}</h2>
+    <p class="sub">Integridade das capacidades instaladas e instrucoes de atualizacao</p>{atualizacoes}</section>
+  <section class="card wide" id="documentos-produto"><h2>Documentos do projeto</h2>
+    <p class="sub">Diagnostico, lacunas e modelos de referencia para a versao do produto</p>
+    <details class="section-details"><summary>Ver documentos e modelos <span class="section-count">{total_documentos}</span></summary>{documentos_produto}</details></section>
   <section class="card wide" id="protocolos"><h2>Protocolos{ajuda_protocolos}</h2>
     <p class="sub">O que trava e o que se audita</p>{protocolos}</section>
-{historico}
 </div>
 </main>
 
