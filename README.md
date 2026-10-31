@@ -230,10 +230,10 @@ O custo de tokens deve ser conectado ao throughput de entrega para medir produti
 
 KPIs minimos:
 
-- custo de tokens por sprint
-- custo de tokens por item concluido
-- throughput de itens concluidos por sprint
-- produtividade liquida por token
+- custo de tokens por sprint.
+- custo de tokens por item concluido.
+- throughput de itens concluidos por sprint.
+- produtividade liquida por token.
 
 Formula recomendada de produtividade liquida:
 
