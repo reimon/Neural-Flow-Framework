@@ -68,8 +68,8 @@ python3 scripts/nf_action_gateway.py --action <id> --sprint <arquivo> -- <comand
 ```
 
 Acoes `sensitive` e `irreversible` exigem aprovacao humana interativa para o
-comando exato e devem ser bloqueadas fora de A0/A1. Quando a politica declarar
-sandbox obrigatoria, a ausencia do isolamento no host deve bloquear a execucao.
+comando exato e devem ser bloqueadas fora de A0/A1. O ambiente de execucao aplica
+as restricoes de arquivos, processos e rede exigidas pela equipe.
 
 ---
 

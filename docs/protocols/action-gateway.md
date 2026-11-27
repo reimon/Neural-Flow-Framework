@@ -14,22 +14,17 @@ ser comum, curto ou sugerido pelo agente.
 
 O arquivo `.neural-flow/action-policy.json` contem:
 
-- `version`: atualmente `1`;
+- `version`: deve ser `2`;
 - `enabled`: precisa ser `true` para executar;
 - `actions`: allowlist de acoes;
 - `audit_path`: caminho relativo para o diario de tentativas.
-- `execution.sandbox`: `required`, `when-available` ou `off`; em `required`, a ausencia
-  de sandbox do host bloqueia a execucao;
-- `execution.network`: pedido de permissao de rede; so e aplicado por um adaptador
-  validado, nunca pelo gateway Python sozinho.
 
-Cada acao declara `id`, `description`, `sprint`, `item`, `risk`, `argv_prefix`,
-`requires_human_approval` e `max_runtime_seconds`. `network` e opcional e so sera uma
-restricao efetiva quando o adaptador do host a aplicar.
+Cada acao declara `id`, `description`, `sprint`, `item`, `risk`, `argv`,
+`requires_human_approval` e `max_runtime_seconds`.
 
-`argv_prefix` e uma lista de argumentos, nunca uma string de shell. `sh`, `bash`, `zsh`,
-`sudo`, `-c` e equivalentes sao rejeitados pelo guard. O gateway executa com
-`shell=False`.
+`argv` e a lista completa, incluindo o executavel. A lista recebida deve ser
+identica a cadastrada, inclusive no modo `--plan`. O guard rejeita executaveis de
+shell, `sudo` e flags de execucao arbitraria. O gateway executa com `shell=False`.
 
 ## Riscos
 
@@ -59,25 +54,19 @@ Uso:
 ```bash
 python3 scripts/nf_action_gateway.py \
   --action run-tests \
-  --sprint docs/sprints/sprint-05-gateway-de-acoes.md \
+  --sprint docs/sprints/sprint-09-remover-sandbox-do-gateway.md \
   -- python3 -m unittest discover -s tests
-
-python3 scripts/nf_action_gateway.py \
-  --action git-push \
-  --sprint docs/sprints/sprint-05-gateway-de-acoes.md \
-  -- git push origin main
 ```
 
-O segundo comando so continua em terminal interativo depois que o humano digitar o
-desafio mostrado para aquele comando exato. Em CI, pipe, cron ou terminal sem TTY ele
-falha fechado.
+Para uma acao sensivel ou irreversivel, o gateway exige terminal interativo e o
+desafio mostrado para o comando exato.
 
 ## Guard executavel
 
 ```bash
 python3 scripts/nf_gate.py action
 python3 scripts/nf_action_gateway.py --plan --action run-tests \
-  --sprint docs/sprints/sprint-05-gateway-de-acoes.md \
+  --sprint docs/sprints/sprint-09-remover-sandbox-do-gateway.md \
   -- python3 -m unittest discover -s tests
 ```
 
@@ -85,16 +74,27 @@ O guard `action` valida o contrato sem executar comandos. O gateway valida novam
 politica e a sprint no momento da acao. A duplicacao e intencional na fronteira: o guard
 protege o commit; o gateway protege a execucao.
 
-Quando `execution.sandbox` esta em `required`, o gateway so executa se houver adaptador
-validado para o sistema operacional. Neste momento nao ha adaptadores habilitados para
-macOS, Linux ou Windows; por isso, a politica deste repositorio bloqueia execucao via
-gateway ate essa implementacao. `when-available` e best-effort, nao oferece garantia e
-grava `sandbox: unavailable` na auditoria.
+## Instalacao e migracao da politica
+
+Em uma instalacao nova, cadastre os comandos do projeto antes de mudar `enabled`
+para `true`. O instalador preserva a politica existente na reinstalacao padrao.
+
+Para atualizar uma instalacao v1, preserve uma copia da politica e atualize os
+scripts gerenciados pelo Neural-Flow junto da politica. A reinstalacao padrao
+tambem preserva scripts existentes. Revise o diff da atualizacao antes de aplicar
+os arquivos novos sobre a instalacao anterior.
+
+1. Se a equipe exige isolamento, configure-o no executor antes de habilitar a v2.
+   Considere as regras de arquivos, processos e rede da politica anterior.
+2. Para cada acao, substitua `argv_prefix` pelo `argv` completo. Separe comandos
+   diferentes em acoes distintas. Preserve o risco, o prazo, a sprint e o item.
+3. Remova `execution` e os campos `network` e mude `version` para `2`. Rode o
+   guard `action` e confira os comandos permitidos com `--plan`.
+
+A v1 falha na validacao e no gateway, inclusive em `--plan`, ate a migracao.
 
 ## Limite declarado
 
-O gateway controla apenas o caminho que passa por ele. A confirmacao TTY impede execucao
-desassistida, mas nao autentica uma pessoa separada do agente. O sistema operacional deve
-isolar o processo do agente para impedir shell direto e garantir escrita, rede e processos
-filhos. Ate um broker de aprovacao separado e adaptadores de sandbox serem integrados e
-testados em cada plataforma, nao se declara garantia completa.
+O gateway controla apenas as chamadas que passam por ele. A confirmacao TTY exige
+interacao no terminal. A autenticacao independente do aprovador e o isolamento de
+arquivos, rede e processos filhos dependem do ambiente de execucao.

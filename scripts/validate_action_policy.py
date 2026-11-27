@@ -16,11 +16,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nf_action_policy import (  # noqa: E402
     ACTION_ID,
+    MIGRATION_REQUIRED,
+    POLICY_VERSION,
     RISCOS,
-    SANDBOX_MODES,
-    SHELL_FLAGS,
-    SHELL_LAUNCHERS,
-    action_by_id,
     argv_has_shell,
     checklist_itens,
     load_policy,
@@ -28,7 +26,7 @@ from nf_action_policy import (  # noqa: E402
     relative_safe,
     sprint_fields,
 )
-from nf_guards import Resultado, eh_placeholder, relatar, sem_acento  # noqa: E402
+from nf_guards import Resultado, eh_placeholder, relatar  # noqa: E402
 
 PROTOCOLO = "docs/protocols/action-gateway.md"
 
@@ -44,22 +42,21 @@ def validar(root: Path, res: Resultado) -> None:
         return
     assert policy is not None
 
-    if policy.get("version") != 1 or not isinstance(policy.get("enabled"), bool):
-        res.erro(caminho, None, "G1", "version precisa ser 1 e enabled precisa ser boolean")
+    versao = policy.get("version")
+    if type(versao) is int and versao == 1:
+        res.erro(caminho, None, "G1", MIGRATION_REQUIRED)
+        return
+    if type(versao) is not int or versao != POLICY_VERSION:
+        res.erro(caminho, None, "G1", f"version precisa ser {POLICY_VERSION}")
+    if not isinstance(policy.get("enabled"), bool):
+        res.erro(caminho, None, "G1", "enabled precisa ser boolean")
 
     audit = policy.get("audit_path")
     if not isinstance(audit, str) or not relative_safe(audit) or not audit.startswith(".neural-flow/"):
         res.erro(caminho, None, "G1", "audit_path precisa ser relativo dentro de .neural-flow")
 
-    execution = policy.get("execution", {})
-    if not isinstance(execution, dict):
-        res.erro(caminho, None, "G1", "execution precisa ser objeto")
-        execution = {}
-    sandbox = execution.get("sandbox", "off")
-    if sandbox not in SANDBOX_MODES:
-        res.erro(caminho, None, "G1", f"execution.sandbox invalido: {sandbox!r}")
-    if not isinstance(execution.get("network", False), bool):
-        res.erro(caminho, None, "G1", "execution.network precisa ser boolean")
+    if "execution" in policy or "network" in policy:
+        res.erro(caminho, None, "G1", "remova execution e network; isolamento e configurado no host")
 
     actions = policy.get("actions")
     if not isinstance(actions, list):
@@ -90,15 +87,18 @@ def validar(root: Path, res: Resultado) -> None:
         if risco not in RISCOS:
             res.erro(local, None, "G3", f"risk invalido: {risco!r}")
 
-        prefix = action.get("argv_prefix")
+        if "argv_prefix" in action or "network" in action:
+            res.erro(local, None, "G3", "remova argv_prefix e network; declare o comando completo em argv")
+        argv = action.get("argv")
         if (
-            not isinstance(prefix, list)
-            or not prefix
-            or not all(isinstance(token, str) and token for token in prefix)
+            not isinstance(argv, list)
+            or not argv
+            or not argv[0]
+            or not all(isinstance(token, str) and "\0" not in token for token in argv)
         ):
-            res.erro(local, None, "G3", "argv_prefix precisa ser lista de strings nao vazia")
-        elif argv_has_shell(prefix) or any(token.lower() in SHELL_FLAGS for token in prefix):
-            res.erro(local, None, "G5", "argv_prefix nao pode usar shell, sudo ou flag de execucao arbitraria")
+            res.erro(local, None, "G3", "argv precisa conter um executavel e argumentos validos")
+        elif argv_has_shell(argv):
+            res.erro(local, None, "G5", "argv nao pode usar shell, sudo ou flag de execucao arbitraria")
 
         approval = action.get("requires_human_approval")
         if not isinstance(approval, bool):
@@ -111,10 +111,6 @@ def validar(root: Path, res: Resultado) -> None:
         timeout = action.get("max_runtime_seconds")
         if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= 3600:
             res.erro(local, None, "G3", "max_runtime_seconds precisa ser inteiro entre 1 e 3600")
-
-        network = action.get("network", False)
-        if not isinstance(network, bool):
-            res.erro(local, None, "G3", "network precisa ser boolean")
 
         sprint = action.get("sprint")
         item = action.get("item")

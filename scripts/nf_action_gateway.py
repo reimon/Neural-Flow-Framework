@@ -21,16 +21,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nf_action_policy import (  # noqa: E402
+    MIGRATION_REQUIRED,
+    POLICY_VERSION,
     action_by_id,
     command_hash,
-    command_matches,
     file_hash,
     load_policy,
     normalizar_status,
     policy_path,
     sprint_fields,
 )
-from nf_sandbox import command_for  # noqa: E402
 
 SAFE_STATUS = "em andamento"
 EXIT_POLICY = 2
@@ -111,9 +111,11 @@ def main() -> int:
         return erro(policy_error)
     if policy is None:
         return erro("action-policy.json ausente")
-    if policy.get("enabled") is not True:
-        return erro("politica desabilitada; nenhuma acao pode executar")
-
+    versao = policy.get("version")
+    if type(versao) is int and versao == 1:
+        return erro(MIGRATION_REQUIRED)
+    if type(versao) is not int or versao != POLICY_VERSION:
+        return erro(f"version precisa ser {POLICY_VERSION}")
     # O executor fecha o circuito com o guard. Assim, uma politica que foi
     # alterada depois da ultima validacao nao ganha uma brecha por ser chamada
     # diretamente, fora do nf_gate.
@@ -129,15 +131,18 @@ def main() -> int:
     if validacao.returncode != 0:
         detalhe = (validacao.stdout or validacao.stderr).strip().replace("\n", " ")
         return erro(f"politica reprovada pelo guard: {detalhe}")
+    if load_policy(root) != (policy, None):
+        return erro("politica mudou durante a validacao; tente novamente")
+    if policy.get("enabled") is not True:
+        return erro("politica desabilitada; nenhuma acao pode executar")
 
     action = action_by_id(policy, args.action)
     if action is None:
         return erro(f"acao desconhecida: {args.action}")
     if action.get("sprint") != args.sprint:
         return erro("acao nao pertence a sprint informada")
-    prefix = action.get("argv_prefix")
-    if not isinstance(prefix, list) or not command_matches(prefix, command):
-        return erro("comando nao corresponde ao argv_prefix permitido para a acao")
+    if command != action.get("argv"):
+        return erro("comando nao corresponde ao argv completo permitido para a acao")
 
     status, motivo, nivel = validar_sprint(root, args.sprint)
     if status:
@@ -199,25 +204,6 @@ def main() -> int:
             audit(root, policy, evento)
             return erro("confirmacao humana ausente ou incorreta", EXIT_APPROVAL)
 
-    execution = policy.get("execution", {})
-    sandbox_mode = execution.get("sandbox", "off") if isinstance(execution, dict) else "off"
-    network = action.get("network", execution.get("network", False) if isinstance(execution, dict) else False)
-    try:
-        command_to_run, sandbox_used = command_for(root, command, sandbox_mode, network)
-    except RuntimeError as exc:
-        audit(root, policy, {
-            "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "action_id": args.action,
-            "sprint": args.sprint,
-            "item": action.get("item"),
-            "risk": risco,
-            "decision": "denied",
-            "reason": "sandbox_unavailable",
-            "command_hash": desafio,
-            "policy_hash": politica_hash,
-        })
-        return erro(str(exc))
-
     evento = {
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
         "action_id": args.action,
@@ -228,8 +214,6 @@ def main() -> int:
         "approval_method": "interactive_tty" if risco != "safe" else "policy_allowlist",
         "command_hash": desafio,
         "policy_hash": politica_hash,
-        "sandbox": sandbox_used,
-        "network": network,
     }
     ok, motivo = audit(root, policy, evento)
     if not ok:
@@ -237,18 +221,28 @@ def main() -> int:
 
     try:
         proc = subprocess.run(
-            command_to_run,
+            command,
             cwd=root,
             timeout=action.get("max_runtime_seconds", 300),
             check=False,
+            shell=False,
         )
     except subprocess.TimeoutExpired:
         evento["result"] = "timeout"
-        audit(root, policy, evento)
-        return erro("tempo maximo da acao excedido", EXIT_TIMEOUT)
-    evento["result"] = proc.returncode
-    audit(root, policy, evento)
-    return proc.returncode
+        codigo = EXIT_TIMEOUT
+        motivo = "tempo maximo da acao excedido"
+    except OSError:
+        evento["result"] = "start_failed"
+        codigo = EXIT_POLICY
+        motivo = "nao foi possivel iniciar a acao"
+    else:
+        evento["result"] = proc.returncode
+        codigo = proc.returncode
+        motivo = ""
+    ok, falha_auditoria = audit(root, policy, evento)
+    if not ok:
+        return erro(falha_auditoria)
+    return erro(motivo, codigo) if motivo else codigo
 
 
 if __name__ == "__main__":

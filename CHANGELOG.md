@@ -19,6 +19,11 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
 
 ## [Nao publicado]
 
+### Alterado
+
+- **Action Gateway** — politica v2 com comandos completos e execucao sem sandbox
+  interno. Politicas v1 exigem [migracao explicita](docs/protocols/action-gateway.md).
+
 ### Adicionado
 
 - `scripts/nf_azure_smoke.py` — verifica em um comando se a via keyless funciona no

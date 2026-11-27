@@ -18,13 +18,20 @@ from pathlib import Path
 from nf_guards import campos, chave, checklist_itens, ler, secao, sem_acento
 
 RISCOS = ("safe", "sensitive", "irreversible")
-SANDBOX_MODES = ("off", "when-available", "required")
+POLICY_VERSION = 2
+MIGRATION_REQUIRED = (
+    "politica v1 requer migracao explicita: revise os comandos completos em argv, "
+    "configure isolamento externo se necessario e remova os campos antigos "
+    "(consulte docs/protocols/action-gateway.md)"
+)
 RISCO_ORDEM = {nome: n for n, nome in enumerate(RISCOS)}
 SHELL_LAUNCHERS = {
     "bash", "cmd", "command", "fish", "powershell", "pwsh", "sh", "sudo", "zsh",
 }
 SHELL_FLAGS = {"-c", "-command", "-e", "--command"}
 ACTION_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{1,63}$")
+
+
 def policy_path(root: Path) -> Path:
     return root / ".neural-flow" / "action-policy.json"
 
@@ -66,10 +73,6 @@ def argv_has_shell(argv: list[str]) -> bool:
         if base in SHELL_LAUNCHERS or token.lower() in SHELL_FLAGS:
             return True
     return False
-
-
-def command_matches(prefix: list[str], command: list[str]) -> bool:
-    return len(command) >= len(prefix) and command[:len(prefix)] == prefix
 
 
 def command_hash(action_id: str, sprint: str, command: list[str], policy: dict) -> str:

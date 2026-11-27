@@ -2,12 +2,8 @@
 > Este arquivo vira `.neural-flow/action-policy.json` na instalacao.
 
 {
-  "version": 1,
+  "version": 2,
   "enabled": false,
-  "execution": {
-    "sandbox": "required",
-    "network": false
-  },
   "actions": [],
   "audit_path": ".neural-flow/action-audit.jsonl"
 }

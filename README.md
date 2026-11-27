@@ -83,6 +83,10 @@ O instalador detecta o caminho mais seguro:
 O guia [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) percorre o mesmo fluxo com
 mais contexto e termina com um gate bloqueando um commit de verdade.
 
+O [Action Gateway](docs/protocols/action-gateway.md) executa comandos completos
+cadastrados na politica v2. Projetos com politica v1 precisam migrar explicitamente
+antes de usar o gateway. O ambiente de execucao aplica o isolamento exigido pela equipe.
+
 ## Verificar os documentos do projeto com IA
 
 O Neural-Flow ajuda a organizar a documentacao do produto antes das sprints de
@@ -416,7 +420,6 @@ Para aplicar o Neural-Flow em qualquer projeto, copiar e preencher:
 | scripts/validate_calibration.py           | `scripts/`                     | Guard executavel do protocolo de Calibracao                |
 | scripts/validate_action_policy.py         | `scripts/`                     | Guard da politica de acoes e dos riscos declarados         |
 | scripts/nf_action_gateway.py              | `scripts/`                     | Fronteira de execucao: allowlist, sprint, aprovacao e auditoria |
-| scripts/nf_sandbox.py                     | `scripts/`                     | Gate fail-closed ate existir adaptador de sandbox validado |
 | scripts/nf_dashboard.py                   | `scripts/`                     | Dashboard HTML auto-contido do estado da governanca        |
 | scripts/nf_diagrama.py                    | `scripts/`                     | Gera o diagrama de arquitetura a partir do registro de guards |
 | scripts/nf_agentes.py                     | `scripts/`                     | Corpo canonico das portas de entrada de agente (uma fonte, muitas portas) |
@@ -717,6 +720,7 @@ item tem um protocolo que o garante, nao uma recomendacao que o sugere.
 | **Nao contradiz decisao vigente** | ADR imutavel + `check_contradiction` com BLOCK acionando o Circuit Breaker |
 | **Nao expoe segredo nem destroi producao** | Aegis + `AI_SAFETY.md`: proibicoes absolutas e acoes que exigem confirmacao |
 | **Para antes de uma acao sensivel** | Action Gateway: allowlist versionada, risco declarado, sprint A0/A1 e aprovacao TTY para comando exato |
+| **Opera com arsenal tatico padronizado** | 27 skills de `mattpocock/skills` instaladas em `.agents/skills/` e `.claude/skills/` com invocacao autonoma pelo modelo (TDD red-green-refactor, *deep modules*, *grilling*, fatias verticais, revisao e handoff) combinadas aos principios de Karpathy e sob soberania dos guards (`ADR-010`) |
 
 Checklist de auditoria por protocolo: `docs/protocols/README.md`.
 
@@ -741,6 +745,7 @@ python scripts/nf_gate.py --list     # o que existe e o que cada um garante
 | `nf_gate.py adr` | ADR Governance (A1-A6) | Numero duplicado, supersecao apontando para ADR inexistente, **ciclo de supersecao**, ADR aceito sem sprint de origem ou sem guard declarado |
 | `nf_gate.py spec` | Spec-First (P1-P4) | Spec sem secao obrigatoria, secao so com placeholder, invariante sem ID, aceite nao numerado |
 | `nf_gate.py calibration` | Calibracao (C1-C7) | Conclusao sem confianca ou verificacao observada, item fechado com BAIXA, divergencia irreversivel registrada em vez de perguntada |
+| `nf_gate.py agentes` | Portas de Entrada de Agente (P1-P6) | Porta ausente ou divergente, referencia pendurada, indice desatualizado, ou skill obrigatoria de `mattpocock/skills` ausente/com invocacao pelo modelo desabilitada |
 | `smoke-gate audit` / Action | Evidencia Sintetica | Drift SQL, IDOR, error leak, endpoint sem cobertura |
 
 Instalacao num projeto (qualquer stack — os guards sao Python stdlib puro, sem `pip install`):

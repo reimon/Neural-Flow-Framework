@@ -6,8 +6,8 @@
 Consulte este indice **antes** de ler os arquivos. Cada linha traz a fonte
 (`arquivo:linha`) — leia so o que a resposta exigir.
 
-- regras indexadas: **73**
-- impressao digital das fontes: `4de5cd5e6e1d5603`
+- regras indexadas: **76**
+- impressao digital das fontes: `6a882257058a7ce6`
 
 ## Guards executaveis
 
@@ -45,25 +45,25 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 
 | ID | Regra | Fonte | Guard |
 | --- | --- | --- | --- |
-| `ARQ-001` | Todo script instalavel carrega NFGUARDASSINATURA — sem ela o nfgate se recusa a executar o arquivo, para nao chamar um homonimo do projeto com os nossos argumentos. | `AGENTS.md:47` | — |
-| `ARQ-002` | Toda acao do agente passa pelo gateway: a politica e uma allowlist versionada; risco sensivel ou irreversivel para em A0/A1 e pede aprovacao humana para o comando exato. O gateway registra hash, decisao e resultado, nunca o comando cru. | `AGENTS.md:49` | — |
-| `ARQ-003` | O instalador nunca sobrescreve artefato existente sem --force; colisao vira instalacao lado a lado (nf<nome>) ou anexo, sempre com aviso. | `AGENTS.md:52` | — |
-| `ARQ-004` | O instalador escreve na arvore de terceiros. Mudanca ali opera em A1 e so fecha com instalacao ponta a ponta executada, nunca com leitura do diff. | `AGENTS.md:64` | — |
-| `ARQ-005` | BAIXA e acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte. | `AGENTS.md:97` | — |
-| `ARQ-006` | BAIXA e acao reversivel ⇒ siga conservador e registre a divergencia. Nao pergunte. | `AGENTS.md:99` | — |
-| `ARQ-007` | Nao pergunte o que a spec ja responde — isso e falha de leitura, nao prudencia. | `AGENTS.md:100` | — |
-| `ARQ-008` | Numeracao de ADR e sequencial e nunca reutilizada; ADR aceito e imutavel — mudanca de rumo gera ADR que o supera → guard: nfgate.py adr. | `AGENTS.md:114` | `nfgate` |
-| `ARQ-009` | Nunca commitar ou dar push sem autorizacao explicita. | `AGENTS.md:125` | — |
-| `ARQ-010` | Stage apenas os proprios arquivos — nunca o WIP de outra sessao/terminal. | `AGENTS.md:127` | — |
+| `ARQ-001` | Todo script instalavel carrega NFGUARDASSINATURA — sem ela o nfgate se recusa a executar o arquivo, para nao chamar um homonimo do projeto com os nossos argumentos. | `AGENTS.md:48` | — |
+| `ARQ-002` | Toda acao do agente passa pelo gateway: a politica e uma allowlist versionada; risco sensivel ou irreversivel para em A0/A1 e pede aprovacao humana para o comando exato. O gateway registra hash, decisao e resultado, nunca o comando cru. | `AGENTS.md:50` | — |
+| `ARQ-003` | O instalador nunca sobrescreve artefato existente sem --force; colisao vira instalacao lado a lado (nf<nome>) ou anexo, sempre com aviso. | `AGENTS.md:53` | — |
+| `ARQ-004` | O instalador escreve na arvore de terceiros. Mudanca ali opera em A1 e so fecha com instalacao ponta a ponta executada, nunca com leitura do diff. | `AGENTS.md:65` | — |
+| `ARQ-005` | BAIXA e acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte. | `AGENTS.md:98` | — |
+| `ARQ-006` | BAIXA e acao reversivel ⇒ siga conservador e registre a divergencia. Nao pergunte. | `AGENTS.md:100` | — |
+| `ARQ-007` | Nao pergunte o que a spec ja responde — isso e falha de leitura, nao prudencia. | `AGENTS.md:101` | — |
+| `ARQ-008` | Numeracao de ADR e sequencial e nunca reutilizada; ADR aceito e imutavel — mudanca de rumo gera ADR que o supera → guard: nfgate.py adr. | `AGENTS.md:135` | `nfgate` |
+| `ARQ-009` | Nunca commitar ou dar push sem autorizacao explicita. | `AGENTS.md:146` | — |
+| `ARQ-010` | Stage apenas os proprios arquivos — nunca o WIP de outra sessao/terminal. | `AGENTS.md:148` | — |
 
 ## Execucao
 
 | ID | Regra | Fonte | Guard |
 | --- | --- | --- | --- |
-| `EXE-001` | Pergunta sobre o projeto comeca no indice, nunca no grep. Varredura para "entender" custa ~48x mais tokens que a consulta ao indice. | `CLAUDE.md:68` | — |
-| `EXE-002` | Confianca BAIXA + acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte. Reversivel ⇒ siga conservador e registre. | `CLAUDE.md:72` | — |
-| `EXE-003` | Nunca commitar ou dar push sem autorizacao explicita. | `CLAUDE.md:77` | — |
-| `EXE-004` | Stage com caminhos explicitos. Nunca git add -A nem git add .. | `CLAUDE.md:78` | — |
+| `EXE-001` | Pergunta sobre o projeto comeca no indice, nunca no grep. Varredura para "entender" custa ~48x mais tokens que a consulta ao indice. | `CLAUDE.md:90` | — |
+| `EXE-002` | Confianca BAIXA + acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte. Reversivel ⇒ siga conservador e registre. | `CLAUDE.md:94` | — |
+| `EXE-003` | Nunca commitar ou dar push sem autorizacao explicita. | `CLAUDE.md:99` | — |
+| `EXE-004` | Stage com caminhos explicitos. Nunca git add -A nem git add .. | `CLAUDE.md:100` | — |
 
 ## Protocolo
 
@@ -76,33 +76,34 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | `PRO-005` | [ ] Toda decisao arquitetural do periodo possui ADR numerado com status e sprint de origem. | `docs/protocols/README.md:158` | — |
 | `PRO-006` | [ ] Todo modulo com codigo possui spec completa aprovada antes do codigo. | `docs/protocols/README.md:168` | — |
 | `PRO-007` | [ ] Toda combinacao BAIXA + acao irreversivel parou para aprovacao humana. | `docs/protocols/README.md:194` | — |
-| `PRO-008` | execution.network: pedido de permissao de rede; so e aplicado por um adaptador validado, nunca pelo gateway Python sozinho. | `docs/protocols/action-gateway.md:23` | — |
-| `PRO-009` | Reversao/superacao de decisao anterior (novo ADR com Superado por, nunca edicao) | `docs/protocols/adr-governance.md:20` | — |
-| `PRO-010` | Numeracao sequencial ADR-NNN; numero nunca e reutilizado. | `docs/protocols/adr-governance.md:27` | — |
-| `PRO-011` | Todo ADR referencia a sprint de origem (rastreabilidade Neural-Flow). | `docs/protocols/adr-governance.md:30` | — |
-| `PRO-012` | Se o ADR estabelece regra impositiva, deve nascer com guard (lint/teste/CI) ou declarar explicitamente que o guard e aspiracional — principio "documentacao orienta, guard obriga" (templates/AGENTS-template.md). | `docs/protocols/adr-governance.md:31` | — |
-| `PRO-013` | Neural-Memory: docs/adr/.md entra nas fontes indexadas; checkcontradiction deve retornar WARNING/BLOCK para proposta que contradiz ADR aceito. | `docs/protocols/adr-governance.md:42` | — |
-| `PRO-014` | Toda decisao arquitetural do periodo possui ADR com status e sprint de origem | `docs/protocols/adr-governance.md:64` | — |
-| `PRO-015` | Sensivel: exige mascaramento | `docs/protocols/aegis-security.md:15` | — |
-| `PRO-016` | Segredo: proibido em prompt e documentacao operacional | `docs/protocols/aegis-security.md:16` | — |
-| `PRO-017` | [ ] Toda execucao tecnica do periodo possui sprint valida antes do inicio. | `docs/protocols/auditoria-mensal-template.md:20` | — |
-| `PRO-018` | [ ] Toda sprint auditada declarou token budget. | `docs/protocols/auditoria-mensal-template.md:30` | — |
-| `PRO-019` | Um item por iteracao. Nunca dois. Um item pequeno que termina verde vale mais que tres pela metade. | `docs/protocols/autonomous-loop.md:50` | — |
-| `PRO-020` | Verde no comando de verificacao e a unica condicao para marcar pronto. Explicitamente proibido: teste desabilitado, skip/xfail novo ou assercao afrouxada para passar. Num loop nao ha revisor — ou a regra esta escrita, ou nao existe. | `docs/protocols/autonomous-loop.md:52` | — |
-| `PRO-021` | Nenhuma credencial externa. Todo servico externo entra como interface + implementacao falsa deterministica, ativa por padrao. O sistema tem que subir numa maquina sem nenhuma chave. | `docs/protocols/autonomous-loop.md:59` | — |
-| `PRO-022` | Falha fechada. Caminho degradado nunca relaxa autorizacao, consentimento ou mascaramento. | `docs/protocols/autonomous-loop.md:62` | — |
-| `PRO-023` | Continua BAIXA apos os dois degraus: a lacuna e real. Registrar como divergencia (em loop) ou pendencia de contexto (em sprint) com a decisao mais conservadora tomada para seguir — nunca preencher com o valor plausivel. | `docs/protocols/calibration.md:52` | — |
-| `PRO-024` | Evidencia Sintetica: define se ha prova; este protocolo define quanto ela prova. Item so fecha com ALTA quando o criterio de aceite exige execucao. | `docs/protocols/calibration.md:93` | — |
-| `PRO-025` | Loop Autonomo: BAIXA + reversivel ⇒ DIVERGENCIAS.md; BAIXA + irreversivel ⇒ parar e perguntar. Item nunca e marcado [x] com BAIXA. | `docs/protocols/calibration.md:97` | — |
-| `PRO-026` | Toda conclusao tecnica do periodo carrega nivel de confianca, verificacao executada e resultado observado | `docs/protocols/calibration.md:148` | — |
-| `PRO-027` | Toda combinacao BAIXA + irreversivel resultou em pergunta ao humano | `docs/protocols/calibration.md:152` | — |
-| `PRO-028` | nunca prosseguir com acao estrutural sem contexto verificado | `docs/protocols/context-vector.md:155` | — |
-| `PRO-029` | Rearme exige revisão e aprovação humana explícita. | `docs/protocols/neural-memory.md:89` | — |
-| `PRO-030` | Toda tarefa relevante precedida de chamada a queryneuralmemory | `docs/protocols/neural-memory.md:95` | — |
-| `PRO-031` | Descobrir equivalencia por nome conhecido ou cobertura de secoes. Empate vira ambiguidade e pede mapeamento, nunca escolha silenciosa. | `docs/protocols/product-documentation.md:28` | — |
-| `PRO-032` | Cada linha de implementacao do plano mestre usa ID IMP-NNN, ordem unica, dependencia explicita, requisitos REQ-NNN e criterios CA-NNN. Dependencia deve anteceder o item; referencias precisam existir. | `docs/protocols/product-documentation.md:79` | — |
-| `PRO-033` | Todo modulo com codigo possui spec completa no padrao, aprovada antes do codigo | `docs/protocols/spec-first.md:113` | — |
-| `PRO-034` | Dado de dominio ausente: item marcado [BLOQUEADO], nunca preenchido com valor plausivel | `docs/protocols/spec-first.md:128` | — |
+| `PRO-008` | version: deve ser 2; | `docs/protocols/action-gateway.md:17` | — |
+| `PRO-009` | Se a equipe exige isolamento, configure-o no executor antes de habilitar a v2. Considere as regras de arquivos, processos e rede da politica anterior. | `docs/protocols/action-gateway.md:87` | — |
+| `PRO-010` | Reversao/superacao de decisao anterior (novo ADR com Superado por, nunca edicao) | `docs/protocols/adr-governance.md:20` | — |
+| `PRO-011` | Numeracao sequencial ADR-NNN; numero nunca e reutilizado. | `docs/protocols/adr-governance.md:27` | — |
+| `PRO-012` | Todo ADR referencia a sprint de origem (rastreabilidade Neural-Flow). | `docs/protocols/adr-governance.md:30` | — |
+| `PRO-013` | Se o ADR estabelece regra impositiva, deve nascer com guard (lint/teste/CI) ou declarar explicitamente que o guard e aspiracional — principio "documentacao orienta, guard obriga" (templates/AGENTS-template.md). | `docs/protocols/adr-governance.md:31` | — |
+| `PRO-014` | Neural-Memory: docs/adr/.md entra nas fontes indexadas; checkcontradiction deve retornar WARNING/BLOCK para proposta que contradiz ADR aceito. | `docs/protocols/adr-governance.md:42` | — |
+| `PRO-015` | Toda decisao arquitetural do periodo possui ADR com status e sprint de origem | `docs/protocols/adr-governance.md:64` | — |
+| `PRO-016` | Sensivel: exige mascaramento | `docs/protocols/aegis-security.md:15` | — |
+| `PRO-017` | Segredo: proibido em prompt e documentacao operacional | `docs/protocols/aegis-security.md:16` | — |
+| `PRO-018` | [ ] Toda execucao tecnica do periodo possui sprint valida antes do inicio. | `docs/protocols/auditoria-mensal-template.md:20` | — |
+| `PRO-019` | [ ] Toda sprint auditada declarou token budget. | `docs/protocols/auditoria-mensal-template.md:30` | — |
+| `PRO-020` | Um item por iteracao. Nunca dois. Um item pequeno que termina verde vale mais que tres pela metade. | `docs/protocols/autonomous-loop.md:50` | — |
+| `PRO-021` | Verde no comando de verificacao e a unica condicao para marcar pronto. Explicitamente proibido: teste desabilitado, skip/xfail novo ou assercao afrouxada para passar. Num loop nao ha revisor — ou a regra esta escrita, ou nao existe. | `docs/protocols/autonomous-loop.md:52` | — |
+| `PRO-022` | Nenhuma credencial externa. Todo servico externo entra como interface + implementacao falsa deterministica, ativa por padrao. O sistema tem que subir numa maquina sem nenhuma chave. | `docs/protocols/autonomous-loop.md:59` | — |
+| `PRO-023` | Falha fechada. Caminho degradado nunca relaxa autorizacao, consentimento ou mascaramento. | `docs/protocols/autonomous-loop.md:62` | — |
+| `PRO-024` | Continua BAIXA apos os dois degraus: a lacuna e real. Registrar como divergencia (em loop) ou pendencia de contexto (em sprint) com a decisao mais conservadora tomada para seguir — nunca preencher com o valor plausivel. | `docs/protocols/calibration.md:52` | — |
+| `PRO-025` | Evidencia Sintetica: define se ha prova; este protocolo define quanto ela prova. Item so fecha com ALTA quando o criterio de aceite exige execucao. | `docs/protocols/calibration.md:93` | — |
+| `PRO-026` | Loop Autonomo: BAIXA + reversivel ⇒ DIVERGENCIAS.md; BAIXA + irreversivel ⇒ parar e perguntar. Item nunca e marcado [x] com BAIXA. | `docs/protocols/calibration.md:97` | — |
+| `PRO-027` | Toda conclusao tecnica do periodo carrega nivel de confianca, verificacao executada e resultado observado | `docs/protocols/calibration.md:148` | — |
+| `PRO-028` | Toda combinacao BAIXA + irreversivel resultou em pergunta ao humano | `docs/protocols/calibration.md:152` | — |
+| `PRO-029` | nunca prosseguir com acao estrutural sem contexto verificado | `docs/protocols/context-vector.md:165` | — |
+| `PRO-030` | Rearme exige revisão e aprovação humana explícita. | `docs/protocols/neural-memory.md:89` | — |
+| `PRO-031` | Toda tarefa relevante precedida de chamada a queryneuralmemory | `docs/protocols/neural-memory.md:95` | — |
+| `PRO-032` | Descobrir equivalencia por nome conhecido ou cobertura de secoes. Empate vira ambiguidade e pede mapeamento, nunca escolha silenciosa. | `docs/protocols/product-documentation.md:28` | — |
+| `PRO-033` | Cada linha de implementacao do plano mestre usa ID IMP-NNN, ordem unica, dependencia explicita, requisitos REQ-NNN e criterios CA-NNN. Dependencia deve anteceder o item; referencias precisam existir. | `docs/protocols/product-documentation.md:79` | — |
+| `PRO-034` | Todo modulo com codigo possui spec completa no padrao, aprovada antes do codigo | `docs/protocols/spec-first.md:113` | — |
+| `PRO-035` | Dado de dominio ausente: item marcado [BLOQUEADO], nunca preenchido com valor plausivel | `docs/protocols/spec-first.md:128` | — |
 
 ## Decisao
 
@@ -112,6 +113,8 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | `ADR-002` | Toda acao precisa existir em .neural-flow/action-policy.json, com id, comando permitido, sprint, item, risco e prazo. | `docs/adr/ADR-006-gateway-de-acoes.md:22` | — |
 | `ADR-003` | Acoes sensitive e irreversible exigem A0/A1 e confirmacao interativa em TTY para o hash exato do comando. Acoes desconhecidas sao rejeitadas, nunca inferidas como seguras. | `docs/adr/ADR-006-gateway-de-acoes.md:26` | — |
 | `ADR-004` | Toda tentativa executada gera auditoria sem registrar o comando bruto, segredos ou argumentos sensiveis. A falta de capacidade de auditar tambem bloqueia a execucao. | `docs/adr/ADR-006-gateway-de-acoes.md:29` | — |
+| `ADR-005` | Implementacao combina tdd + principios de Karpathy + smoke-gate + python3 scripts/nfgate.py, e nunca executa git commit ou git push sem autorizacao humana explicita. | `docs/adr/ADR-010-skills-operacionais-de-agente.md:67` | — |
+| `ADR-006` | A politica v1 exige migracao explicita antes de executar ou planejar uma acao. | `docs/adr/ADR-011-gateway-sem-sandbox-interno.md:20` | — |
 
 ## Memoria
 
@@ -122,7 +125,7 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | `MEM-003` | Instalador: install.sh (wrapper bash) → scripts/nfinstall.py. Detecta greenfield/brownfield, e idempotente e nunca sobrescreve sem --force. | `MEMORY.md:24` | — |
 | `MEM-004` | Toda diretriz forte tem guard (principio n. 0). Guard novo entra pelo dicionario GUARDS de nfgate.py e chega com protocolo em docs/protocols/, testes nas duas direcoes e entrada no diagrama — no mesmo commit. | `MEMORY.md:44` | — |
 | `MEM-005` | NFGUARDASSINATURA em todo script instalavel. Sem a assinatura o nfgate se recusa a executar o arquivo: projeto brownfield pode ter homonimo com outra interface. Referencia: nfgate.ehnosso(). | `MEMORY.md:47` | — |
-| `MEM-006` | Nunca sobrescrever trabalho do adotante. Colisao de script vira instalacao lado a lado (nf<nome>); porta de entrada que ja existia recebe as diretrizes anexadas. Sempre com aviso no relatorio. | `MEMORY.md:65` | — |
-| `MEM-007` | Template vai para o projeto via copiartemplate, nunca readtext direto: o cabecalho > TEMPLATE Neural-Flow desliga ehtemplate() e faz o artefato nascer invisivel para o gate. | `MEMORY.md:68` | — |
-| `MEM-008` | Sempre datar (data absoluta, nunca relativa). | `MEMORY.md:145` | — |
-| `MEM-009` | [ ] Rodar python3 scripts/nfazuresmoke.py num ambiente autenticado - trava o bloco 2 inteiro da Sprint 4; exige az login, nao ha como agente sem tenant fechar | `MEMORY.md:152` | — |
+| `MEM-006` | Nunca sobrescrever trabalho do adotante. Colisao de script vira instalacao lado a lado (nf<nome>); porta de entrada que ja existia recebe as diretrizes anexadas. Sempre com aviso no relatorio. | `MEMORY.md:71` | — |
+| `MEM-007` | Template vai para o projeto via copiartemplate, nunca readtext direto: o cabecalho > TEMPLATE Neural-Flow desliga ehtemplate() e faz o artefato nascer invisivel para o gate. | `MEMORY.md:74` | — |
+| `MEM-008` | Sempre datar (data absoluta, nunca relativa). | `MEMORY.md:151` | — |
+| `MEM-009` | [ ] Rodar python3 scripts/nfazuresmoke.py num ambiente autenticado - trava o bloco 2 inteiro da Sprint 4; exige az login, nao ha como agente sem tenant fechar | `MEMORY.md:158` | — |

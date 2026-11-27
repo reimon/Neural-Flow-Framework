@@ -92,8 +92,8 @@ python3 scripts/nf_action_gateway.py --action <id> --sprint <arquivo> -- <comand
 
 Acoes `sensitive` e `irreversible` exigem sprint A0/A1, terminal interativo e o
 desafio exato exibido pelo gateway. O gateway registra hash, decisao e resultado,
-nunca o comando cru. A politica exige adaptador de sandbox validado. Como nenhum adaptador
-esta habilitado neste momento, a execucao pelo gateway falha fechada.
+nunca o comando cru. A politica v2 autoriza somente o comando completo. O ambiente
+de execucao aplica as restricoes de arquivos, processos e rede exigidas pela equipe.
 
 ---
 

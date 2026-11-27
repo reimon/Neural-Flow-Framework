@@ -42,16 +42,38 @@ comeca com um plano curto e checkpoints de verificacao.
 Os quatro principios acima sao a disciplina do agente; os protocolos do Neural-Flow sao a
 trava. Eles se encaixam assim:
 
-| Principio Karpathy | Protocolo que o torna verificavel |
-| --- | --- |
-| Think Before Coding | **Spec-First** — a spec e entrada, nao saida; duvida vira divergencia registrada, nunca preenchimento plausivel |
-| Simplicity First | **Vetor de Contexto** — nao reimplementar o que o mapa de capacidades ja lista em `AGENTS.md` |
-| Surgical Changes | **Loop Autonomo** — um item por iteracao; nao refatorar o que ja esta verde; commit escopado, nunca `git add -A` |
-| Goal-Driven Execution | **Evidencia Sintetica** — verde no comando de verificacao e a unica condicao para marcar pronto |
+| Principio Karpathy | Protocolo que o torna verificavel | Skills operacionais (`mattpocock/skills`) |
+| --- | --- | --- |
+| Think Before Coding | **Spec-First** — a spec e entrada, nao saida; duvida vira divergencia registrada, nunca preenchimento plausivel | `grill-me`, `grill-with-docs`, `grilling`, `wait-what`, `to-questionnaire`, `to-spec` |
+| Simplicity First | **Vetor de Contexto** — nao reimplementar o que o mapa de capacidades ja lista em `AGENTS.md` | `domain-modeling`, `codebase-design`, `improve-codebase-architecture`, `research`, `wayfinder` |
+| Surgical Changes | **Loop Autonomo** — um item por iteracao; nao refatorar o que ja esta verde; commit escopado, nunca `git add -A` | `to-tickets`, `implement`, `implement-spec`, `diagnosing-bugs`, `triage`, `writing-for-agents` |
+| Goal-Driven Execution | **Evidencia Sintetica** — verde no comando de verificacao e a unica condicao para marcar pronto | `tdd` (red-green-refactor), `code-review`, `pr`, `handoff`, `retro` |
 
 E a **Calibracao** atravessa os quatro: toda conclusao declara `Confianca: ALTA | MEDIA |
 BAIXA` com a classe de evidencia que a sustenta. `ALTA` exige execucao verificada; `MEDIA`
 exige fonte documental vigente; `BAIXA` e inferencia e **nunca fecha item**.
+
+## 2.1 Arsenal de skills operacionais (`mattpocock/skills` — uso obrigatorio)
+
+Fonte: <https://github.com/mattpocock/skills> — instalado em `.agents/skills/<skill>/SKILL.md`
+e `.claude/skills/<skill>/SKILL.md`.
+
+Todo agente trabalhando neste projeto **deve** usar essas skills sempre em conjunto com as
+diretrizes do Neural-Flow e com os quatro principios acima:
+
+1. **Descoberta e entrevista:** antes de assumir requisitos ambiguos, use `grill-me`,
+   `grill-with-docs`, `grilling`, `wait-what` ou `to-questionnaire`; para mapear o
+   repositorio apos compactacao, use `wayfinder` e `research`.
+2. **Especificacao, arquitetura e planejamento:** use `to-spec` para especificacoes,
+   `domain-modeling` e `codebase-design` para desenhar *deep modules*, e `to-tickets` para
+   fatiar entregas verticais.
+3. **Implementacao, TDD e bugs:** use `tdd` (teste falhando → codigo minimo → refatoracao),
+   `implement` / `implement-spec`, `improve-codebase-architecture`, `diagnosing-bugs` e `triage`.
+4. **Revisao e passagem de bastao:** use `code-review`, `pr`, `handoff` e `retro`.
+5. **Soberania do Neural-Flow:** os contratos e guards (`python3 scripts/nf_gate.py`) sao
+   soberanos sobre qualquer template de skill (ADRs em `docs/adr/ADR-<NNN>-<slug>.md`,
+   specs em `docs/modulos/<modulo>.md`, sprints em `docs/sprints/sprint-<NN>.md`, e
+   proibicao de `git commit` / `git push` sem autorizacao humana explicita).
 
 ## 3. Antes de commitar
 

@@ -59,6 +59,12 @@
 - **Indice antes de leitura.** `.neural-flow/indice-regras.md` e deterministico e nao
   depende de LLM nem de rede; o grafo do `graphify` e a camada de cima, nao o
   pre-requisito. Referencia: `scripts/nf_indice_regras.py`.
+- **Arsenal de skills operacionais (`mattpocock/skills`) sob soberania dos guards.**
+  As 27 skills promovidas de `mattpocock/skills` vivem em `templates/skills/` e sao
+  instaladas em `.agents/skills/` e `.claude/skills/` com invocacao autonoma pelo modelo
+  habilitada (`P6` em `scripts/validate_agent_entrypoints.py`), mantendo os contratos do
+  Neural-Flow (`nf_gate.py adr`, `spec`, `sprint` e proibicao de commit sem autorizacao
+  humana) soberanos. ADR-010.
 
 ### Instalador
 
@@ -103,10 +109,10 @@
 | Modulo | Onde vive | Estado |
 | --- | --- | --- |
 | Protocolos | `docs/protocols/` (10 nucleares + `agent-entrypoints`) | versionados |
-| Guards | `scripts/nf_gate.py` + 7 validadores | 7 guards, 80 testes verdes |
-| Kit de adocao | `templates/` | AGENTS, CLAUDE, AI_SAFETY, MEMORY, ADR, sprint, spec, loop, hook |
+| Guards | `scripts/nf_gate.py` + 8 validadores | 8 guards, suite de testes verde |
+| Kit de adocao | `templates/` + `templates/skills/` | AGENTS, CLAUDE, AI_SAFETY, MEMORY, ADR, sprint, spec, loop, hook, 27 skills (`mattpocock/skills`) |
 | Instalador | `install.sh`, `scripts/nf_install.py` | greenfield + brownfield, auto-validado |
-| Portas de agente | `scripts/nf_agentes.py` | 8 portas geradas + `AGENTS.md` + `CLAUDE.md` |
+| Portas de agente | `scripts/nf_agentes.py` | 8 portas geradas + `AGENTS.md` + `CLAUDE.md` + `.agents/skills/` + `.claude/skills/` |
 | Indice de regras | `scripts/nf_indice_regras.py` | deterministico, stdlib pura |
 | Observabilidade | `nf_dashboard.py`, `nf_tokens.py`, `nf_diagrama.py` | HTML auto-contido; telemetria Claude + Codex |
 | Neural-Memory (referencia) | `scripts/ingest.py`, `search.py`, `mcp/`, `infra/terraform/` | Azure; divida de auth em ADR-003 |
@@ -166,6 +172,6 @@ Regras deste log:
 - `AGENTS.md` — diretrizes arquiteturais (fonte de verdade)
 - `.github/AI_SAFETY.md` — proibicoes absolutas e o que exige confirmacao
 - `docs/adr/` — ADR-001 memoria backend-agnostica · ADR-002 guards em stdlib pura ·
-  ADR-003 divida admin key vs. RBAC · ADR-004 protocolo de Calibracao
+  ADR-003 divida admin key vs. RBAC · ADR-004 protocolo de Calibracao · ADR-010 skills operacionais de agente (`mattpocock/skills`)
 - `docs/protocols/README.md` — matriz de protocolos e o gate primario de cada um
 - `docs/Manifest-Dev-AI.md` — manifesto (gates, sprints, niveis de autonomia)

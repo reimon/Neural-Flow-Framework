@@ -73,7 +73,8 @@ ALIASES = {
 RE_IMP = re.compile(r"\bIMP-\d{3,4}\b")
 RE_REQ = re.compile(r"\bREQ-\d{3,4}\b")
 RE_CA = re.compile(r"\bCA-\d{3,4}\b")
-EXCLUIR = {".git", "node_modules", ".venv", "venv", "dist", "build_out",
+EXCLUIR = {".git", ".agents", ".claude", ".neural-flow", ".cursor", ".github",
+           "node_modules", ".venv", "venv", "dist", "build_out",
            "__pycache__", "templates", "old", "archive", "archives"}
 
 

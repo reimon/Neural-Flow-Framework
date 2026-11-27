@@ -132,6 +132,16 @@ Roda no **pre-commit** (sobre o que esta em stage, nao sobre a arvore de trabalh
 **CI** (autoritativo — hook local e opt-in por clone). Instalacao em
 `templates/githooks/pre-commit` e `.github/workflows/neural-flow-gates.yml`.
 
+### Artefatos retirados em decisoes anteriores
+
+O ADR que aceita a retirada de um artefato pode preservar a evidencia do ADR
+anterior por um link fixado ao commit que contem o arquivo. Declare os ADRs
+superados na secao Status com `Supera ADR-NNN`. Na secao Referencias historicas,
+liste o arquivo do ADR anterior em crases e, em seguida, o caminho do artefato
+como link para o GitHub com o SHA completo. A remissao vale apenas para o mesmo
+caminho na secao Evidencia do ADR anterior. Referencias operacionais continuam
+sujeitas a resolucao local.
+
 ## Criterio PASS
 
 - decisao com referencia explicita de fonte

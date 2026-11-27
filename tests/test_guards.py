@@ -208,6 +208,38 @@ class TestRegrasCriticas(unittest.TestCase):
             self.assertEqual(codigo, 1, saida)
             self.assertIn("V3", saida)
 
+    def test_referencia_historica_so_resolve_evidencia_do_adr_superado(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            (raiz / "scripts").mkdir()
+            adrs = raiz / "docs" / "adr"
+            adrs.mkdir(parents=True)
+            legado = adrs / "ADR-001-original.md"
+            caminho = "scripts/removido.py"
+            evidencia = f"## Evidencia\n- Artefato: `{caminho}`\n"
+            legado.write_text(evidencia, encoding="utf-8")
+            novo = adrs / "ADR-002-substituto.md"
+            link = f"https://github.com/exemplo/projeto/blob/{'0' * 40}/{caminho}"
+            texto = (
+                "## Status\n\nAceito\n\nSupera ADR-001.\n"
+                f"## Referencias historicas\n\n- `{legado.name}` [{caminho}]({link})\n"
+            )
+            novo.write_text(texto.replace("Supera ADR-001", "Supera ADR-003"), encoding="utf-8")
+            codigo, saida = rodar("validate_context_sources.py", raiz)
+            self.assertEqual(codigo, 1, saida)
+            self.assertIn("V1", saida)
+
+            novo.write_text(texto, encoding="utf-8")
+            codigo, saida = rodar("validate_context_sources.py", raiz)
+            self.assertEqual(codigo, 0, saida)
+
+            legado.write_text(evidencia + f"## Operacao\n- Use `{caminho}`.\n", encoding="utf-8")
+            codigo, saida = rodar("validate_context_sources.py", raiz)
+            self.assertEqual(codigo, 1, saida)
+            self.assertIn("V1", saida)
+
 
 class TestRastreabilidadeDeSpec(unittest.TestCase):
     """As checagens que separam spec detalhada de spec decorativa.
@@ -652,6 +684,13 @@ class TestInstalador(unittest.TestCase):
             proc = self._instalar(destino, "--name", "Projeto Teste", "--mode", "greenfield")
             self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
             self.assertIn("nf_gate: PASS", proc.stdout)
+            politica = json.loads(
+                (destino / ".neural-flow" / "action-policy.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(politica["version"], 2)
+            self.assertFalse(politica["enabled"])
+            self.assertNotIn("execution", politica)
+            self.assertFalse((destino / "scripts" / "nf_sandbox.py").exists())
 
             for esperado in (
                 "COMECE-AQUI.md", "AGENTS.md", "MEMORY.md",
@@ -695,6 +734,49 @@ class TestInstalador(unittest.TestCase):
             self.assertEqual(pkg["devDependencies"]["vitest"], "^2.0.0")
             # E o smoke-gate tem de entrar.
             self.assertIn("@kaiketsu/smoke-gate", pkg["devDependencies"])
+
+    def test_reinstalacao_preserva_politica_v1_ate_migracao_explicita(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t)
+            politica = destino / ".neural-flow" / "action-policy.json"
+            politica.parent.mkdir()
+            original = '{"version": 1, "enabled": false, "execution": {"sandbox": "required"}}\n'
+            politica.write_text(original, encoding="utf-8")
+
+            proc = self._instalar(destino, "--mode", "brownfield")
+            self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+            self.assertIn("migracao explicita", proc.stdout)
+            self.assertEqual(politica.read_text(encoding="utf-8"), original)
+
+            sprint = "docs/sprints/sprint-01.md"
+            comando = ["python3", "scripts/nf_gate.py", "action"]
+            politica.write_text(json.dumps({
+                "version": 2,
+                "enabled": True,
+                "actions": [{
+                    "id": "testar-action",
+                    "description": "Validar a politica migrada",
+                    "risk": "safe",
+                    "argv": comando,
+                    "requires_human_approval": False,
+                    "max_runtime_seconds": 30,
+                    "sprint": sprint,
+                    "item": "1.1",
+                }],
+                "audit_path": ".neural-flow/action-audit.jsonl",
+            }), encoding="utf-8")
+            proc = self._instalar(destino, "--mode", "brownfield")
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("nf_gate: PASS", proc.stdout)
+            proc = subprocess.run(
+                [sys.executable, "scripts/nf_action_gateway.py", "--action", "testar-action",
+                 "--sprint", sprint, "--", *comando],
+                cwd=destino, capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("action-policy: PASS", proc.stdout)
 
     def test_smoke_gate_registrado_no_mcp(self) -> None:
         import tempfile
@@ -822,6 +904,27 @@ class TestInstalador(unittest.TestCase):
         self.assertEqual(
             subprocess.run(["bash", "-n", str(RAIZ / "install.sh")]).returncode, 0
         )
+
+    def test_skills_operacionais_sao_instaladas_e_habilitadas(self) -> None:
+        import tempfile
+
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_agentes import DIRETORIOS_SKILLS, SKILLS_OBRIGATORIAS
+
+        with tempfile.TemporaryDirectory() as t:
+            destino = Path(t) / "p"
+            self._instalar(destino, "--mode", "greenfield")
+            for dir_rel in DIRETORIOS_SKILLS:
+                for skill in SKILLS_OBRIGATORIAS:
+                    caminho = destino / dir_rel / skill / "SKILL.md"
+                    with self.subTest(dir=dir_rel, skill=skill):
+                        self.assertTrue(caminho.is_file(), f"faltou {caminho}")
+                        texto = caminho.read_text(encoding="utf-8")
+                        self.assertNotIn("disable-model-invocation: true", texto)
+            for doc in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
+                texto_doc = (destino / doc).read_text(encoding="utf-8")
+                self.assertIn("mattpocock/skills", texto_doc)
+                self.assertIn(".agents/skills/", texto_doc)
 
 
 class TestDashboard(unittest.TestCase):
@@ -1092,6 +1195,54 @@ class TestDashboard(unittest.TestCase):
             self.assertNotIn("<script>alert(1)</script>", texto)
             self.assertIn("popover", texto)
 
+    def test_coletar_atualizacoes_detecta_pendencias_e_conformidade(self) -> None:
+        import tempfile
+        sys.path.insert(0, str(SCRIPTS))
+        from nf_dashboard import coletar_atualizacoes
+
+        with tempfile.TemporaryDirectory() as t:
+            vazio = Path(t) / "vazio"
+            vazio.mkdir()
+            self.assertEqual(coletar_atualizacoes(vazio)["status"], "nao_instalado")
+
+            proj = Path(t) / "proj"
+            proj.mkdir()
+            (proj / "scripts").mkdir()
+            (proj / "scripts" / "nf_gate.py").write_text("# marker\n", encoding="utf-8")
+            diag = coletar_atualizacoes(proj)
+            self.assertTrue(diag["instalado"])
+            self.assertEqual(diag["status"], "pendente")
+            self.assertFalse(diag["skills_ok"])
+            self.assertTrue(len(diag["pendencias"]) > 0)
+
+        diag_raiz = coletar_atualizacoes(RAIZ)
+        self.assertTrue(diag_raiz["instalado"])
+        self.assertEqual(diag_raiz["status"], "atualizado")
+        self.assertTrue(diag_raiz["skills_ok"])
+        self.assertEqual(diag_raiz["skills_agents"], 27)
+        self.assertEqual(diag_raiz["skills_claude"], 27)
+        self.assertEqual(diag_raiz["portas_ok"], 8)
+        self.assertEqual(diag_raiz["pendencias"], [])
+
+    def test_dashboard_renderiza_secao_e_instrucoes_de_atualizacao(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "d.html"
+            proc = self._gerar(RAIZ / "tests" / "fixtures" / "demo", saida)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            texto = saida.read_text(encoding="utf-8")
+
+            self.assertIn('id="atualizacoes"', texto)
+            self.assertIn('href="#atualizacoes"', texto)
+            self.assertIn('popovertarget="ajuda-atualizacoes"', texto)
+            self.assertIn("python3 scripts/nf_install.py --target .", texto)
+            self.assertIn("python3 scripts/nf_agentes.py --escrever", texto)
+            self.assertIn("python3 scripts/nf_gate.py", texto)
+            self.assertIn("AGENTS.md", texto)
+            self.assertIn("MEMORY.md", texto)
+
+
 
 class TestProductDocs(unittest.TestCase):
     def _base_aprovada(self, raiz: Path) -> dict:
@@ -1292,6 +1443,30 @@ class TestProductDocs(unittest.TestCase):
             texto = saida.read_text(encoding="utf-8")
             self.assertNotIn("<script>alert", texto)
             self.assertIn("&lt;script&gt;", texto)
+
+    def test_dashboard_exibe_mapa_skills_guias_taticos_e_raio_x_projeto(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            saida = Path(t) / "dashboard.html"
+            self._gerar(RAIZ, saida)
+            texto = saida.read_text(encoding="utf-8")
+            for marcador in (
+                'id="skills"',
+                'id="sf-fluxo"',
+                'Fluxo Principal em 6 Etapas',
+                '3 On-Ramps + Saude Arquitetural',
+                'Smart Zone (~150k)',
+                'popovertarget="ficha-skill-tdd"',
+                'id="ficha-skill-tdd"',
+                'id="ficha-projeto"',
+                'Artefatos Nucleares de Governanca',
+                'Portas de Entrada Sincronizadas',
+                'Catalogo de ADRs do Projeto',
+            ):
+                with self.subTest(marcador=marcador):
+                    self.assertIn(marcador, texto)
+
 
 class TestTelemetriaDeTokens(unittest.TestCase):
     """Consumo REAL, lido dos transcripts locais — nao o declarado na sprint.
@@ -1911,6 +2086,37 @@ class TestPortasDeAgente(unittest.TestCase):
             self.assertIn("legacy/", texto, "instrucao do time foi apagada")
             self.assertIn("AGENTS.md", texto, "diretrizes nao foram anexadas")
             self.assertEqual(self._rodar(destino).returncode, 0)
+
+    def test_skill_ausente_ou_com_invocacao_bloqueada_trava(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as t:
+            raiz = self._projeto(Path(t))
+            alvo = raiz / ".agents" / "skills" / "tdd" / "SKILL.md"
+            original = alvo.read_text(encoding="utf-8")
+
+            # Caso 1: skill com disable-model-invocation: true trava P6
+            alvo.write_text(
+                "---\nname: tdd\ndisable-model-invocation: true\n---\n" + original,
+                encoding="utf-8",
+            )
+            proc = self._rodar(raiz)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("[P6]", proc.stdout)
+
+            # Caso 2: skill ausente trava P6
+            alvo.unlink()
+            proc = self._rodar(raiz)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("[P6]", proc.stdout)
+
+            # Regerar restaura a skill e volta a passar
+            subprocess.run(
+                [sys.executable, str(SCRIPTS / "nf_agentes.py"), "--root", str(raiz),
+                 "--escrever"],
+                capture_output=True, text=True, check=True,
+            )
+            self.assertEqual(self._rodar(raiz).returncode, 0)
 
 
 class TestValidadorDoProjeto(unittest.TestCase):

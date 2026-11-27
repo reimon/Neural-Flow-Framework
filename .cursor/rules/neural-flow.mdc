@@ -41,6 +41,33 @@ alwaysApply: true
    explicitos — nunca `git add -A` nem `git add .`. Mensagem no padrao
    `Sprint N - <descricao>`.
 
+## Arsenal de skills operacionais (uso obrigatorio em conjunto com o Neural-Flow)
+
+Este projeto inclui o pacote de 27 skills operacionais de `mattpocock/skills` em
+`.agents/skills/<skill>/SKILL.md` e `.claude/skills/<skill>/SKILL.md`. Todo agente
+de IA trabalhando neste repositorio **deve** combinar as diretrizes e skills ja
+existentes do Neural-Flow (principios de execucao de Karpathy em `CLAUDE.md`,
+calibracao de confianca, `smoke-gate` e guards de `nf_gate.py`) com a leitura e
+aplicacao ativa dessas skills conforme a etapa da tarefa:
+
+- **Descoberta, entrevista e alinhamento:** `grill-me`, `grill-with-docs`,
+  `grilling`, `wait-what`, `to-questionnaire`, `research`, `wayfinder`,
+  `ask-matt`, `teach`.
+- **Especificacao, modelagem e planejamento:** `to-spec`, `domain-modeling`,
+  `codebase-design`, `to-tickets`, `writing-for-agents`.
+- **Implementacao, TDD, arquitetura e bugs:** `tdd` (ciclo red-green-refactor),
+  `implement`, `implement-spec`, `improve-codebase-architecture`,
+  `diagnosing-bugs`, `triage`, `prototype`, `wizard`, `setup-matt-pocock-skills`.
+- **Revisao, entrega e continuidade:** `code-review`, `pr`, `handoff`, `retro`.
+
+**Soberania dos guards do Neural-Flow (ADR-010):** as skills fornecem o metodo
+tatico; os contratos e guards deste repositorio sao soberanos. ADRs seguem o
+formato validado por `python3 scripts/nf_gate.py adr` (`docs/adr/ADR-<NNN>-<slug>.md`),
+especificacoes de modulo passam em `python3 scripts/nf_gate.py spec`, planos de
+execucao sao registrados em `docs/sprints/sprint-<NN>.md` (`nf_gate.py sprint`), e
+nenhuma instrucao de skill autoriza `git commit` ou `git push` sem confirmacao
+humana explicita.
+
 ## Se voce nao consegue ler `AGENTS.md`
 
 Pare e diga isso ao humano. Nao improvise diretriz: um agente que adivinha a

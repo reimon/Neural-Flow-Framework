@@ -34,6 +34,8 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+from nf_action_policy import MIGRATION_REQUIRED, load_policy
+
 RAIZ_FW = Path(__file__).resolve().parent.parent
 
 GUARDS = [
@@ -46,8 +48,7 @@ GUARDS = [
     "nf_product_docs.py",
 ]
 
-RUNTIME_SCRIPTS = ["nf_action_policy.py", "nf_action_gateway.py", "nf_sandbox.py",
-                   ]
+RUNTIME_SCRIPTS = ["nf_action_policy.py", "nf_action_gateway.py"]
 
 SMOKE_GATE_REPO = "reimon/smoke-gate"
 # Rede indisponivel ou API fora do ar nao pode impedir a instalacao — cai para a
@@ -257,6 +258,23 @@ def instalar_governanca(inst: Instalacao, nome_projeto: str) -> None:
         if "<Nome do Projeto>" in texto:
             alvo.write_text(texto.replace("<Nome do Projeto>", nome_projeto), encoding="utf-8")
     instalar_portas_de_agente(inst)
+    instalar_skills(inst)
+
+
+def instalar_skills(inst: Instalacao) -> None:
+    """Instala o catalogo de skills operacionais (mattpocock/skills) em `.agents/skills` e `.claude/skills`."""
+    sys.path.insert(0, str(RAIZ_FW / "scripts"))
+    from nf_agentes import DIRETORIOS_SKILLS
+
+    origem_base = RAIZ_FW / "templates" / "skills"
+    if not origem_base.is_dir():
+        return
+    arquivos_skill = [p for p in sorted(origem_base.rglob("*")) if p.is_file()]
+    for dir_rel in DIRETORIOS_SKILLS:
+        destino_base = inst.alvo / dir_rel
+        for arquivo_origem in arquivos_skill:
+            rel = arquivo_origem.relative_to(origem_base)
+            inst.copiar(arquivo_origem, destino_base / rel)
 
 
 def instalar_portas_de_agente(inst: Instalacao) -> None:
@@ -926,6 +944,10 @@ def main() -> int:
     )
     print(proc.stdout.strip() or proc.stderr.strip())
     if proc.returncode != 0:
+        politica, _ = load_policy(alvo)
+        if politica is not None and politica.get("version") == 1:
+            print(f"\nInstalacao pendente de validacao: {MIGRATION_REQUIRED}.")
+            return 1
         print("\nA instalacao gerou artefato que nao passa no gate — isto e um bug do")
         print("instalador, nao seu. Rode `python3 scripts/nf_gate.py` para ver os detalhes.")
         return 1

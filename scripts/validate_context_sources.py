@@ -42,6 +42,10 @@ PROTOCOLO = "docs/protocols/context-vector.md"
 # `caminho/arquivo.md` ou `dir/**` em backticks, e links markdown [x](caminho)
 RE_CRASE = re.compile(r"`([^`\n]+?)`")
 RE_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+?)\)")
+RE_REFERENCIA_HISTORICA = re.compile(
+    r"- `(ADR-\d+-[\w-]+\.md)` \[([\w./-]+)\]"
+    r"\(https://github\.com/[^/\s]+/[^/\s]+/blob/[0-9a-f]{40}/\2\)"
+)
 
 # Parece caminho de arquivo do repo (tem barra ou extensao conhecida)
 RE_PARECE_CAMINHO = re.compile(
@@ -108,13 +112,43 @@ def eh_prospectivo(raiz: Path, origem: Path, alvo: str) -> bool:
     return True
 
 
-def validar(raiz: Path, caminho: Path, res: Resultado) -> None:
+def referencias_historicas(raiz: Path) -> dict[Path, set[str]]:
+    """Le remissoes de ADRs aceitos aos artefatos de decisoes que superam."""
+    pasta = raiz / "docs" / "adr"
+    referencias: dict[Path, set[str]] = {}
+    for caminho in sorted(pasta.glob("ADR-*.md")):
+        linhas = ler(caminho)
+        if linhas is None or eh_template(linhas):
+            continue
+        status = secao(linhas, "Status")
+        arquivo = secao(linhas, "Referencias historicas")
+        if not status or not arquivo:
+            continue
+        texto_status = " ".join(linhas[slice(*status)]).strip()
+        if not texto_status.lower().startswith("aceito"):
+            continue
+        supera = re.search(r"\bsupera\s+([^.]*)", texto_status, re.IGNORECASE)
+        if not supera:
+            continue
+        anteriores = set(re.findall(r"\bADR-\d+\b", supera[1]))
+        for linha in linhas[slice(*arquivo)]:
+            referencia = RE_REFERENCIA_HISTORICA.fullmatch(linha.strip())
+            if not referencia:
+                continue
+            nome, alvo = referencia.groups()
+            if "-".join(nome.split("-", 2)[:2]) in anteriores:
+                referencias.setdefault(pasta / nome, set()).add(alvo)
+    return referencias
+
+
+def validar(raiz: Path, caminho: Path, res: Resultado, historicas: set[str]) -> None:
     linhas = ler(caminho)
     if linhas is None or eh_template(linhas):
         return
     res.verificado(caminho)
 
     # V1 — referencias resolvem
+    evidencia = secao(linhas, "Evidencia")
     dentro_de_bloco = False
     for n, linha in enumerate(linhas, 1):
         if linha.lstrip().startswith("```"):
@@ -126,6 +160,8 @@ def validar(raiz: Path, caminho: Path, res: Resultado) -> None:
         if dentro_de_bloco or linha.lstrip().startswith("|"):
             continue
         for alvo in candidatos(linha):
+            if evidencia and evidencia[0] <= n - 1 < evidencia[1] and alvo in historicas:
+                continue
             if eh_prospectivo(raiz, caminho, alvo):
                 continue
             if not resolve(raiz, caminho, alvo):
@@ -195,12 +231,13 @@ def main() -> int:
     ]
 
     res = Resultado()
+    historicas = referencias_historicas(raiz)
     vistos: set[Path] = set()
     for caminho in arquivos(raiz, *padroes):
         if caminho in vistos or "templates/" in str(caminho.relative_to(raiz)):
             continue
         vistos.add(caminho)
-        validar(raiz, caminho, res)
+        validar(raiz, caminho, res, historicas.get(caminho, set()))
     return relatar("vetor-de-contexto", res, PROTOCOLO, args.quiet)
 
 
