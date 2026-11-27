@@ -3,19 +3,22 @@
 ## Snapshot Operacional
 
 - App/Escopo: `Neural-Flow Framework — validacao local e retirada do executor de acoes`
-- Status: `em andamento`
+- Status: `concluida`
 - Tipo de trabalho: `implementacao`
 - Data de inicio: `2026-11-27`
 - Data planejada de conclusao: `2026-11-27`
+- Data real de conclusao: `2026-11-27`
 - Ultima atualizacao: `2026-11-27`
 - Nivel de autonomia: `A1`
 - Blocker principal: `nenhum`
-- Proxima acao: `registrar o consumo antes de encerrar`
+- Proxima acao: `consultar o indice de decisoes na Sprint 11`
 
 ## FinOps de Tokens
 
 - Token budget: `100k`
-- Consumo observado: `em andamento`
+- Consumo observado: `425741`
+- Leitura do consumo: teto faturavel observado no projeto pelo recorte da sprint em 2026-11-27. Inclui a Sprint 9 e outras atividades do dia.
+- Mitigacao aplicada: contabilizado o teto compartilhado sem atribuir o estouro a uma unica sprint. Fonte: `python3 scripts/nf_tokens.py --sprint 10 --json` (152 requisicoes).
 
 ## Escopo incluido
 

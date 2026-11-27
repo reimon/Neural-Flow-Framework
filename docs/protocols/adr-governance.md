@@ -32,6 +32,25 @@ O que NAO exige ADR: correcao de bug, padrao local de um arquivo, licao operacio
    declarar explicitamente que o guard e aspiracional — principio "documentacao
    orienta, guard obriga" (`templates/AGENTS-template.md`).
 
+## Consultar o contrato vigente
+
+O indice publica as regras ativas em `regras` e as anteriores em
+`regras_historicas`. A lista `decisoes` relaciona numero, fonte, status
+declarado, resumo e sucessores. O Markdown apresenta a mesma classificacao.
+
+Em `Status`, um ADR aceito pode declarar `Supera ADR-001 e ADR-002.` para
+substituicao integral ou `Supera ADR-001 no contrato de execucao.` para um
+escopo parcial. A declaracao pode continuar na linha seguinte. O formato
+anterior `Superado por ADR-002` segue valido. A3 verifica os numeros das
+duas pontas e A4 verifica ciclos, inclusive quando as formas se misturam.
+
+Um escopo parcial seleciona as secoes com aquele titulo exato no ADR anterior,
+incluindo subsecoes. Para titulos antigos, o projeto pode mapear o escopo
+em `.neural-flow.json`. Por exemplo, `{"adr_escopos":{"ADR-001":{"execucao":["Decisao"]}}}`
+associa o escopo a secao inteira de um documento imutavel. Uma secao sem
+correspondencia pede mapeamento antes de publicar o indice. As demais secoes
+conservam a vigencia. O guard P5 confere o resultado da geracao.
+
 ## Template
 
 `templates/adr-template.md`

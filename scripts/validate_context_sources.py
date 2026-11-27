@@ -33,7 +33,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nf_guards import (  # noqa: E402
-    Resultado, arquivos, chave, eh_placeholder, eh_template, ler, relatar,
+    numero_do_adr, superacoes_adr,
+    Resultado, arquivos, eh_placeholder, eh_template, ler, relatar,
     secao, sem_acento,
 )
 
@@ -120,17 +121,15 @@ def referencias_historicas(raiz: Path) -> dict[Path, set[str]]:
         linhas = ler(caminho)
         if linhas is None or eh_template(linhas):
             continue
-        status = secao(linhas, "Status")
+        numero = numero_do_adr(caminho, linhas)
         arquivo = secao(linhas, "Referencias historicas")
-        if not status or not arquivo:
+        if numero is None or not arquivo:
             continue
-        texto_status = " ".join(linhas[slice(*status)]).strip()
-        if not texto_status.lower().startswith("aceito"):
-            continue
-        supera = re.search(r"\bsupera\s+([^.]*)", texto_status, re.IGNORECASE)
-        if not supera:
-            continue
-        anteriores = set(re.findall(r"\bADR-\d+\b", supera[1]))
+        try:
+            relacoes = superacoes_adr(numero, linhas)
+        except ValueError:
+            continue  # O guard adr relata A3; uma declaracao invalida nao libera referencias.
+        anteriores = {f"ADR-{r.anterior:03d}" for r in relacoes if r.sucessor == numero}
         for linha in linhas[slice(*arquivo)]:
             referencia = RE_REFERENCIA_HISTORICA.fullmatch(linha.strip())
             if not referencia:

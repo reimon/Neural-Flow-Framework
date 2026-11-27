@@ -37,7 +37,6 @@ import base64
 import html
 import json
 import re
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -45,11 +44,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nf_guards import (  # noqa: E402
-    arquivos, campos, chave, eh_placeholder, eh_template, ler, numero,
+    arquivos, campos, carregar_gate, chave, eh_placeholder, eh_template, ler, numero,
     secao, sem_acento,
 )
 from nf_product_docs import diagnostico as diagnosticar_documentos_produto  # noqa: E402
-from nf_tokens import coletar_tokens  # noqa: E402
+from nf_tokens import Telemetria, coletar_tokens  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent
 ASSETS = AQUI.parent / "docs" / "img"
@@ -86,15 +85,6 @@ def diagrama_arquitetura(prefixo: str = "") -> str:
     except OSError:
         return '<p class="vazio">Diagrama de arquitetura não encontrado.</p>'
 
-GUARDS = [
-    ("sprint", "State Protocol", "Sprint validada antes de executar"),
-    ("budget", "Circuit Breaker", "Orcamento de tokens declarado"),
-    ("context", "Vetor de Contexto", "Decisao ancorada em fonte que existe"),
-    ("adr", "ADR Governance", "Decisao numerada, sem ciclo nem pendura"),
-    ("spec", "Spec-First", "Spec completa antes do codigo"),
-    ("calibration", "Calibracao", "Confianca declarada e derivada de evidencia"),
-]
-
 PROTOCOLOS = [
     ("State Protocol", "sprint"), ("Circuit Breaker", "budget"),
     ("Vetor de Contexto", "context"), ("Evidencia Sintetica", "smoke"),
@@ -104,7 +94,6 @@ PROTOCOLOS = [
 
 RE_ITEM = re.compile(r"^\s*[-*]\s*\[(?P<marca>[ xX])\]\s*(?:\*\*)?(?P<id>[\w.]+)")
 RE_BLOQUEADO = re.compile(r"\[BLOQUEADO", re.IGNORECASE)
-RE_CODIGO = re.compile(r"^\s*\[([A-Z]\d)\]\s*(.*)$", re.MULTILINE)
 
 
 # ── Coleta ─────────────────────────────────────────────────────────────────────
@@ -149,12 +138,13 @@ class Dados:
     smoke: dict = field(default_factory=dict)
     loop: dict = field(default_factory=dict)
     documentos_produto: dict = field(default_factory=dict)
-    tokens: object = None
+    tokens: Telemetria | None = None
     janela_dias: int = 30
     # Os guards rodam mesmo sem o framework instalado no alvo (fallback para a
     # arvore deste script). Quando isso acontece, a pagina nao pode instruir a
     # rodar `scripts/nf_gate.py` — nao existe la.
     guards_locais: bool = True
+    guards_importados: bool = False
     atualizacoes: dict = field(default_factory=dict)
     skills: list[dict] = field(default_factory=list)
     info_projeto: dict = field(default_factory=dict)
@@ -205,37 +195,28 @@ def coletar_sprints(raiz: Path) -> list[Sprint]:
     return saida
 
 
-def coletar_guards(raiz: Path) -> list[dict]:
-    arquivo_de = {
-        "sprint": "sprint_state", "budget": "token_budget",
-        "context": "context_sources", "adr": "adr",
-        "spec": "module_spec", "calibration": "calibration",
-    }
+def coletar_guards(raiz: Path, relatorio: Path | None = None) -> list[dict]:
+    if relatorio:
+        dados = json.loads(relatorio.read_text(encoding="utf-8"))
+        if dados["versao"] != 1 or not isinstance(dados["guards"], list):
+            raise ValueError("formato do relatorio de guards nao suportado")
+        guards = dados["guards"]
+    else:
+        gate = carregar_gate(AQUI)
+        if gate is None:
+            raise ValueError("nf_gate do framework ausente")
+        guards = gate.executar(raiz, gate.GUARDS, externos=False)
+
+    estados = {"conforme": "pass", "falhou": "fail", "sem_artefato": "sem_artefato",
+               "nao_executado": "nao_executado"}
     resultado = []
-    for nome, protocolo, o_que in GUARDS:
-        # Os guards podem estar instalados no projeto ou ao lado deste script.
-        # Sem esse fallback, apontar --root para outro repositorio devolveria
-        # "nao instalado" para tudo, mesmo com os guards disponiveis aqui.
-        alvo = f"validate_{arquivo_de[nome]}.py"
-        script = raiz / "scripts" / alvo
-        if not script.is_file():
-            script = AQUI / alvo
-        if not script.is_file():
-            resultado.append({"nome": nome, "protocolo": protocolo, "o_que": o_que,
-                              "estado": "ausente", "achados": []})
-            continue
-        proc = subprocess.run(
-            [sys.executable, str(script), "--root", str(raiz), "--quiet"],
-            capture_output=True, text=True,
-        )
-        saida = (proc.stdout + proc.stderr).replace(str(raiz) + "/", "")
-        achados = [{"codigo": c, "msg": m.strip()} for c, m in RE_CODIGO.findall(saida)]
-        if "nada a validar" in saida or (proc.returncode == 0 and not achados and "PASS" not in saida):
-            estado = "inativo"
-        else:
-            estado = "pass" if proc.returncode == 0 else "fail"
-        resultado.append({"nome": nome, "protocolo": protocolo, "o_que": o_que,
-                          "estado": estado, "achados": achados})
+    for g in guards:
+        achados = []
+        for a in g["achados"]:
+            local = a["arquivo"] + (f":{a['linha']}" if a["linha"] else "")
+            achados.append({"codigo": a["codigo"], "msg": f"{local} — {a['msg']}"})
+        resultado.append({"nome": g["nome"], "protocolo": g["protocolo"], "o_que": g["descricao"],
+                          "estado": estados[g["estado"]], "achados": achados, "motivo": g["motivo"]})
     return resultado
 
 
@@ -1172,12 +1153,14 @@ def coletar_projeto(raiz: Path) -> dict:
 
 
 def coletar(raiz: Path, projeto: str | None, gerado_em: str | None = None,
-            transcripts: Path | None = None, dias: int = 30) -> Dados:
+            transcripts: Path | None = None, dias: int = 30,
+            relatorio_guards: Path | None = None) -> Dados:
     return Dados(
         projeto=projeto or raiz.name,
         gerado_em=gerado_em or datetime.now().strftime("%Y-%m-%d %H:%M"),
         sprints=coletar_sprints(raiz),
-        guards=coletar_guards(raiz),
+        guards=coletar_guards(raiz, relatorio_guards),
+        guards_importados=relatorio_guards is not None,
         adrs=coletar_adrs(raiz),
         grafo=coletar_grafo(raiz),
         smoke=coletar_smoke(raiz),
@@ -1320,10 +1303,9 @@ na propria sprint.</p>"""),
 <p><strong>O que e.</strong> Os guards sao os protocolos virando codigo executavel. O
 principio do framework e que <em>documentacao orienta, guard obriga</em>: diretriz sem guard
 depende de qual modelo leu o que, e por isso ainda nao esta pronta.</p>
-<p><strong>O que voce ve.</strong> Cada guard rodou <em>agora</em>, sobre a arvore de
-trabalho. <strong>PASS</strong> = conforme. <strong>FAIL</strong> = ha violacao, e o codigo
-(S1, B3, V1...) diz exatamente qual. <strong>inativo</strong> = o protocolo nao se aplica
-ainda porque o artefato nao existe — projeto sem ADR nao e reprovado por nao ter ADR.</p>
+<p><strong>O que voce ve.</strong> Cada resultado corresponde a coleta local ou ao relatorio importado. <strong>PASS</strong> = conforme. <strong>FAIL</strong> = ha violacao, e o codigo
+(S1, B3, V1...) diz exatamente qual. <strong>nao executado</strong> indica que o validador ficou fora da execucao.
+<strong>sem artefato</strong> indica que o arquivo esperado ainda nao existe — projeto sem ADR nao e reprovado por nao ter ADR.</p>
 <p><strong>Onde eles agem.</strong> No pre-commit, validando <em>o que esta em stage</em> e
 nao a arvore de trabalho, e no CI, que e autoritativo porque o hook local depende de
 configuracao por clone.</p>
@@ -1744,6 +1726,9 @@ TRADUCOES_UI = {
     "trava": "blocking",
     "reprovando": "failing",
     "manual": "manual",
+    "Evidencia da execucao salva no relatorio JSON.": "Evidence from the saved JSON report.",
+    "sem artefato": "no artifact",
+    "nao executado": "not run",
     "inativo": "inactive",
     "nao instalado": "not installed",
     "Historico de sprints": "Sprint history",
@@ -1937,6 +1922,8 @@ def pill(estado: str) -> str:
     mapa = {
         "pass": ("ok", "&#10003;", "PASS"),
         "fail": ("bad", "&#10007;", "FAIL"),
+        "sem_artefato": ("idle", "&#9679;", "sem artefato"),
+        "nao_executado": ("idle", "&#9679;", "nao executado"),
         "inativo": ("idle", "&#9679;", "inativo"),
         "ausente": ("idle", "&#9679;", "nao instalado"),
     }
@@ -2138,7 +2125,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     # ── Guards ──
     linhas_g = []
     for g in d.guards:
-        det = ""
+        det = f'<p class="nota">{e(g["motivo"])}</p>' if g.get("motivo") else ""
         if g["achados"]:
             itens = "".join(
                 f'<li><code>{e(a["codigo"])}</code> {e(a["msg"][:150])}</li>'
@@ -2154,7 +2141,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             f'<code class="guard-c">nf_gate.py {e(g["nome"])}</code>{det}</div>'
         )
     corpo_guards = f'<div class="guards">{"".join(linhas_g)}</div>'
-    if not d.guards_locais:
+    if not d.guards_locais and not d.guards_importados:
         corpo_guards += (
             '<p class="nota"><strong class="warn-t">Framework nao instalado neste '
             'projeto.</strong> Os guards acima rodaram a partir da arvore do '
@@ -2195,7 +2182,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         ativa_b = ativa if ativa and ativa.budget else None
     else:
         ativa_b = None
-    if ativa_b is not None:
+    if ativa_b is not None and tel is not None:
         medido = tel.geral.faturavel
         declarado = ativa_b.consumo
         corpo_fin += (
@@ -2403,6 +2390,8 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             est, rot = "manual", "auditoria mensal"
         cls = {"pass": "ok", "fail": "bad", "manual": "idle"}.get(est, "idle")
         icone = {"pass": "&#10003;", "fail": "&#10007;"}.get(est, "&#9679;")
+        rotulo = {"pass": "trava", "fail": "reprovando", "manual": "manual",
+                  "sem_artefato": "sem artefato", "nao_executado": "nao executado"}.get(est, "inativo")
         texto_ajuda = AJUDA_PROTOCOLOS.get(nome)
         botao_p = ""
         if texto_ajuda:
@@ -2413,7 +2402,7 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
             f'<div class="prot"><span class="prot-n">{e(nome)}{botao_p}</span>'
             f'<code class="prot-g">{e(rot)}</code>'
             f'<span class="pill {cls}"><span aria-hidden="true">{icone}</span>'
-            f'{e({"pass": "trava", "fail": "reprovando", "manual": "manual"}.get(est, "inativo"))}'
+            f'{e(rotulo)}'
             f'</span></div>'
         )
     corpo_prot = (
@@ -2423,7 +2412,8 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
     )
 
     # ── Historico de sprints ──
-    botao_h, janela_h = ajuda(*(("historico",) + AJUDA_QUADROS["historico"]))
+    titulo_h, corpo_h = AJUDA_QUADROS["historico"]
+    botao_h, janela_h = ajuda("historico", titulo_h, corpo_h)
     janelas.append(janela_h)
     if d.sprints:
         linhas_s = "".join(
@@ -2956,11 +2946,11 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
 {bloco_adrs_html}"""
 
     botoes_quadro = {}
-    for chave, (titulo, corpo) in AJUDA_QUADROS.items():
-        if chave == "historico":
+    for chave_quadro, (titulo, corpo) in AJUDA_QUADROS.items():
+        if chave_quadro == "historico":
             continue
-        botao, janela = ajuda(chave, titulo, corpo)
-        botoes_quadro[f"ajuda_{chave}"] = botao
+        botao, janela = ajuda(chave_quadro, titulo, corpo)
+        botoes_quadro[f"ajuda_{chave_quadro}"] = botao
         janelas.append(janela)
 
     pendencias = prioridades(d)
@@ -3009,6 +2999,8 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         tiles=html_tiles,
         sprint=corpo_sprint,
         guards=corpo_guards,
+        fonte_guards=("Evidencia da execucao salva no relatorio JSON." if d.guards_importados
+                      else "Verificados ao gerar este retrato, sobre a arvore de trabalho"),
         finops=corpo_fin,
         smoke=corpo_smoke,
         grafo=corpo_grafo,
@@ -3599,7 +3591,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
     <p class="sub">Sinais dos artefatos para orientar a proxima revisao</p>{prioridades}</section>
   <section class="card layout-sprint" id="sprint"><h2>Sprint ativa{ajuda_sprint}</h2>{sprint}</section>
   <section class="card layout-guards" id="guards"><h2>Guards{ajuda_guards}</h2>
-    <p class="sub">Verificados ao gerar este retrato, sobre a arvore de trabalho</p>{guards}</section>
+    <p class="sub">{fonte_guards}</p>{guards}</section>
   <section class="card" id="finops"><h2>FinOps de tokens{ajuda_finops}</h2>
     <p class="sub">Orcamento declarado x consumo observado</p>{finops}</section>
   <section class="card" id="tokens"><h2>Consumo real de tokens{ajuda_tokens}</h2>
@@ -3664,6 +3656,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visi
 def main() -> int:
     ap = argparse.ArgumentParser(description="Dashboard do Neural-Flow (HTML estatico).")
     ap.add_argument("--root", default=".", help="raiz do projeto")
+    ap.add_argument("--relatorio-guards", type=Path, help="usa a execucao salva por nf_gate.py --format json")
     ap.add_argument("--out", help="arquivo de saida (default: .neural-flow/dashboard.html)")
     ap.add_argument("--name", help="nome do projeto")
     ap.add_argument("--open", action="store_true", help="abre no navegador")
@@ -3689,9 +3682,12 @@ def main() -> int:
     raiz = Path(args.root).resolve()
     destino = Path(args.out).resolve() if args.out else raiz / ".neural-flow" / "dashboard.html"
 
-    dados = coletar(raiz, args.name, args.gerado_em,
-                    Path(args.transcripts).resolve() if args.transcripts else None,
-                    args.dias)
+    try:
+        dados = coletar(raiz, args.name, args.gerado_em,
+                        Path(args.transcripts).resolve() if args.transcripts else None,
+                        args.dias, args.relatorio_guards)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        ap.exit(2, f"dashboard: erro na coleta: {exc}\n")
     destino.parent.mkdir(parents=True, exist_ok=True)
     # Os links apontam para os artefatos reais, entao dependem de onde a pagina
     # e gravada: `.neural-flow/dashboard.html` alcanca `../graphify-out/`.

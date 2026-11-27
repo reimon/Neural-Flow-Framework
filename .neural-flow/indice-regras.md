@@ -6,8 +6,8 @@
 Consulte este indice **antes** de ler os arquivos. Cada linha traz a fonte
 (`arquivo:linha`) — leia so o que a resposta exigir.
 
-- regras indexadas: **72**
-- impressao digital das fontes: `fefaf97757af2fb7`
+- regras indexadas: **68**
+- impressao digital das fontes: `14eb1bcad914f539`
 
 ## Guards executaveis
 
@@ -77,8 +77,8 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | `PRO-009` | Numeracao sequencial ADR-NNN; numero nunca e reutilizado. | `docs/protocols/adr-governance.md:27` | — |
 | `PRO-010` | Todo ADR referencia a sprint de origem (rastreabilidade Neural-Flow). | `docs/protocols/adr-governance.md:30` | — |
 | `PRO-011` | Se o ADR estabelece regra impositiva, deve nascer com guard (lint/teste/CI) ou declarar explicitamente que o guard e aspiracional — principio "documentacao orienta, guard obriga" (templates/AGENTS-template.md). | `docs/protocols/adr-governance.md:31` | — |
-| `PRO-012` | Neural-Memory: docs/adr/.md entra nas fontes indexadas; checkcontradiction deve retornar WARNING/BLOCK para proposta que contradiz ADR aceito. | `docs/protocols/adr-governance.md:42` | — |
-| `PRO-013` | Toda decisao arquitetural do periodo possui ADR com status e sprint de origem | `docs/protocols/adr-governance.md:64` | — |
+| `PRO-012` | Neural-Memory: docs/adr/.md entra nas fontes indexadas; checkcontradiction deve retornar WARNING/BLOCK para proposta que contradiz ADR aceito. | `docs/protocols/adr-governance.md:61` | — |
+| `PRO-013` | Toda decisao arquitetural do periodo possui ADR com status e sprint de origem | `docs/protocols/adr-governance.md:83` | — |
 | `PRO-014` | Sensivel: exige mascaramento | `docs/protocols/aegis-security.md:15` | — |
 | `PRO-015` | Segredo: proibido em prompt e documentacao operacional | `docs/protocols/aegis-security.md:16` | — |
 | `PRO-016` | [ ] Toda execucao tecnica do periodo possui sprint valida antes do inicio. | `docs/protocols/auditoria-mensal-template.md:20` | — |
@@ -105,11 +105,7 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | ID | Regra | Fonte | Guard |
 | --- | --- | --- | --- |
 | `ADR-001` | Gatilho de reconsulta: indice fraco exige reformular antes de escalar para varredura; BAIXA + irreversivel exige parar e perguntar; BAIXA + reversivel segue conservador com divergencia registrada. | `docs/adr/ADR-004-protocolo-de-calibracao.md:30` | — |
-| `ADR-002` | Toda acao precisa existir em .neural-flow/action-policy.json, com id, comando permitido, sprint, item, risco e prazo. | `docs/adr/ADR-006-gateway-de-acoes.md:22` | — |
-| `ADR-003` | Acoes sensitive e irreversible exigem A0/A1 e confirmacao interativa em TTY para o hash exato do comando. Acoes desconhecidas sao rejeitadas, nunca inferidas como seguras. | `docs/adr/ADR-006-gateway-de-acoes.md:26` | — |
-| `ADR-004` | Toda tentativa executada gera auditoria sem registrar o comando bruto, segredos ou argumentos sensiveis. A falta de capacidade de auditar tambem bloqueia a execucao. | `docs/adr/ADR-006-gateway-de-acoes.md:29` | — |
 | `ADR-005` | Implementacao combina tdd + principios de Karpathy + smoke-gate + python3 scripts/nfgate.py, e nunca executa git commit ou git push sem autorizacao humana explicita. | `docs/adr/ADR-010-skills-operacionais-de-agente.md:67` | — |
-| `ADR-006` | A politica v1 exige migracao explicita antes de executar ou planejar uma acao. | `docs/adr/ADR-011-gateway-sem-sandbox-interno.md:20` | — |
 
 ## Memoria
 
@@ -124,3 +120,27 @@ Rode todos com `python3 scripts/nf_gate.py`. Nunca use `--no-verify`.
 | `MEM-007` | Template vai para o projeto via copiartemplate, nunca readtext direto: o cabecalho > TEMPLATE Neural-Flow desliga ehtemplate() e faz o artefato nascer invisivel para o gate. | `MEMORY.md:74` | — |
 | `MEM-008` | Sempre datar (data absoluta, nunca relativa). | `MEMORY.md:151` | — |
 | `MEM-009` | [ ] Rodar python3 scripts/nfazuresmoke.py num ambiente autenticado - trava o bloco 2 inteiro da Sprint 4; exige az login, nao ha como agente sem tenant fechar | `MEMORY.md:158` | — |
+
+## Vigencia das decisoes
+
+- [ADR-001](../docs/adr/ADR-001-memoria-backend-agnostica.md) — aceito (sprint 1). O protocolo define **contratos**, nao tecnologia: indexacao com metadados minimos, busca hibrida, MCP tools `query_neural_memory` e `check_contradiction`, reindex incremental e indice sempre reconstruivel a partir do git.
+- [ADR-002](../docs/adr/ADR-002-guards-em-stdlib-pura.md) — aceito (sprint 1). Todos os guards sao Python 3.10+ usando exclusivamente a biblioteca padrao, orquestrados por `scripts/nf_gate.py`. Helpers compartilhados vivem em `scripts/nf_guards.py` — os validadores nao duplicam parsing.
+- [ADR-003](../docs/adr/ADR-003-divida-admin-key-vs-rbac.md) — aceito (sprint 1). Registrar a divida explicitamente em vez de silencia-la ou de bloquear a divulgacao por causa dela:
+- [ADR-004](../docs/adr/ADR-004-protocolo-de-calibracao.md) — aceito (sprint 1). Criar o 10o protocolo, com tres mecanismos:
+- [ADR-005](../docs/adr/ADR-005-grafo-do-graphify-neste-repositorio.md) — proposto. **Nao subir o grafo do `graphify` sobre este repositorio nesta etapa.** O indice deterministico cobre a regra de entrada, e a medicao mostra que o gargalo aqui e geracao, nao leitura: um grafo reduziria um custo que nao estamos pagando.
+- [ADR-006](../docs/adr/ADR-006-gateway-de-acoes.md) — aceito (sprint 5). superacao: ADR-012 (execucao)
+- [ADR-007](../docs/adr/ADR-007-sandbox-do-gateway.md) — aceito (sprint 5). superacao: ADR-008 (integral), ADR-011 (isolamento), ADR-012 (execucao)
+- [ADR-008](../docs/adr/ADR-008-adaptadores-de-sandbox-validados.md) — aceito (sprint 5). superacao: ADR-011 (isolamento), ADR-012 (execucao)
+- [ADR-009](../docs/adr/ADR-009-base-documental-do-produto.md) — aceito (sprint 6). Adotar seis papeis documentais padronizados: PRD, TRD, Fluxo do App, UI/UX Design, Esquema Backend e Plano de Implementacao. Cada projeto pode mapear arquivos e secoes existentes em `.neural-flow.json`; o framework nao renomeia nem sobrescreve esses arquivos.
+- [ADR-010](../docs/adr/ADR-010-skills-operacionais-de-agente.md) — aceito (sprint 8). 1. **Empacotamento offline no kit (`templates/skills/`):** incorporamos as 27 skills do pacote oficial promovido de `mattpocock/skills` (`engineering` + `productivity`) em `templates/skills/<skill-name>/`. O instalador (`scripts/nf_install.py`) e o gerador de portas (`scripts/nf_agentes.py --escrever`) distribuem...
+- [ADR-011](../docs/adr/ADR-011-gateway-sem-sandbox-interno.md) — aceito (sprint 9). superacao: ADR-012 (execucao)
+- [ADR-012](../docs/adr/ADR-012-validacao-local-sem-action-gateway.md) — aceito (sprint 10). Retirar o Action Gateway, sua politica e seu guard. A validacao do projeto usa os testes e `scripts/nf_gate.py`, incluindo o hook local sobre os arquivos em stage. Commit e push continuam sujeitos a autorizacao explicita.
+- [ADR-013](../docs/adr/ADR-013-vigencia-no-indice.md) — aceito (sprint 11). Publicar separadamente as regras vigentes, as regras historicas e as relacoes de superacao no indice. Resolver o escopo declarado em Status pelas secoes do documento anterior. Um mapeamento versionado associa titulos antigos ao escopo.
+- [ADR-014](../docs/adr/ADR-014-relatorio-dos-guards.md) — aceito (sprint 12). Gerar o relatorio de execucao no gate. Cada guard registra estado, arquivos, achados e motivo. Terminal, painel e resumo do CI apresentam esses resultados. O painel pode abrir um relatorio salvo, inclusive o de uma execucao reprovada.
+
+## Regras historicas
+
+- `docs/adr/ADR-006-gateway-de-acoes.md:22` — ADR-012 (execucao). Toda acao precisa existir em .neural-flow/action-policy.json, com id, comando permitido, sprint, item, risco e prazo.
+- `docs/adr/ADR-006-gateway-de-acoes.md:26` — ADR-012 (execucao). Acoes sensitive e irreversible exigem A0/A1 e confirmacao interativa em TTY para o hash exato do comando. Acoes desconhecidas sao rejeitadas, nunca inferidas como seguras.
+- `docs/adr/ADR-006-gateway-de-acoes.md:29` — ADR-012 (execucao). Toda tentativa executada gera auditoria sem registrar o comando bruto, segredos ou argumentos sensiveis. A falta de capacidade de auditar tambem bloqueia a execucao.
+- `docs/adr/ADR-011-gateway-sem-sandbox-interno.md:20` — ADR-012 (execucao). A politica v1 exige migracao explicita antes de executar ou planejar uma acao.

@@ -26,6 +26,10 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
 
 ### Adicionado
 
+- Indice v2 com regras vigentes, historico e escopo de substituicao dos ADRs.
+- Relatorio v1 do gate em JSON e resumo no CI. O dashboard aceita o relatorio
+  da mesma execucao, inclusive quando um guard falha.
+
 - `scripts/nf_azure_smoke.py` — verifica em um comando se a via keyless funciona no
   ambiente: token do Entra ID, leitura do indice e um embedding de ~1 token. Nao escreve
   nada, nao imprime segredo, e traduz `403`/`401` em qual role falta em vez de devolver

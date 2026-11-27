@@ -20,50 +20,27 @@ Uso:
 
 from __future__ import annotations
 
-# Assinatura de origem. O `nf_gate` so executa arquivo que a carrega — projeto
-# brownfield pode ter um script homonimo com outra interface, e chama-lo com os
-# nossos argumentos produz erro de uso confuso em vez de diagnostico.
-NF_GUARD_ASSINATURA = "neural-flow-framework"
-
 import argparse
 import re
 import sys
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nf_guards import (  # noqa: E402
     Resultado, arquivos, campos, chave, eh_placeholder, eh_template, ler,
-    relatar, secao, sem_acento,
+    numero_do_adr, relatar, sem_acento, status_do_adr, superacoes_adr, Superacao,
 )
+
+# Assinatura de origem. O `nf_gate` so executa arquivo que a carrega — projeto
+# brownfield pode ter um script homonimo com outra interface, e chama-lo com os
+# nossos argumentos produz erro de uso confuso em vez de diagnostico.
+NF_GUARD_ASSINATURA = "neural-flow-framework"
 
 PROTOCOLO = "docs/protocols/adr-governance.md"
 
 STATUS_VALIDOS = ("proposto", "aceito", "superado por", "rejeitado")
-RE_NUMERO = re.compile(r"ADR[-_ ]?(?:[A-Z]+[-_])?(\d{1,4})", re.IGNORECASE)
-RE_SUPERADO = re.compile(r"superado\s+por\s+ADR[-_ ]?(?:[A-Z]+[-_])?(\d{1,4})", re.IGNORECASE)
 RE_SPRINT = re.compile(r"\bsprint\s*[-#]?\s*\d+", re.IGNORECASE)
-
-
-def numero_do_adr(caminho: Path, linhas: list[str]) -> int | None:
-    m = RE_NUMERO.search(caminho.name)
-    if m:
-        return int(m.group(1))
-    for linha in linhas[:5]:
-        m = RE_NUMERO.search(linha)
-        if m:
-            return int(m.group(1))
-    return None
-
-
-def status_do_adr(linhas: list[str]) -> tuple[str, int]:
-    faixa = secao(linhas, "Status")
-    if faixa is None:
-        return "", 1
-    for n in range(faixa[0], faixa[1]):
-        texto = linhas[n].strip().lstrip("-* ").strip()
-        if texto and not texto.startswith("#"):
-            return sem_acento(texto).lower(), n + 1
-    return "", faixa[0]
 
 
 def main() -> int:
@@ -78,7 +55,7 @@ def main() -> int:
 
     res = Resultado()
     por_numero: dict[int, Path] = {}
-    supera: dict[int, tuple[int, Path, int]] = {}
+    relacoes: list[tuple[Superacao, Path]] = []
 
     for caminho in arquivos(raiz, *padroes):
         linhas = ler(caminho)
@@ -115,15 +92,14 @@ def main() -> int:
                 f"({', '.join(STATUS_VALIDOS)})",
             )
 
-        if status.startswith("superado por"):
-            m = RE_SUPERADO.search(status)
-            if not m:
-                res.erro(
-                    caminho, linha_status, "A3",
-                    "status 'Superado por' sem numero de ADR que o supera",
-                )
-            else:
-                supera[num] = (int(m.group(1)), caminho, linha_status)
+        try:
+            arestas = superacoes_adr(num, linhas)
+        except ValueError as exc:
+            res.erro(caminho, linha_status, "A3", str(exc))
+            arestas = []
+        if status.startswith("superado por") and not arestas:
+            res.erro(caminho, linha_status, "A3", "status 'Superado por' sem numero do sucessor")
+        relacoes.extend((aresta, caminho) for aresta in arestas)
 
         # A5 / A6 — so para ADR aceito
         if status.startswith("aceito"):
@@ -145,25 +121,25 @@ def main() -> int:
                     "declare explicitamente 'aspiracional'/'nao aplicavel'",
                 )
 
-    # A3 — referencia pendurada
-    for origem, (destino, caminho, linha) in supera.items():
-        if destino not in por_numero:
-            res.erro(
-                caminho, linha, "A3",
-                f"ADR-{origem:03d} diz ser superado por ADR-{destino:03d}, que nao existe",
-            )
+    sucessores: dict[int, set[int]] = {}
+    for aresta, caminho in relacoes:
+        for ref in (aresta.anterior, aresta.sucessor):
+            if ref not in por_numero:
+                res.erro(caminho, aresta.linha, "A3", f"ADR-{ref:03d} nao existe")
+        if aresta.anterior in por_numero and aresta.sucessor in por_numero:
+            sucessores.setdefault(aresta.anterior, set()).add(aresta.sucessor)
 
-    # A4 — ciclo de supersecao
-    for inicio in supera:
-        visto, atual = set(), inicio
-        while atual in supera:
-            if atual in visto:
-                caminho, linha = supera[inicio][1], supera[inicio][2]
-                ciclo = " → ".join(f"ADR-{n:03d}" for n in sorted(visto))
-                res.erro(caminho, linha, "A4", f"ciclo de supersecao detectado: {ciclo}")
-                break
-            visto.add(atual)
-            atual = supera[atual][0]
+    # graphlib percorre o grafo iterativamente, inclusive em cadeias longas.
+    # A API recebe dependencias: aqui cada anterior depende de seus sucessores.
+    while True:
+        try:
+            TopologicalSorter(sucessores).prepare()
+            break
+        except CycleError as exc:
+            ciclo = exc.args[1]
+            descricao = " -> ".join(f"ADR-{n:03d}" for n in reversed(ciclo))
+            res.erro(por_numero[ciclo[0]], 1, "A4", f"ciclo de supersecao detectado: {descricao}")
+            sucessores[ciclo[1]].remove(ciclo[0])
 
     return relatar("adr-governance", res, PROTOCOLO, args.quiet)
 

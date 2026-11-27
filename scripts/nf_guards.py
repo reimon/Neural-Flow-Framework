@@ -12,15 +12,18 @@ projeto, qualquer stack, sem instalar nada.
 
 from __future__ import annotations
 
+import importlib.util
+import json
+import os
+import re
+import unicodedata
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
 # Assinatura de origem. O `nf_gate` so executa arquivo que a carrega — projeto
 # brownfield pode ter um script homonimo com outra interface, e chama-lo com os
 # nossos argumentos produz erro de uso confuso em vez de diagnostico.
 NF_GUARD_ASSINATURA = "neural-flow-framework"
-
-import re
-import unicodedata
-from dataclasses import dataclass, field
-from pathlib import Path
 
 # ── Normalizacao ───────────────────────────────────────────────────────────────
 
@@ -140,8 +143,8 @@ def titulo_normalizado(texto: str) -> str:
     return chave(_RE_ENUMERACAO.sub("", limpo))
 
 
-def secao(linhas: list[str], titulo: str) -> tuple[int, int] | None:
-    """Intervalo [inicio, fim) das linhas de uma secao markdown pelo titulo."""
+def faixas_secoes(linhas: list[str], titulo: str, *, exato: bool = False):
+    """Intervalos [inicio, fim) de conteudo de secoes Markdown."""
     alvo = titulo_normalizado(titulo)
     inicio = None
     nivel = 0
@@ -149,11 +152,124 @@ def secao(linhas: list[str], titulo: str) -> tuple[int, int] | None:
         m = re.match(r"^(#{1,6})\s+(.*)$", linha)
         if not m:
             continue
-        if inicio is None and titulo_normalizado(m.group(2)).startswith(alvo):
-            inicio, nivel = n + 1, len(m.group(1))
-        elif inicio is not None and len(m.group(1)) <= nivel:
-            return (inicio, n)
-    return (inicio, len(linhas)) if inicio is not None else None
+        if inicio is not None and len(m[1]) <= nivel:
+            yield inicio, n
+            inicio = None
+        nome = titulo_normalizado(m[2])
+        corresponde = nome == alvo if exato else nome.startswith(alvo)
+        if inicio is None and corresponde:
+            inicio, nivel = n + 1, len(m[1])
+    if inicio is not None:
+        yield inicio, len(linhas)
+
+
+def secao(linhas: list[str], titulo: str) -> tuple[int, int] | None:
+    return next(faixas_secoes(linhas, titulo), None)
+
+
+RE_NUMERO = re.compile(r"ADR[-_ ]?(?:[A-Z]+[-_])?(\d{1,4})", re.IGNORECASE)
+
+
+def numero_do_adr(caminho: Path, linhas: list[str]) -> int | None:
+    m = RE_NUMERO.search(caminho.name)
+    if m:
+        return int(m.group(1))
+    for linha in linhas[:5]:
+        m = RE_NUMERO.search(linha)
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def status_do_adr(linhas: list[str]) -> tuple[str, int]:
+    faixa = secao(linhas, "Status")
+    if faixa is None:
+        return "", 1
+    for n in range(faixa[0], faixa[1]):
+        texto = linhas[n].strip().lstrip("-* ").strip()
+        if texto and not texto.startswith("#"):
+            return sem_acento(texto).lower(), n + 1
+    return "", faixa[0]
+
+
+@dataclass(frozen=True)
+class Superacao:
+    anterior: int
+    sucessor: int
+    escopo: str
+    linha: int
+
+
+def superacoes_adr(numero: int, linhas: list[str]) -> list[Superacao]:
+    """Le apenas declaracoes da secao Status. Propostas nao revogam decisoes."""
+    status, linha_status = status_do_adr(linhas)
+    if status.startswith("superado por"):
+        alvo = RE_NUMERO.search(status)
+        return [Superacao(numero, int(alvo[1]), "", linha_status)] if alvo else []
+    if not status.startswith("aceito"):
+        return []
+
+    faixa = secao(linhas, "Status")
+    if not faixa:
+        return []
+    pos, fim = faixa
+    relacoes = []
+    while pos < fim:
+        linha = pos + 1
+        texto = linhas[pos].strip().lstrip("-* ")
+        pos += 1
+        declaracao = re.match(r"supera\b\s*:?\s+(.*)", texto, re.I)
+        if not declaracao:
+            continue
+        partes = [declaracao[1]]
+        while not partes[-1].endswith(".") and pos < fim and linhas[pos].strip() and not re.match(
+            r"^(?:[-*#]|supera\b)", linhas[pos].strip(), re.I
+        ):
+            partes.append(linhas[pos].strip())
+            pos += 1
+        clausula = sem_acento(" ".join(partes)).replace("`", "").rstrip(".")
+        alvos = re.split(r"\s+(?:no contrato de|na secao)\s+", clausula, maxsplit=1, flags=re.I)
+        escopo = chave(alvos[1]) if len(alvos) == 2 else ""
+        resto = RE_NUMERO.sub("", alvos[0])
+        if not RE_NUMERO.search(alvos[0]) or re.sub(r"\be\b|[\s,;]", "", resto, flags=re.I):
+            raise ValueError(f"linha {linha}: referencia de ADR invalida em '{clausula}'")
+        for alvo in RE_NUMERO.finditer(alvos[0]):
+            relacoes.append(Superacao(int(alvo[1]), numero, escopo, linha))
+    return relacoes
+
+
+def carregar_gate(*pastas: Path):
+    """Localiza o registro oficial inclusive quando o instalador tratou um homonimo."""
+    for pasta in pastas:
+        for nome in ("nf_nf_gate.py", "nf_gate.py"):
+            caminho = pasta / nome
+            if not caminho.is_file() or "NF_GUARD_ASSINATURA" not in caminho.read_text(
+                encoding="utf-8", errors="replace"
+            ):
+                continue
+            spec = importlib.util.spec_from_file_location("_nf_gate_instalado", caminho)
+            if spec and spec.loader:
+                gate = importlib.util.module_from_spec(spec)
+                try:
+                    spec.loader.exec_module(gate)
+                except (ImportError, SyntaxError, OSError):
+                    continue
+                if hasattr(gate, "GUARDS"):
+                    return gate
+    return None
+
+
+def carregar_config(root: Path) -> tuple[dict, str | None]:
+    caminho = root / ".neural-flow.json"
+    if not caminho.is_file():
+        return {}, None
+    try:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return {}, f".neural-flow.json invalido: {exc}"
+    if not isinstance(dados, dict):
+        return {}, ".neural-flow.json deve conter um objeto JSON"
+    return dados, None
 
 
 def numero(valor: str) -> float | None:
@@ -183,14 +299,25 @@ def numero(valor: str) -> float | None:
 # ── Resultado ──────────────────────────────────────────────────────────────────
 
 
+@dataclass(frozen=True)
+class Achado:
+    arquivo: str
+    linha: int | None
+    codigo: str
+    msg: str
+
+    def __str__(self) -> str:
+        local = f"{self.arquivo}:{self.linha}" if self.linha else self.arquivo
+        return f"[{self.codigo}] {local} — {self.msg}"
+
+
 @dataclass
 class Resultado:
-    erros: list[str] = field(default_factory=list)
+    erros: list[Achado] = field(default_factory=list)
     verificados: list[str] = field(default_factory=list)
 
     def erro(self, arquivo: Path | str, linha: int | None, codigo: str, msg: str) -> None:
-        local = f"{arquivo}:{linha}" if linha else str(arquivo)
-        self.erros.append(f"[{codigo}] {local} — {msg}")
+        self.erros.append(Achado(str(arquivo), linha, codigo, msg))
 
     def verificado(self, caminho: Path | str) -> None:
         self.verificados.append(str(caminho))
@@ -206,7 +333,10 @@ class Resultado:
 
 def relatar(nome: str, res: Resultado, protocolo: str, quiet: bool = False) -> int:
     """Imprime o resultado padronizado e devolve o exit code."""
-    if not res.verificados:
+    if os.environ.get("NF_GUARD_FORMATO") == "json":
+        print(json.dumps({"arquivos": res.verificados, "achados": [asdict(a) for a in res.erros]}))
+        return int(not res.ok)
+    if not res.verificados and res.ok:
         if not quiet:
             print(f"{nome}: nada a validar — OK")
         return 0

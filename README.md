@@ -731,6 +731,26 @@ python scripts/nf_gate.py sprint adr # so os indicados
 python scripts/nf_gate.py --list     # o que existe e o que cada um garante
 ```
 
+O resumo separa `conforme`, `falhou`, `sem_artefato` e `nao_executado`.
+Um projeto vazio tem zero guards conformes e sai com codigo 0. Uma violacao
+sai com codigo 1. Para guardar a evidencia e abrir o painel com os mesmos resultados:
+
+```bash
+python3 scripts/nf_gate.py --format json > resultado.json
+python3 scripts/nf_dashboard.py --relatorio-guards resultado.json
+```
+
+O JSON v1 inclui os guards selecionados, arquivos verificados, achados com
+codigo, caminho e linha quando disponivel, e o motivo de uma omissao ou erro.
+O painel pode ler inclusive um relatorio reprovado. Na coleta direta, o
+painel executa os guards do framework. Para incluir o comando configurado de
+um validador proprio, use o relatorio salvo. O workflow Neural-Flow anexa
+o resumo ao job do GitHub Actions usando a mesma execucao do gate.
+
+A consulta de regras vigentes comeca na secao **Vigencia das decisoes** do
+indice. Na atualizacao do kit, regere o indice com
+`python3 scripts/nf_indice_regras.py` para produzir o formato v2.
+
 | Guard | Protocolo que torna executavel | O que trava |
 | ----- | ------------------------------ | ----------- |
 | `nf_gate.py sprint` | State Protocol (S1-S6) | Snapshot incompleto, status ambiguo, **escopo sensivel operando em A2/A3**, escopo sem fronteira, sprint "concluida" com item aberto |

@@ -37,7 +37,10 @@ from pathlib import Path
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 from nf_agentes import INDICE_JSON, INDICE_MD  # noqa: E402
-from nf_guards import arquivos, eh_placeholder, eh_template, ler, sem_acento  # noqa: E402
+from nf_guards import (  # noqa: E402
+    arquivos, carregar_config, carregar_gate, eh_placeholder, eh_template, faixas_secoes,
+    ler, numero_do_adr, secao, sem_acento, status_do_adr, superacoes_adr,
+)
 
 # Uma regra e uma frase imperativa. Estes sao os marcadores que a denunciam —
 # deliberadamente conservadores: melhor deixar de indexar uma frase morna do que
@@ -60,6 +63,8 @@ FONTES: tuple[tuple[str, str, str], ...] = (
     ("CLAUDE.md", "EXE", "execucao"),
     ("docs/protocols/*.md", "PRO", "protocolo"),
     ("docs/adr/*.md", "ADR", "decisao"),
+    ("docs/adrs/*.md", "ADR", "decisao"),
+    ("docs/decisions/*.md", "ADR", "decisao"),
     ("MEMORY.md", "MEM", "memoria"),
 )
 
@@ -168,30 +173,11 @@ def guards_disponiveis(raiz: Path) -> list[dict]:
     - `import_module` devolve o que ja estiver no cache, entao o resultado
       dependeria da ordem de import e nao da arvore que estamos indexando.
     """
-    import importlib.util
-
-    candidatos = [raiz / "scripts" / "nf_gate.py", AQUI / "nf_gate.py"]
-    for caminho in candidatos:
-        try:
-            if not caminho.is_file():
-                continue
-            if "NF_GUARD_ASSINATURA" not in caminho.read_text(
-                encoding="utf-8", errors="replace"
-            ):
-                continue  # homonimo do projeto: nao e o nosso registro de guards
-            spec = importlib.util.spec_from_file_location("_nf_gate_indice", caminho)
-            if spec is None or spec.loader is None:
-                continue
-            gate = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(gate)
-            return [
-                {"guard": nome, "protocolo": proto, "trava": trava}
-                for nome, (_script, proto, trava) in gate.GUARDS.items()
-            ]
-        except Exception:
-            continue
-    # Indice sem a lista de guards ainda e util; indice que nao gera, nao.
-    return []
+    gate = carregar_gate(raiz / "scripts", AQUI)
+    if gate is None:
+        return []
+    return [{"guard": nome, "protocolo": protocolo, "trava": descricao}
+            for nome, (_, protocolo, descricao) in gate.GUARDS.items()]
 
 
 def coletar(raiz: Path) -> tuple[list[dict], list[str]]:
@@ -210,7 +196,7 @@ def coletar(raiz: Path) -> tuple[list[dict], list[str]]:
     return regras, sorted(set(fontes_lidas))
 
 
-def impressao_digital(raiz: Path, fontes: list[str]) -> str:
+def impressao_digital(raiz: Path, fontes: list[str], escopos: dict) -> str:
     """Hash do conteudo das fontes. Muda a fonte, o indice fica desatualizado."""
     h = hashlib.sha256()
     for rel in fontes:
@@ -219,10 +205,78 @@ def impressao_digital(raiz: Path, fontes: list[str]) -> str:
             h.update((raiz / rel).read_bytes())
         except OSError:
             h.update(b"<ausente>")
+    if escopos:
+        h.update(json.dumps(escopos, sort_keys=True, ensure_ascii=False).encode("utf-8"))
     return h.hexdigest()[:16]
 
 
-def render_md(regras: list[dict], guards: list[dict], digital: str) -> str:
+def vigencia(raiz: Path, regras: list[dict], fontes: list[str], escopos: dict) -> tuple[list, list, list]:
+    """Classifica regras pela secao de origem e pelas superacoes declaradas em Status."""
+    adrs = {}
+    relacoes = {}
+    for fonte in fontes:
+        if not fonte.startswith(("docs/adr/", "docs/adrs/", "docs/decisions/")):
+            continue
+        linhas = ler(raiz / fonte)
+        if not linhas or eh_template(linhas):
+            continue
+        num = numero_do_adr(Path(fonte), linhas)
+        if num is None:
+            continue
+        status, _ = status_do_adr(linhas)
+        faixa = secao(linhas, "Decisao")
+        paragrafo = "\n".join(linhas[slice(*faixa)]).strip().split("\n\n", 1)[0] if faixa else ""
+        primeiro_item = re.split(r"\n\s*(?:[-*+] |\d+[.)] |#)", paragrafo, maxsplit=1)[0]
+        resumo = " ".join(primeiro_item.split())
+        if len(resumo) > 320:
+            resumo = resumo[:317].rsplit(" ", 1)[0] + "..."
+        adrs[fonte] = (num, linhas, status, resumo)
+        for r in superacoes_adr(num, linhas):
+            item = {"sucessor": f"ADR-{r.sucessor:03d}", "escopo": r.escopo}
+            anteriores = relacoes.setdefault(r.anterior, [])
+            if item not in anteriores:
+                anteriores.append(item)
+
+    decisoes = []
+    substituicoes_por_fonte = {}
+    for fonte, (num, linhas, status, resumo) in adrs.items():
+        faixas = []
+        for r in relacoes.get(num, []):
+            escopo = r["escopo"]
+            if not escopo:
+                faixas.append((1, len(linhas), r))
+                continue
+            titulos = escopos.get(f"ADR-{num:03d}", {}).get(escopo, [escopo])
+            for titulo in titulos:
+                # A faixa inclui o titulo, que tambem pode conter uma regra.
+                secoes = list(faixas_secoes(linhas, titulo, exato=True))
+                if not secoes:
+                    raise ValueError(f"ADR-{num:03d}: escopo '{escopo}' sem secao '{titulo}'. "
+                                     "Mapeie as secoes em adr_escopos de .neural-flow.json.")
+                faixas.extend((inicio, fim, r) for inicio, fim in secoes)
+        substituicoes_por_fonte[fonte] = faixas
+        decisoes.append({"adr": f"ADR-{num:03d}", "fonte": fonte, "status": status,
+                         "decisao": resumo, "superacoes": relacoes.get(num, [])})
+
+    vigentes, historicas = [], []
+    for regra in regras:
+        fonte, _, local = regra["fonte"].rpartition(":")
+        if fonte not in adrs:
+            vigentes.append(regra)
+            continue
+        _, _, status, _ = adrs[fonte]
+        linha = int(local)
+        substituicoes = [r for inicio, fim, r in substituicoes_por_fonte[fonte]
+                         if inicio <= linha <= fim]
+        if substituicoes or status.startswith(("proposto", "rejeitado", "superado por")):
+            historicas.append({**regra, "status": status, "superacoes": substituicoes})
+        else:
+            vigentes.append(regra)
+    return vigentes, historicas, decisoes
+
+
+def render_md(regras: list[dict], guards: list[dict], digital: str,
+              historicas: list[dict], decisoes: list[dict]) -> str:
     linhas = [
         "# Indice de regras",
         "",
@@ -260,6 +314,23 @@ def render_md(regras: list[dict], guards: list[dict], digital: str) -> str:
             linhas.append(f"| `{r['id']}` | {r['regra']} | `{r['fonte']}` | {guard} |")
         linhas.append("")
 
+    if decisoes:
+        linhas += ["## Vigencia das decisoes", ""]
+        for d in decisoes:
+            substituicoes = ", ".join(
+                r["sucessor"] + " (" + (r["escopo"] or "integral") + ")" for r in d["superacoes"]
+            )
+            descricao = "superacao: " + substituicoes if substituicoes else d["decisao"]
+            linhas.append(f"- [{d['adr']}](../{d['fonte']}) — {d['status']}. {descricao}")
+        linhas.append("")
+    if historicas:
+        linhas += ["## Regras historicas", ""]
+        for r in historicas:
+            motivo = ", ".join(x["sucessor"] + " (" + (x["escopo"] or "integral") + ")"
+                               for x in r["superacoes"]) or r["status"]
+            linhas.append(f"- `{r['fonte']}` — {motivo}. {r['regra']}")
+        linhas.append("")
+
     if not regras:
         linhas += [
             "## Nenhuma regra indexada",
@@ -275,23 +346,35 @@ def gerar(raiz: Path) -> tuple[str, str, str]:
     """Devolve (markdown, json, impressao digital) sem escrever nada."""
     regras, fontes = coletar(raiz)
     guards = guards_disponiveis(raiz)
-    digital = impressao_digital(raiz, fontes)
+    cfg, erro = carregar_config(raiz)
+    if erro:
+        raise ValueError(erro)
+    escopos = cfg.get("adr_escopos", {})
+    if not isinstance(escopos, dict) or not all(
+        isinstance(mapa, dict) and all(
+            isinstance(secoes, list) and secoes and all(isinstance(s, str) and s.strip() for s in secoes)
+            for secoes in mapa.values()
+        ) for mapa in escopos.values()
+    ):
+        raise ValueError("adr_escopos exige um mapa ADR -> escopo -> lista de secoes")
+    digital = impressao_digital(raiz, fontes, escopos)
+    regras, historicas, decisoes = vigencia(raiz, regras, fontes, escopos)
     dados = {
-        "versao": 1,
+        "versao": 2,
+        "decisoes": decisoes,
+        "regras_historicas": historicas,
         "impressao_digital": digital,
         "fontes": fontes,
         "guards": guards,
         "regras": regras,
     }
-    return render_md(regras, guards, digital), json.dumps(dados, ensure_ascii=False, indent=2) + "\n", digital
+    return render_md(regras, guards, digital, historicas, decisoes), json.dumps(dados, ensure_ascii=False, indent=2) + "\n", digital
 
 
 def desatualizado(raiz: Path) -> str | None:
     """Motivo pelo qual o indice nao vale mais, ou None se estiver em dia.
 
-    Compara a impressao digital gravada com a das fontes de agora. Nao compara o
-    texto renderizado inteiro: se o gerador melhorar a formatacao, todo projeto
-    instalado passaria a falhar no gate sem que nenhuma regra tenha mudado.
+    Confere as fontes e a vigencia publicada nos dois formatos.
     """
     caminho = raiz / INDICE_JSON
     if not caminho.is_file():
@@ -302,9 +385,30 @@ def desatualizado(raiz: Path) -> str | None:
         dados = json.loads(caminho.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return f"{INDICE_JSON} ilegivel ({exc.__class__.__name__})"
-    _, _, agora = gerar(raiz)
+    try:
+        md, esperado, agora = gerar(raiz)
+    except (ValueError, OSError) as exc:
+        return str(exc)
+    if not isinstance(dados, dict):
+        return "indice JSON deve conter um objeto"
     if dados.get("impressao_digital") != agora:
         return "as fontes de governanca mudaram desde a ultima geracao do indice"
+    referencia = json.loads(esperado)
+    for campo in ("versao", "decisoes", "regras", "regras_historicas"):
+        if dados.get(campo) != referencia[campo]:
+            return "a vigencia das regras do indice mudou"
+    # Mudancas cosmeticas fora do contrato de vigencia nao invalidam um projeto instalado.
+    gravado = ler(raiz / INDICE_MD)
+    if gravado is None:
+        return f"{INDICE_MD} ilegivel"
+    atual = md.splitlines()
+    for titulo in ("Decisao", "Vigencia das decisoes", "Regras historicas"):
+        esperado_md = secao(atual, titulo)
+        existente_md = secao(gravado, titulo)
+        if bool(esperado_md) != bool(existente_md):
+            return f"secao '{titulo}' do indice Markdown desatualizada"
+        if esperado_md and existente_md and atual[slice(*esperado_md)] != gravado[slice(*existente_md)]:
+            return f"secao '{titulo}' do indice Markdown diverge das regras vigentes"
     return None
 
 
@@ -327,7 +431,11 @@ def main() -> int:
             print("indice-regras: em dia — OK")
         return 0
 
-    md, js, digital = gerar(raiz)
+    try:
+        md, js, digital = gerar(raiz)
+    except (ValueError, OSError) as exc:
+        print(f"indice-regras: FAIL — {exc}", file=sys.stderr)
+        return 1
     (raiz / INDICE_MD).parent.mkdir(parents=True, exist_ok=True)
     (raiz / INDICE_MD).write_text(md, encoding="utf-8")
     (raiz / INDICE_JSON).write_text(js, encoding="utf-8")

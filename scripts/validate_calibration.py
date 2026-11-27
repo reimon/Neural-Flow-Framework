@@ -252,27 +252,7 @@ def main() -> int:
     checar_diario(build / "DIARIO.md", concluidos, res)
     checar_divergencias(build / "DIVERGENCIAS.md", res)
 
-    if not res.verificados:
-        if not args.quiet:
-            print(
-                f"calibracao: nada a validar em {build} "
-                "(sem arquivos de loop preenchidos) — OK"
-            )
-        return 0
-
-    if not args.quiet:
-        for caminho in res.verificados:
-            print(f"  verificado: {caminho}")
-
-    if res.erros:
-        print(f"\ncalibracao: FAIL — {len(res.erros)} violacao(oes)\n")
-        for erro in res.erros:
-            print(f"  {erro}")
-        print("\nProtocolo: docs/protocols/calibration.md")
-        return 1
-
-    print(f"\ncalibracao: PASS — {len(concluidos)} item(ns) concluido(s) com evidencia")
-    return 0
+    return relatar("calibracao", res, PROTOCOLO, args.quiet)
 
 
 if __name__ == "__main__":

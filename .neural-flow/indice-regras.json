@@ -1,6 +1,200 @@
 {
-  "versao": 1,
-  "impressao_digital": "fefaf97757af2fb7",
+  "versao": 2,
+  "decisoes": [
+    {
+      "adr": "ADR-001",
+      "fonte": "docs/adr/ADR-001-memoria-backend-agnostica.md",
+      "status": "aceito (sprint 1)",
+      "decisao": "O protocolo define **contratos**, nao tecnologia: indexacao com metadados minimos, busca hibrida, MCP tools `query_neural_memory` e `check_contradiction`, reindex incremental e indice sempre reconstruivel a partir do git.",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-002",
+      "fonte": "docs/adr/ADR-002-guards-em-stdlib-pura.md",
+      "status": "aceito (sprint 1)",
+      "decisao": "Todos os guards sao Python 3.10+ usando exclusivamente a biblioteca padrao, orquestrados por `scripts/nf_gate.py`. Helpers compartilhados vivem em `scripts/nf_guards.py` — os validadores nao duplicam parsing.",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-003",
+      "fonte": "docs/adr/ADR-003-divida-admin-key-vs-rbac.md",
+      "status": "aceito (sprint 1)",
+      "decisao": "Registrar a divida explicitamente em vez de silencia-la ou de bloquear a divulgacao por causa dela:",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-004",
+      "fonte": "docs/adr/ADR-004-protocolo-de-calibracao.md",
+      "status": "aceito (sprint 1)",
+      "decisao": "Criar o 10o protocolo, com tres mecanismos:",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-005",
+      "fonte": "docs/adr/ADR-005-grafo-do-graphify-neste-repositorio.md",
+      "status": "proposto",
+      "decisao": "**Nao subir o grafo do `graphify` sobre este repositorio nesta etapa.** O indice deterministico cobre a regra de entrada, e a medicao mostra que o gargalo aqui e geracao, nao leitura: um grafo reduziria um custo que nao estamos pagando.",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-006",
+      "fonte": "docs/adr/ADR-006-gateway-de-acoes.md",
+      "status": "aceito (sprint 5)",
+      "decisao": "Criar o Action Gateway com quatro regras executaveis:",
+      "superacoes": [
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    },
+    {
+      "adr": "ADR-007",
+      "fonte": "docs/adr/ADR-007-sandbox-do-gateway.md",
+      "status": "aceito (sprint 5)",
+      "decisao": "1. A politica pode declarar `execution.sandbox` como `required`, `when-available` ou `off`.",
+      "superacoes": [
+        {
+          "sucessor": "ADR-008",
+          "escopo": ""
+        },
+        {
+          "sucessor": "ADR-011",
+          "escopo": "isolamento"
+        },
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    },
+    {
+      "adr": "ADR-008",
+      "fonte": "docs/adr/ADR-008-adaptadores-de-sandbox-validados.md",
+      "status": "aceito (sprint 5)",
+      "decisao": "1. O modo `required` so executa com adaptador suportado, validado por testes de filesystem, rede e processos filhos.",
+      "superacoes": [
+        {
+          "sucessor": "ADR-011",
+          "escopo": "isolamento"
+        },
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    },
+    {
+      "adr": "ADR-009",
+      "fonte": "docs/adr/ADR-009-base-documental-do-produto.md",
+      "status": "aceito (sprint 6)",
+      "decisao": "Adotar seis papeis documentais padronizados: PRD, TRD, Fluxo do App, UI/UX Design, Esquema Backend e Plano de Implementacao. Cada projeto pode mapear arquivos e secoes existentes em `.neural-flow.json`; o framework nao renomeia nem sobrescreve esses arquivos.",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-010",
+      "fonte": "docs/adr/ADR-010-skills-operacionais-de-agente.md",
+      "status": "aceito (sprint 8)",
+      "decisao": "1. **Empacotamento offline no kit (`templates/skills/`):** incorporamos as 27 skills do pacote oficial promovido de `mattpocock/skills` (`engineering` + `productivity`) em `templates/skills/<skill-name>/`. O instalador (`scripts/nf_install.py`) e o gerador de portas (`scripts/nf_agentes.py --escrever`) distribuem...",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-011",
+      "fonte": "docs/adr/ADR-011-gateway-sem-sandbox-interno.md",
+      "status": "aceito (sprint 9)",
+      "decisao": "- Remover a integracao de sandbox do gateway. O ambiente de execucao aplica o isolamento de arquivos, processos e rede quando exigido pela equipe.",
+      "superacoes": [
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    },
+    {
+      "adr": "ADR-012",
+      "fonte": "docs/adr/ADR-012-validacao-local-sem-action-gateway.md",
+      "status": "aceito (sprint 10)",
+      "decisao": "Retirar o Action Gateway, sua politica e seu guard. A validacao do projeto usa os testes e `scripts/nf_gate.py`, incluindo o hook local sobre os arquivos em stage. Commit e push continuam sujeitos a autorizacao explicita.",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-013",
+      "fonte": "docs/adr/ADR-013-vigencia-no-indice.md",
+      "status": "aceito (sprint 11)",
+      "decisao": "Publicar separadamente as regras vigentes, as regras historicas e as relacoes de superacao no indice. Resolver o escopo declarado em Status pelas secoes do documento anterior. Um mapeamento versionado associa titulos antigos ao escopo.",
+      "superacoes": []
+    },
+    {
+      "adr": "ADR-014",
+      "fonte": "docs/adr/ADR-014-relatorio-dos-guards.md",
+      "status": "aceito (sprint 12)",
+      "decisao": "Gerar o relatorio de execucao no gate. Cada guard registra estado, arquivos, achados e motivo. Terminal, painel e resumo do CI apresentam esses resultados. O painel pode abrir um relatorio salvo, inclusive o de uma execucao reprovada.",
+      "superacoes": []
+    }
+  ],
+  "regras_historicas": [
+    {
+      "id": "ADR-002",
+      "categoria": "decisao",
+      "regra": "Toda acao precisa existir em .neural-flow/action-policy.json, com id, comando permitido, sprint, item, risco e prazo.",
+      "fonte": "docs/adr/ADR-006-gateway-de-acoes.md:22",
+      "secao": "Decisao",
+      "guard": null,
+      "status": "aceito (sprint 5)",
+      "superacoes": [
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    },
+    {
+      "id": "ADR-003",
+      "categoria": "decisao",
+      "regra": "Acoes sensitive e irreversible exigem A0/A1 e confirmacao interativa em TTY para o hash exato do comando. Acoes desconhecidas sao rejeitadas, nunca inferidas como seguras.",
+      "fonte": "docs/adr/ADR-006-gateway-de-acoes.md:26",
+      "secao": "Decisao",
+      "guard": null,
+      "status": "aceito (sprint 5)",
+      "superacoes": [
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    },
+    {
+      "id": "ADR-004",
+      "categoria": "decisao",
+      "regra": "Toda tentativa executada gera auditoria sem registrar o comando bruto, segredos ou argumentos sensiveis. A falta de capacidade de auditar tambem bloqueia a execucao.",
+      "fonte": "docs/adr/ADR-006-gateway-de-acoes.md:29",
+      "secao": "Decisao",
+      "guard": null,
+      "status": "aceito (sprint 5)",
+      "superacoes": [
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    },
+    {
+      "id": "ADR-006",
+      "categoria": "decisao",
+      "regra": "A politica v1 exige migracao explicita antes de executar ou planejar uma acao.",
+      "fonte": "docs/adr/ADR-011-gateway-sem-sandbox-interno.md:20",
+      "secao": "Decisao",
+      "guard": null,
+      "status": "aceito (sprint 9)",
+      "superacoes": [
+        {
+          "sucessor": "ADR-012",
+          "escopo": "execucao"
+        }
+      ]
+    }
+  ],
+  "impressao_digital": "14eb1bcad914f539",
   "fontes": [
     ".github/AI_SAFETY.md",
     "AGENTS.md",
@@ -18,6 +212,8 @@
     "docs/adr/ADR-010-skills-operacionais-de-agente.md",
     "docs/adr/ADR-011-gateway-sem-sandbox-interno.md",
     "docs/adr/ADR-012-validacao-local-sem-action-gateway.md",
+    "docs/adr/ADR-013-vigencia-no-indice.md",
+    "docs/adr/ADR-014-relatorio-dos-guards.md",
     "docs/protocols/README.md",
     "docs/protocols/adr-governance.md",
     "docs/protocols/aegis-security.md",
@@ -355,7 +551,7 @@
       "id": "PRO-012",
       "categoria": "protocolo",
       "regra": "Neural-Memory: docs/adr/.md entra nas fontes indexadas; checkcontradiction deve retornar WARNING/BLOCK para proposta que contradiz ADR aceito.",
-      "fonte": "docs/protocols/adr-governance.md:42",
+      "fonte": "docs/protocols/adr-governance.md:61",
       "secao": "Integracao com os demais protocolos",
       "guard": null
     },
@@ -363,7 +559,7 @@
       "id": "PRO-013",
       "categoria": "protocolo",
       "regra": "Toda decisao arquitetural do periodo possui ADR com status e sprint de origem",
-      "fonte": "docs/protocols/adr-governance.md:64",
+      "fonte": "docs/protocols/adr-governance.md:83",
       "secao": "Criterio PASS",
       "guard": null
     },
@@ -536,42 +732,10 @@
       "guard": null
     },
     {
-      "id": "ADR-002",
-      "categoria": "decisao",
-      "regra": "Toda acao precisa existir em .neural-flow/action-policy.json, com id, comando permitido, sprint, item, risco e prazo.",
-      "fonte": "docs/adr/ADR-006-gateway-de-acoes.md:22",
-      "secao": "Decisao",
-      "guard": null
-    },
-    {
-      "id": "ADR-003",
-      "categoria": "decisao",
-      "regra": "Acoes sensitive e irreversible exigem A0/A1 e confirmacao interativa em TTY para o hash exato do comando. Acoes desconhecidas sao rejeitadas, nunca inferidas como seguras.",
-      "fonte": "docs/adr/ADR-006-gateway-de-acoes.md:26",
-      "secao": "Decisao",
-      "guard": null
-    },
-    {
-      "id": "ADR-004",
-      "categoria": "decisao",
-      "regra": "Toda tentativa executada gera auditoria sem registrar o comando bruto, segredos ou argumentos sensiveis. A falta de capacidade de auditar tambem bloqueia a execucao.",
-      "fonte": "docs/adr/ADR-006-gateway-de-acoes.md:29",
-      "secao": "Decisao",
-      "guard": null
-    },
-    {
       "id": "ADR-005",
       "categoria": "decisao",
       "regra": "Implementacao combina tdd + principios de Karpathy + smoke-gate + python3 scripts/nfgate.py, e nunca executa git commit ou git push sem autorizacao humana explicita.",
       "fonte": "docs/adr/ADR-010-skills-operacionais-de-agente.md:67",
-      "secao": "Decisao",
-      "guard": null
-    },
-    {
-      "id": "ADR-006",
-      "categoria": "decisao",
-      "regra": "A politica v1 exige migracao explicita antes de executar ou planejar uma acao.",
-      "fonte": "docs/adr/ADR-011-gateway-sem-sandbox-interno.md:20",
       "secao": "Decisao",
       "guard": null
     },

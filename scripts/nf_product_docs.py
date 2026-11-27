@@ -18,7 +18,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from nf_guards import (eh_placeholder, ler, secao, sem_acento, titulo_normalizado)
+from nf_guards import carregar_config, eh_placeholder, ler, secao, sem_acento
 
 RAIZ_FRAMEWORK = Path(__file__).resolve().parent.parent
 DIR_EXEMPLOS = Path(".neural-flow/product-examples")
@@ -76,19 +76,6 @@ RE_CA = re.compile(r"\bCA-\d{3,4}\b")
 EXCLUIR = {".git", ".agents", ".claude", ".neural-flow", ".cursor", ".github",
            "node_modules", ".venv", "venv", "dist", "build_out",
            "__pycache__", "templates", "old", "archive", "archives"}
-
-
-def carregar_config(root: Path) -> tuple[dict, str | None]:
-    caminho = root / ".neural-flow.json"
-    if not caminho.is_file():
-        return {}, None
-    try:
-        dados = json.loads(caminho.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        return {}, f".neural-flow.json invalido: {exc}"
-    if not isinstance(dados, dict):
-        return {}, ".neural-flow.json deve conter um objeto JSON"
-    return dados, None
 
 
 def _conteudo_util(linhas: list[str], faixa: tuple[int, int]) -> bool:

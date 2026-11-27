@@ -17,17 +17,19 @@ Sem dependencia externa: roda em qualquer projeto, qualquer stack.
 
 from __future__ import annotations
 
-# Assinatura de origem. O `nf_gate` so executa arquivo que a carrega — projeto
-# brownfield pode ter um script homonimo com outra interface, e chama-lo com os
-# nossos argumentos produz erro de uso confuso em vez de diagnostico.
-NF_GUARD_ASSINATURA = "neural-flow-framework"
-
 import argparse
 import json
+import os
+from html import escape
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+# Assinatura de origem. O `nf_gate` so executa arquivo que a carrega — projeto
+# brownfield pode ter um script homonimo com outra interface, e chama-lo com os
+# nossos argumentos produz erro de uso confuso em vez de diagnostico.
+NF_GUARD_ASSINATURA = "neural-flow-framework"
 
 AQUI = Path(__file__).resolve().parent
 
@@ -76,7 +78,10 @@ def config(raiz: Path) -> dict:
     caminho = raiz / ".neural-flow.json"
     if caminho.is_file():
         try:
-            return json.loads(caminho.read_text(encoding="utf-8"))
+            dados = json.loads(caminho.read_text(encoding="utf-8"))
+            if isinstance(dados, dict):
+                return dados
+            print("aviso: .neural-flow.json deve conter um objeto", file=sys.stderr)
         except json.JSONDecodeError as exc:
             print(f"aviso: .neural-flow.json invalido ({exc})", file=sys.stderr)
     return {}
@@ -109,132 +114,226 @@ def resolver(raiz: Path, script: str) -> tuple[Path | None, bool]:
     return None, False
 
 
-def rodar_externo(raiz: Path, nome: str, cfg: dict, quiet: bool) -> int | None:
-    """Executa o validador do proprio projeto, conforme configurado.
+def relativo(raiz: Path, arquivo: str) -> str:
+    caminho = Path(arquivo)
+    return str(caminho.relative_to(raiz)) if caminho.is_relative_to(raiz) else arquivo
 
-    `por_modulo` cobre o caso comum de validador que roda um modulo por vez:
-    o gate descobre os diretorios e itera, em vez de exigir que o time troque a
-    interface da ferramenta que ja tem.
-    """
-    spec = (cfg.get("guards") or {}).get(nome) or {}
+
+def ler_saida_legada(raiz: Path, saida: str, resultado: dict) -> None:
+    """Conserva a evidencia publicada pelos guards de texto e pelos validadores proprios."""
+    for linha in saida.splitlines():
+        texto = linha.strip()
+        if texto.startswith("verificado: "):
+            resultado["arquivos"].append(relativo(raiz, texto.removeprefix("verificado: ")))
+            continue
+        m = re.fullmatch(r"\[([A-Z]+\d+)\] (.+?) — (.+)", texto)
+        if m:
+            arquivo, sep, numero = m[2].rpartition(":")
+            tem_linha = bool(sep and numero.isdigit())
+            resultado["achados"].append({
+                "codigo": m[1], "arquivo": relativo(raiz, arquivo if tem_linha else m[2]),
+                "linha": int(numero) if tem_linha else None, "msg": m[3],
+            })
+
+
+def rodar_externo(raiz: Path, spec: dict, resultado: dict, log) -> None:
     comando = spec.get("comando")
     if not comando:
-        return None
+        resultado["motivo"] = "Validador e do projeto, nao do framework. Configure o comando em .neural-flow.json."
+        return
+    if not isinstance(comando, list) or not all(isinstance(a, str) for a in comando):
+        raise ValueError("comando do validador proprio deve ser uma lista de argumentos")
     padrao = spec.get("por_modulo")
-    alvos = []
+    alvos = [""]
     if padrao:
-        for caminho in sorted(raiz.glob(padrao)):
-            m = re.search(r"(\d{1,3})", caminho.name)
-            if m:
-                alvos.append(m.group(1))
+        alvos = [m[1] for p in sorted(raiz.glob(padrao))
+                 if (m := re.search(r"(\d{1,3})", p.name))]
         if not alvos:
-            if not quiet:
-                print(f"  nenhum modulo casou com {padrao}")
-            return 0
-    else:
-        alvos = [None]
+            resultado.update(estado="sem_artefato", motivo=f"Nenhum modulo casou com {padrao}")
+            return
 
-    falhou = 0
+    resultado["estado"] = "conforme"
+    falhas = []
     for alvo in alvos:
-        cmd = [str(raiz) if a == "{root}" else
-               (alvo if a == "{modulo}" else a.replace("{root}", str(raiz)))
-               for a in comando]
-        proc = subprocess.run(cmd, cwd=raiz, capture_output=quiet, text=True)
-        if proc.returncode != 0:
-            falhou += 1
-            if quiet and proc.stdout:
-                print(proc.stdout.rstrip())
-    if falhou and not quiet:
-        print(f"  {falhou} modulo(s) reprovado(s)")
-    return 1 if falhou else 0
+        cmd = [a.replace("{root}", str(raiz)).replace("{modulo}", alvo) for a in comando]
+        proc = subprocess.run(cmd, cwd=raiz, capture_output=True, text=True)
+        saida = proc.stdout + "\n" + proc.stderr
+        ler_saida_legada(raiz, saida, resultado)
+        if log:
+            log(saida, proc.returncode != 0)
+        if proc.returncode:
+            detalhe = f"modulo {alvo}: " if alvo else ""
+            falhas.append(f"{detalhe}retorno {proc.returncode}")
+    if falhas:
+        resultado.update(estado="falhou", motivo="Validador externo: " + ", ".join(falhas))
+
+
+def rodar_interno(raiz: Path, caminho: Path, resultado: dict, log) -> None:
+    proc = subprocess.run(
+        [sys.executable, str(caminho), "--root", str(raiz)],
+        capture_output=True, text=True, env={**os.environ, "NF_GUARD_FORMATO": "json"},
+    )
+    linhas = proc.stdout.splitlines()
+    try:
+        evidencia = json.loads(linhas[-1]) if linhas else None
+    except json.JSONDecodeError:
+        evidencia = None
+    if not isinstance(evidencia, dict) or not {"arquivos", "achados"} <= evidencia.keys():
+        # Instalacoes anteriores escrevem somente o relatorio de terminal.
+        # So uma confirmacao explicita conta como conformidade.
+        ler_saida_legada(raiz, proc.stdout + "\n" + proc.stderr, resultado)
+        if log:
+            log(proc.stdout + proc.stderr, proc.returncode != 0)
+        if proc.returncode:
+            resultado.update(estado="falhou", motivo=f"Validador retornou {proc.returncode}")
+        elif "nada a validar" in proc.stdout:
+            resultado["estado"] = "sem_artefato"
+        elif re.search(r"^[^\n]+: PASS — ", proc.stdout, re.M):
+            resultado["estado"] = "conforme"
+        else:
+            resultado.update(estado="falhou", motivo="Validador terminou sem evidencia reconhecivel")
+        return
+
+    if log:
+        log("\n".join(linhas[:-1]) + proc.stderr, proc.returncode != 0)
+    resultado["arquivos"] = [relativo(raiz, p) for p in evidencia["arquivos"]]
+    for achado in evidencia["achados"]:
+        resultado["achados"].append({**achado, "arquivo": relativo(raiz, achado["arquivo"])})
+    if proc.returncode or resultado["achados"]:
+        resultado["estado"] = "falhou"
+    elif resultado["arquivos"]:
+        resultado["estado"] = "conforme"
+    else:
+        resultado["estado"] = "sem_artefato"
+
+
+def executar(raiz: Path, escolhidos, *, externos: bool = True, log=None) -> list[dict]:
+    raiz = raiz.resolve()
+    cfg = config(raiz)
+    resultados = []
+    for nome in escolhidos:
+        script, protocolo, descricao = GUARDS[nome]
+        r = {"nome": nome, "protocolo": protocolo, "descricao": descricao,
+             "estado": "nao_executado", "arquivos": [], "achados": [], "motivo": ""}
+        caminho, nosso = resolver(raiz, script)
+        try:
+            configurados = cfg.get("guards", {})
+            if not isinstance(configurados, dict) or not isinstance(configurados.get(nome, {}), dict):
+                raise ValueError("guards em .neural-flow.json deve mapear cada nome para um objeto")
+            spec = configurados.get(nome, {})
+            if caminho is None:
+                r["motivo"] = "Validador nao instalado"
+            elif nosso:
+                rodar_interno(raiz, caminho, r, log)
+            proprio = raiz / "scripts" / script
+            lado_a_lado = (caminho == proprio.with_name(f"nf_{script}") and proprio.is_file()
+                           and not eh_nosso(proprio) and spec.get("comando"))
+            if caminho is not None and (not nosso or lado_a_lado):
+                externo = {"estado": "nao_executado", "motivo": "", "arquivos": [], "achados": []}
+                if externos:
+                    rodar_externo(raiz, spec, externo, log)
+                else:
+                    externo["motivo"] = "Validador do projeto. Consulte o relatorio gerado pelo gate."
+                if not lado_a_lado:
+                    r.update(externo)
+                else:
+                    estados = (r["estado"], externo["estado"])
+                    r["motivo"] = " ".join(filter(None, (
+                        f"Framework: {estados[0]}.", r["motivo"],
+                        f"Projeto: {estados[1]}.", externo["motivo"],
+                    )))
+                    r["estado"] = next(e for e in ("falhou", "nao_executado", "conforme", "sem_artefato")
+                                       if e in estados)
+                    r["arquivos"].extend(externo["arquivos"])
+                    r["achados"].extend(externo["achados"])
+        except (OSError, ValueError, TypeError) as exc:
+            r.update(estado="falhou", motivo=f"Falha ao executar o validador: {exc}")
+        resultados.append(r)
+    return resultados
+
+
+ROTULOS = {"conforme": "conforme", "falhou": "falhou", "sem_artefato": "sem artefato",
+           "nao_executado": "nao executado"}
+
+
+def local_achado(a: dict) -> str:
+    return f"{a['arquivo']}:{a['linha']}" if a["linha"] else a["arquivo"]
+
+
+def texto(guards: list[dict], quiet: bool) -> None:
+    for g in guards:
+        if not quiet:
+            print(f"\n=== {g['nome']} ({g['protocolo']}) ===")
+            for caminho in g["arquivos"]:
+                print(f"  verificado: {caminho}")
+        for a in g["achados"]:
+            print(f"  [{a['codigo']}] {local_achado(a)} — {a['msg']}")
+        print(f"  {g['nome']}: {ROTULOS[g['estado']]}" + (f" — {g['motivo']}" if g["motivo"] else ""))
+    totais = {e: sum(g["estado"] == e for g in guards) for e in ROTULOS}
+    status = "FAIL" if totais["falhou"] else "PASS"
+    print(f"nf_gate: {status} — {totais['conforme']} guard(s) conforme; "
+          f"{totais['falhou']} falhou; {totais['sem_artefato']} sem artefato; "
+          f"{totais['nao_executado']} inativo(s) (nao executado)")
+
+
+def resumo_github(guards: list[dict]) -> str:
+    indice = ".neural-flow/indice-regras.md"
+    if os.environ.get("GITHUB_REPOSITORY") and os.environ.get("GITHUB_SHA"):
+        servidor = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+        indice = f"{servidor}/{os.environ['GITHUB_REPOSITORY']}/blob/{os.environ['GITHUB_SHA']}/{indice}"
+    linhas = ["## Neural-Flow", "", f"[Regras da revisao verificada]({indice})", "",
+              "| Guard | Resultado | Arquivos identificados |",
+              "| --- | --- | ---: |"]
+    for g in guards:
+        linhas.append(f"| {g['nome']} | {ROTULOS[g['estado']]} | {len(g['arquivos'])} |")
+    # O conteudo dos projetos pode conter HTML ou Markdown. Em pre, trate-o como texto.
+    detalhes = []
+    for g in guards:
+        if g["motivo"]:
+            detalhes.append(f"{g['nome']}: {g['motivo']}")
+        for a in g["achados"]:
+            detalhes.append(f"{g['nome']} [{a['codigo']}] {local_achado(a)} — {a['msg']}")
+    if detalhes:
+        linhas += ["", "<pre>" + escape("\n".join(detalhes)) + "</pre>"]
+    return "\n".join(linhas) + "\n"
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(
-        description="Roda os gates executaveis do Neural-Flow Framework.",
-        epilog="Guards: " + ", ".join(GUARDS),
-    )
+    ap = argparse.ArgumentParser(description="Roda os gates executaveis do Neural-Flow Framework.")
     ap.add_argument("guards", nargs="*", help="quais rodar (default: todos)")
     ap.add_argument("--root", default=".")
     ap.add_argument("--list", action="store_true", help="lista os guards e sai")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--format", choices=("text", "json"), default="text")
+    ap.add_argument("--resumo-github", type=Path, help="anexa a evidencia ao resumo do job")
     args = ap.parse_args()
-
     if args.list:
-        largura = max(len(n) for n in GUARDS)
+        if args.format == "json":
+            print(json.dumps([{"nome": nome, "protocolo": proto, "descricao": descricao}
+                              for nome, (_, proto, descricao) in GUARDS.items()], ensure_ascii=False))
+            return 0
         print("Guards do Neural-Flow:\n")
-        for nome, (_, protocolo, o_que) in GUARDS.items():
-            print(f"  {nome:<{largura}}  {protocolo:<22} {o_que}")
+        for nome, (_, protocolo, descricao) in GUARDS.items():
+            print(f"  {nome:<12} {protocolo:<22} {descricao}")
         return 0
-
     escolhidos = args.guards or list(GUARDS)
     desconhecidos = [g for g in escolhidos if g not in GUARDS]
     if desconhecidos:
-        print(f"guard desconhecido: {', '.join(desconhecidos)}", file=sys.stderr)
-        print(f"disponiveis: {', '.join(GUARDS)}", file=sys.stderr)
-        return 2
+        ap.error(f"guard desconhecido: {', '.join(desconhecidos)}")
 
-    raiz = Path(args.root).resolve()
-    cfg = config(raiz)
+    def log(mensagem: str, falhou: bool) -> None:
+        if mensagem.strip() and (not args.quiet or falhou):
+            print(mensagem.rstrip(), file=sys.stderr if args.format == "json" else sys.stdout)
 
-    falhas: list[str] = []
-    externos: list[str] = []
-    executados: list[str] = []
-    inativos: list[str] = []
-    for nome in escolhidos:
-        script, protocolo, _ = GUARDS[nome]
-        caminho, nosso = resolver(raiz, script)
-        if caminho is None:
-            inativos.append(nome)
-            continue  # guard nao instalado neste projeto — pula sem reclamar
-        if not args.quiet:
-            print(f"\n═══ {nome} ({protocolo}) " + "═" * max(0, 40 - len(nome)))
-
-        if not nosso:
-            # Script do proprio projeto com o mesmo nome. So executamos se o time
-            # disser COMO — a interface e dele, nao nossa.
-            codigo = rodar_externo(raiz, nome, cfg, args.quiet)
-            if codigo is None:
-                externos.append(nome)
-                inativos.append(nome)
-                print(f"  externo: '{caminho.name}' e do projeto, nao do framework "
-                      f"(sem a assinatura de origem).")
-                print(f"  O gate nao adivinha a interface dele. Configure em "
-                      f".neural-flow.json:")
-                print(f'    {{"guards": {{"{nome}": {{"comando": ["python3", '
-                      f'"{caminho.relative_to(raiz) if caminho.is_relative_to(raiz) else caminho}", '
-                      f'"--root", "{{root}}"]}}}}}}')
-                print(f"  Use \"por_modulo\": \"docs/modulos/*\" e \"{{modulo}}\" "
-                      f"se ele roda um modulo por vez.")
-                continue
-            if codigo != 0:
-                falhas.append(nome)
-            else:
-                executados.append(nome)
-            continue
-
-        cmd = [sys.executable, str(caminho), "--root", args.root]
-        if args.quiet:
-            cmd.append("--quiet")
-        if subprocess.run(cmd).returncode != 0:
-            falhas.append(nome)
-        else:
-            executados.append(nome)
-
-    print()
-    if externos:
-        print(f"nf_gate: {len(externos)} guard(s) com validador proprio do projeto, "
-              f"nao executado(s): {', '.join(externos)}")
-    if falhas:
-        print(f"nf_gate: FAIL — {len(falhas)} guard(s): {', '.join(falhas)}")
-        print("Nao use --no-verify. Corrija o que os guards apontaram.")
-        return 1
-    if inativos:
-        print(f"nf_gate: PASS — {len(executados)} guard(s) conforme; "
-              f"{len(inativos)} inativo(s): {', '.join(inativos)}")
+    guards = executar(Path(args.root), escolhidos, log=log)
+    if args.format == "json":
+        print(json.dumps({"versao": 1, "guards": guards}, ensure_ascii=False, indent=2))
     else:
-        print(f"nf_gate: PASS — {len(executados)} guard(s) conforme")
-    return 0
+        texto(guards, args.quiet)
+    if args.resumo_github:
+        with args.resumo_github.open("a", encoding="utf-8") as f:
+            f.write(resumo_github(guards))
+    return int(any(g["estado"] == "falhou" for g in guards))
 
 
 if __name__ == "__main__":

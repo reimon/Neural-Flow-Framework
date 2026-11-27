@@ -65,7 +65,7 @@ jobs:
           python-version: "3.12"
 
       - name: Guards do Neural-Flow sobre este repositorio
-        run: python scripts/nf_gate.py
+        run: python scripts/nf_gate.py --resumo-github "$GITHUB_STEP_SUMMARY"
 
       - name: Hook de pre-commit e executavel
         run: test -x templates/githooks/pre-commit

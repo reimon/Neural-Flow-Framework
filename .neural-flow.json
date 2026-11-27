@@ -1,0 +1,8 @@
+{
+  "adr_escopos": {
+    "ADR-006": {"execucao": ["Decisao"]},
+    "ADR-007": {"execucao": ["Decisao"], "isolamento": ["Decisao"]},
+    "ADR-008": {"execucao": ["Decisao"], "isolamento": ["Decisao"]},
+    "ADR-011": {"execucao": ["Decisao"]}
+  }
+}
