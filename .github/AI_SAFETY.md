@@ -81,19 +81,9 @@ as portas de entrada de agente (`GEMINI.md`, `.clinerules`, `.cursor/rules/`, ..
 `docs/img/theme-*.jpg|png` sao licenciadas ao dono do projeto e o dashboard as embute como
 data URI — versiona-las as propagaria para o repositorio de todo adotante.
 
-### 8. NUNCA executar acao fora do Action Gateway
+### Validacao local
 
-Toda acao do agente deve ser uma entrada da allowlist em
-`.neural-flow/action-policy.json` e ser chamada por:
-
-```text
-python3 scripts/nf_action_gateway.py --action <id> --sprint <arquivo> -- <comando>
-```
-
-Acoes `sensitive` e `irreversible` exigem sprint A0/A1, terminal interativo e o
-desafio exato exibido pelo gateway. O gateway registra hash, decisao e resultado,
-nunca o comando cru. A politica v2 autoriza somente o comando completo. O ambiente
-de execucao aplica as restricoes de arquivos, processos e rede exigidas pela equipe.
+Execute os testes do dominio e o pre-commit local antes de publicar mudancas.
 
 ---
 

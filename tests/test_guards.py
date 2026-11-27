@@ -45,7 +45,6 @@ GUARDS = {
     "spec": ("validate_module_spec.py",
              {"P1", "P4", "P5", "P6", "P7", "P8", "P9"}),
     "calibration": ("validate_calibration.py", {"C1", "C2", "C3", "C4", "C5", "C6"}),
-    "action": ("validate_action_policy.py", {"G1", "G2", "G3", "G4", "G5"}),
 }
 
 RE_CODIGO = re.compile(r"^\s*\[([A-Z]\d)\]", re.MULTILINE)
@@ -208,7 +207,7 @@ class TestRegrasCriticas(unittest.TestCase):
             self.assertEqual(codigo, 1, saida)
             self.assertIn("V3", saida)
 
-    def test_referencia_historica_so_resolve_evidencia_do_adr_superado(self) -> None:
+    def test_referencia_historica_so_resolve_decisao_e_evidencia_do_adr_superado(self) -> None:
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -218,7 +217,7 @@ class TestRegrasCriticas(unittest.TestCase):
             adrs.mkdir(parents=True)
             legado = adrs / "ADR-001-original.md"
             caminho = "scripts/removido.py"
-            evidencia = f"## Evidencia\n- Artefato: `{caminho}`\n"
+            evidencia = f"## Decisao\n- Adotar `{caminho}`\n## Evidencia\n- Artefato: `{caminho}`\n"
             legado.write_text(evidencia, encoding="utf-8")
             novo = adrs / "ADR-002-substituto.md"
             link = f"https://github.com/exemplo/projeto/blob/{'0' * 40}/{caminho}"
@@ -684,13 +683,8 @@ class TestInstalador(unittest.TestCase):
             proc = self._instalar(destino, "--name", "Projeto Teste", "--mode", "greenfield")
             self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
             self.assertIn("nf_gate: PASS", proc.stdout)
-            politica = json.loads(
-                (destino / ".neural-flow" / "action-policy.json").read_text(encoding="utf-8")
-            )
-            self.assertEqual(politica["version"], 2)
-            self.assertFalse(politica["enabled"])
-            self.assertNotIn("execution", politica)
-            self.assertFalse((destino / "scripts" / "nf_sandbox.py").exists())
+            self.assertFalse((destino / "scripts" / "nf_action_gateway.py").exists())
+            self.assertFalse((destino / ".neural-flow" / "action-policy.json").exists())
 
             for esperado in (
                 "COMECE-AQUI.md", "AGENTS.md", "MEMORY.md",
@@ -734,49 +728,6 @@ class TestInstalador(unittest.TestCase):
             self.assertEqual(pkg["devDependencies"]["vitest"], "^2.0.0")
             # E o smoke-gate tem de entrar.
             self.assertIn("@kaiketsu/smoke-gate", pkg["devDependencies"])
-
-    def test_reinstalacao_preserva_politica_v1_ate_migracao_explicita(self) -> None:
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as t:
-            destino = Path(t)
-            politica = destino / ".neural-flow" / "action-policy.json"
-            politica.parent.mkdir()
-            original = '{"version": 1, "enabled": false, "execution": {"sandbox": "required"}}\n'
-            politica.write_text(original, encoding="utf-8")
-
-            proc = self._instalar(destino, "--mode", "brownfield")
-            self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
-            self.assertIn("migracao explicita", proc.stdout)
-            self.assertEqual(politica.read_text(encoding="utf-8"), original)
-
-            sprint = "docs/sprints/sprint-01.md"
-            comando = ["python3", "scripts/nf_gate.py", "action"]
-            politica.write_text(json.dumps({
-                "version": 2,
-                "enabled": True,
-                "actions": [{
-                    "id": "testar-action",
-                    "description": "Validar a politica migrada",
-                    "risk": "safe",
-                    "argv": comando,
-                    "requires_human_approval": False,
-                    "max_runtime_seconds": 30,
-                    "sprint": sprint,
-                    "item": "1.1",
-                }],
-                "audit_path": ".neural-flow/action-audit.jsonl",
-            }), encoding="utf-8")
-            proc = self._instalar(destino, "--mode", "brownfield")
-            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-            self.assertIn("nf_gate: PASS", proc.stdout)
-            proc = subprocess.run(
-                [sys.executable, "scripts/nf_action_gateway.py", "--action", "testar-action",
-                 "--sprint", sprint, "--", *comando],
-                cwd=destino, capture_output=True, text=True,
-            )
-            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-            self.assertIn("action-policy: PASS", proc.stdout)
 
     def test_smoke_gate_registrado_no_mcp(self) -> None:
         import tempfile

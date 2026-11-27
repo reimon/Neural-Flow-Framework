@@ -148,7 +148,7 @@ def validar(raiz: Path, caminho: Path, res: Resultado, historicas: set[str]) -> 
     res.verificado(caminho)
 
     # V1 — referencias resolvem
-    evidencia = secao(linhas, "Evidencia")
+    secoes_historicas = (secao(linhas, "Evidencia"), secao(linhas, "Decisao"))
     dentro_de_bloco = False
     for n, linha in enumerate(linhas, 1):
         if linha.lstrip().startswith("```"):
@@ -160,7 +160,9 @@ def validar(raiz: Path, caminho: Path, res: Resultado, historicas: set[str]) -> 
         if dentro_de_bloco or linha.lstrip().startswith("|"):
             continue
         for alvo in candidatos(linha):
-            if evidencia and evidencia[0] <= n - 1 < evidencia[1] and alvo in historicas:
+            if alvo in historicas and any(
+                faixa and faixa[0] <= n - 1 < faixa[1] for faixa in secoes_historicas
+            ):
                 continue
             if eh_prospectivo(raiz, caminho, alvo):
                 continue

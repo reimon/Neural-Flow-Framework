@@ -139,7 +139,7 @@ anterior por um link fixado ao commit que contem o arquivo. Declare os ADRs
 superados na secao Status com `Supera ADR-NNN`. Na secao Referencias historicas,
 liste o arquivo do ADR anterior em crases e, em seguida, o caminho do artefato
 como link para o GitHub com o SHA completo. A remissao vale apenas para o mesmo
-caminho na secao Evidencia do ADR anterior. Referencias operacionais continuam
+caminho nas secoes Decisao ou Evidencia do ADR anterior. Referencias operacionais continuam
 sujeitas a resolucao local.
 
 ## Criterio PASS

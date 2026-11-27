@@ -28,7 +28,6 @@ erro mais caro (e mais comum) de agentes.
 | Storage | `<helper de storage>` | SDK de storage direto numa rota |
 | Auth/RBAC | `<middleware de auth>` | checagem inline |
 | `<outra capacidade>` | `<modulo>` | `<anti-padrao>` |
-| Executar acao do agente | `scripts/nf_action_gateway.py` + `.neural-flow/action-policy.json` | shell direto ou comando fora da allowlist |
 | Conduzir entrevista, spec, TDD, arquitetura e review | `.agents/skills/<skill>/SKILL.md` e `.claude/skills/<skill>/SKILL.md` (`mattpocock/skills`) + `CLAUDE.md` | improvisar fluxo sem consultar a skill da etapa |
 
 Em duvida sobre se algo ja existe: `grep` em `<diretorios de libs/services>` — ou
@@ -43,9 +42,7 @@ consulte `<docs de arquitetura>`.
 
 - `<regra de import proibido 1>` → guard: `<regra de lint>`.
 - `<regra de import proibido 2>` → guard: `<teste de arquitetura>`.
-- Toda acao do agente precisa estar na allowlist `.neural-flow/action-policy.json` e
-  passar por `scripts/nf_action_gateway.py`; risco sensivel ou irreversivel exige
-  aprovacao humana para o comando exato.
+- Acoes sensiveis ou irreversiveis exigem autorizacao humana.
 
 ## 3. Governanca de LLM
 

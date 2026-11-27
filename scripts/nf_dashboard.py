@@ -93,7 +93,6 @@ GUARDS = [
     ("adr", "ADR Governance", "Decisao numerada, sem ciclo nem pendura"),
     ("spec", "Spec-First", "Spec completa antes do codigo"),
     ("calibration", "Calibracao", "Confianca declarada e derivada de evidencia"),
-    ("action", "Action Gateway", "Allowlist e aprovacao antes de risco alto"),
 ]
 
 PROTOCOLOS = [
@@ -101,7 +100,6 @@ PROTOCOLOS = [
     ("Vetor de Contexto", "context"), ("Evidencia Sintetica", "smoke"),
     ("Aegis", None), ("Neural-Memory", None), ("ADR Governance", "adr"),
     ("Spec-First", "spec"), ("Loop Autonomo", None), ("Calibracao", "calibration"),
-    ("Action Gateway", "action"),
 ]
 
 RE_ITEM = re.compile(r"^\s*[-*]\s*\[(?P<marca>[ xX])\]\s*(?:\*\*)?(?P<id>[\w.]+)")
@@ -212,7 +210,6 @@ def coletar_guards(raiz: Path) -> list[dict]:
         "sprint": "sprint_state", "budget": "token_budget",
         "context": "context_sources", "adr": "adr",
         "spec": "module_spec", "calibration": "calibration",
-        "action": "action_policy",
     }
     resultado = []
     for nome, protocolo, o_que in GUARDS:
@@ -1105,9 +1102,8 @@ def coletar_projeto(raiz: Path) -> dict:
         (".neural-flow/indice-regras.md", "Indice de Regras", "Consulta rapida (~48x menos tokens que grep)"),
         (".github/AI_SAFETY.md", "Politica Aegis (Safety)", "Proibicoes absolutas e operacoes sensiveis"),
         ("MEMORY.md", "Memoria Consolidada", "Decisoes estaveis e padroes arquiteturais"),
-        (".neural-flow/action-policy.json", "Action Gateway Policy", "Allowlist de comandos e matriz A0-A3"),
         (".githooks/pre-commit", "Pre-Commit Gate", "Bloqueio local antes do commit"),
-        (".github/workflows/neural-flow-gates.yml", "Pipeline CI Gate", "Validacao autoritativa em Pull Requests"),
+        (".github/workflows/neural-flow-gates.yml", "Pipeline CI Gate", "Validacao adicional em Pull Requests"),
     ]
     artefatos = []
     for rel, nome, desc in artefatos_def:
@@ -1127,31 +1123,6 @@ def coletar_projeto(raiz: Path) -> dict:
         try:
             regras_count = sum(1 for l in idx_md.read_text(encoding="utf-8").splitlines() if l.strip().startswith("- **["))
         except OSError:
-            pass
-
-    acoes_safe = 0
-    acoes_confirm = 0
-    acoes_lista = []
-    pol_path = raiz / ".neural-flow" / "action-policy.json"
-    if pol_path.is_file():
-        try:
-            pol = json.loads(pol_path.read_text(encoding="utf-8"))
-            acoes = pol.get("actions", [])
-            lista_bruta = acoes.values() if isinstance(acoes, dict) else (acoes if isinstance(acoes, list) else [])
-            for cfg in lista_bruta:
-                if isinstance(cfg, dict):
-                    req = bool(cfg.get("requires_human_approval")) or cfg.get("risk") in ("high", "critical", "sensitive", "irreversible")
-                    if req:
-                        acoes_confirm += 1
-                    else:
-                        acoes_safe += 1
-                    acoes_lista.append({
-                        "id": str(cfg.get("id", "?")),
-                        "descricao": str(cfg.get("description", "")),
-                        "risco": str(cfg.get("risk", "safe")),
-                        "aprovacao": req,
-                    })
-        except (json.JSONDecodeError, OSError):
             pass
 
     portas_lista = [
@@ -1193,9 +1164,6 @@ def coletar_projeto(raiz: Path) -> dict:
     return {
         "artefatos": artefatos,
         "regras_count": regras_count,
-        "acoes_safe": acoes_safe,
-        "acoes_confirm": acoes_confirm,
-        "acoes_lista": acoes_lista,
         "portas": portas_lista,
         "scripts_count": scripts_count,
         "tests_count": tests_count,
@@ -2850,8 +2818,6 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
 
     info_p = d.info_projeto or {}
     regras_total = info_p.get("regras_total", 19)
-    acoes_seguras = info_p.get("acoes_seguras", 3)
-    acoes_aprovacao = info_p.get("acoes_aprovacao", 3)
     scripts_total = info_p.get("scripts_total", 21)
     testes_total = info_p.get("testes_total", 2)
     protocolos_total = info_p.get("protocolos_total", len(PROTOCOLOS))
@@ -2862,7 +2828,6 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
         {"nome": "Indice de Regras", "caminho": ".neural-flow/indice-regras.md", "papel": "Mapa estruturado de regras e guards", "guard": "nf_indice_regras.py", "existe": True},
         {"nome": "AI Safety Policy", "caminho": ".github/AI_SAFETY.md", "papel": "Proibicoes absolutas e acoes criticas", "guard": "A0/A1 Gatekeeper", "existe": True},
         {"nome": "Memoria Consolidada", "caminho": "MEMORY.md", "papel": "Padroes e aprendizados permanentes", "guard": "Ciclo de revisao", "existe": True},
-        {"nome": "Action Policy Gateway", "caminho": ".neural-flow/action-policy.json", "papel": "Allowlist de comandos e sandbox", "guard": "nf_action_gateway.py", "existe": True},
         {"nome": "Pre-commit Hook", "caminho": ".githooks/pre-commit", "papel": "Bloqueio local antes do commit", "guard": "nf_gate.py", "existe": True},
         {"nome": "CI Autorizativo", "caminho": ".github/workflows/neural-flow-gates.yml", "papel": "Verificacao soberana no GitHub Actions", "guard": "CI Pipeline", "existe": True},
     ]
@@ -2941,11 +2906,9 @@ def render(d: Dados, rel_grafo: str = "graphify-out/") -> str:
 
   <div class="project-stat-box">
     <span class="eyebrow">Pilar 2 · Matriz de Autonomia A0–A3</span>
-    <h4>Action Gateway &amp; Git Seguro</h4>
-    <p>Escopos sensiveis (auth, segredos, migracoes, billing, producao) exigem A0/A1. Toda acao passa por allowlist versionada; <code>git commit</code> e <code>git push</code> exigem ordem explicita.</p>
+    <h4>Autonomia e Git</h4>
+    <p>Escopos sensiveis (auth, segredos, migracoes, billing, producao) exigem A0/A1. <code>git commit</code> e <code>git push</code> exigem ordem explicita.</p>
     <div class="project-tools-list">
-      <span class="tool-chip"><i></i> {acoes_seguras} Acoes Allowlist</span>
-      <span class="tool-chip"><i></i> {acoes_aprovacao} Acoes A0/A1</span>
       <span class="tool-chip"><i></i> Commit/Push Protegidos</span>
     </div>
   </div>

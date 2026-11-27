@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "impressao_digital": "6a882257058a7ce6",
+  "impressao_digital": "fefaf97757af2fb7",
   "fontes": [
     ".github/AI_SAFETY.md",
     "AGENTS.md",
@@ -17,8 +17,8 @@
     "docs/adr/ADR-009-base-documental-do-produto.md",
     "docs/adr/ADR-010-skills-operacionais-de-agente.md",
     "docs/adr/ADR-011-gateway-sem-sandbox-interno.md",
+    "docs/adr/ADR-012-validacao-local-sem-action-gateway.md",
     "docs/protocols/README.md",
-    "docs/protocols/action-gateway.md",
     "docs/protocols/adr-governance.md",
     "docs/protocols/aegis-security.md",
     "docs/protocols/agent-entrypoints.md",
@@ -63,11 +63,6 @@
       "guard": "calibration",
       "protocolo": "calibration",
       "trava": "confianca declarada, BAIXA nao fecha item, irreversivel nao vira registro"
-    },
-    {
-      "guard": "action",
-      "protocolo": "action-gateway",
-      "trava": "allowlist de comandos, risco declarado e aprovacao humana para acoes sensiveis"
     },
     {
       "guard": "agentes",
@@ -135,40 +130,32 @@
     {
       "id": "SEG-008",
       "categoria": "seguranca",
-      "regra": "8. NUNCA executar acao fora do Action Gateway",
-      "fonte": ".github/AI_SAFETY.md:84",
-      "secao": "7. NUNCA commitar as imagens de tema",
+      "regra": "Commit ou push. Regra fixa do usuario: nunca sem autorizacao explicita.",
+      "fonte": ".github/AI_SAFETY.md:94",
+      "secao": "REQUEREM CONFIRMACAO DO USUARIO",
       "guard": null
     },
     {
       "id": "SEG-009",
       "categoria": "seguranca",
-      "regra": "Commit ou push. Regra fixa do usuario: nunca sem autorizacao explicita.",
-      "fonte": ".github/AI_SAFETY.md:104",
+      "regra": "Remover ou renomear um guard, um codigo de verificacao (S1, V3, P2...) ou um campo obrigatorio de template — e mudanca MAJOR: quebra projeto que ja adotou.",
+      "fonte": ".github/AI_SAFETY.md:99",
       "secao": "REQUEREM CONFIRMACAO DO USUARIO",
       "guard": null
     },
     {
       "id": "SEG-010",
       "categoria": "seguranca",
-      "regra": "Remover ou renomear um guard, um codigo de verificacao (S1, V3, P2...) ou um campo obrigatorio de template — e mudanca MAJOR: quebra projeto que ja adotou.",
-      "fonte": ".github/AI_SAFETY.md:109",
-      "secao": "REQUEREM CONFIRMACAO DO USUARIO",
+      "regra": "Nomes de recursos derivados em runtime, nunca fixos em docs/scripts — sufixos mudam e invalidam tudo de uma vez.",
+      "fonte": ".github/AI_SAFETY.md:133",
+      "secao": "Licoes operacionais",
       "guard": null
     },
     {
       "id": "SEG-011",
       "categoria": "seguranca",
-      "regra": "Nomes de recursos derivados em runtime, nunca fixos em docs/scripts — sufixos mudam e invalidam tudo de uma vez.",
-      "fonte": ".github/AI_SAFETY.md:143",
-      "secao": "Licoes operacionais",
-      "guard": null
-    },
-    {
-      "id": "SEG-012",
-      "categoria": "seguranca",
       "regra": "Operacao critica imprime evidencia do que realmente fez — nunca afirmar limpeza, remocao ou execucao que nao aconteceu.",
-      "fonte": ".github/AI_SAFETY.md:145",
+      "fonte": ".github/AI_SAFETY.md:135",
       "secao": "Licoes operacionais",
       "guard": null
     },
@@ -176,79 +163,71 @@
       "id": "ARQ-001",
       "categoria": "arquitetura",
       "regra": "Todo script instalavel carrega NFGUARDASSINATURA — sem ela o nfgate se recusa a executar o arquivo, para nao chamar um homonimo do projeto com os nossos argumentos.",
-      "fonte": "AGENTS.md:48",
+      "fonte": "AGENTS.md:46",
       "secao": "2. Boundaries de camada",
       "guard": null
     },
     {
       "id": "ARQ-002",
       "categoria": "arquitetura",
-      "regra": "Toda acao do agente passa pelo gateway: a politica e uma allowlist versionada; risco sensivel ou irreversivel para em A0/A1 e pede aprovacao humana para o comando exato. O gateway registra hash, decisao e resultado, nunca o comando cru.",
-      "fonte": "AGENTS.md:50",
+      "regra": "O instalador nunca sobrescreve artefato existente sem --force; colisao vira instalacao lado a lado (nf<nome>) ou anexo, sempre com aviso.",
+      "fonte": "AGENTS.md:49",
       "secao": "2. Boundaries de camada",
       "guard": null
     },
     {
       "id": "ARQ-003",
       "categoria": "arquitetura",
-      "regra": "O instalador nunca sobrescreve artefato existente sem --force; colisao vira instalacao lado a lado (nf<nome>) ou anexo, sempre com aviso.",
-      "fonte": "AGENTS.md:53",
-      "secao": "2. Boundaries de camada",
+      "regra": "O instalador escreve na arvore de terceiros. Mudanca ali opera em A1 e so fecha com instalacao ponta a ponta executada, nunca com leitura do diff.",
+      "fonte": "AGENTS.md:61",
+      "secao": "3. Governanca do proprio framework",
       "guard": null
     },
     {
       "id": "ARQ-004",
       "categoria": "arquitetura",
-      "regra": "O instalador escreve na arvore de terceiros. Mudanca ali opera em A1 e so fecha com instalacao ponta a ponta executada, nunca com leitura do diff.",
-      "fonte": "AGENTS.md:65",
-      "secao": "3. Governanca do proprio framework",
+      "regra": "BAIXA e acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte.",
+      "fonte": "AGENTS.md:94",
+      "secao": "4.2 Quando reconsultar / quando perguntar",
       "guard": null
     },
     {
       "id": "ARQ-005",
       "categoria": "arquitetura",
-      "regra": "BAIXA e acao irreversivel (perder dado, expor dado pessoal, gastar dinheiro, mexer em producao) ⇒ pare e pergunte.",
-      "fonte": "AGENTS.md:98",
+      "regra": "BAIXA e acao reversivel ⇒ siga conservador e registre a divergencia. Nao pergunte.",
+      "fonte": "AGENTS.md:96",
       "secao": "4.2 Quando reconsultar / quando perguntar",
       "guard": null
     },
     {
       "id": "ARQ-006",
       "categoria": "arquitetura",
-      "regra": "BAIXA e acao reversivel ⇒ siga conservador e registre a divergencia. Nao pergunte.",
-      "fonte": "AGENTS.md:100",
+      "regra": "Nao pergunte o que a spec ja responde — isso e falha de leitura, nao prudencia.",
+      "fonte": "AGENTS.md:97",
       "secao": "4.2 Quando reconsultar / quando perguntar",
       "guard": null
     },
     {
       "id": "ARQ-007",
       "categoria": "arquitetura",
-      "regra": "Nao pergunte o que a spec ja responde — isso e falha de leitura, nao prudencia.",
-      "fonte": "AGENTS.md:101",
-      "secao": "4.2 Quando reconsultar / quando perguntar",
-      "guard": null
-    },
-    {
-      "id": "ARQ-008",
-      "categoria": "arquitetura",
       "regra": "Numeracao de ADR e sequencial e nunca reutilizada; ADR aceito e imutavel — mudanca de rumo gera ADR que o supera → guard: nfgate.py adr.",
-      "fonte": "AGENTS.md:135",
+      "fonte": "AGENTS.md:131",
       "secao": "5. Regras fixas do projeto",
       "guard": "nfgate"
     },
     {
-      "id": "ARQ-009",
+      "id": "ARQ-008",
       "categoria": "arquitetura",
       "regra": "Nunca commitar ou dar push sem autorizacao explicita.",
-      "fonte": "AGENTS.md:146",
+      "fonte": "AGENTS.md:140",
       "secao": "6. Git (regra fixa do usuario)",
       "guard": null
     },
     {
-      "id": "ARQ-010",
+      "id": "ARQ-009",
       "categoria": "arquitetura",
       "regra": "Stage apenas os proprios arquivos — nunca o WIP de outra sessao/terminal.",
-      "fonte": "AGENTS.md:148",
+      "fonte": "AGENTS.md:142",
       "secao": "6. Git (regra fixa do usuario)",
       "guard": null
     },
@@ -288,7 +267,7 @@
       "id": "PRO-001",
       "categoria": "protocolo",
       "regra": "[ ] Toda execucao tecnica do periodo possui sprint valida antes do inicio.",
-      "fonte": "docs/protocols/README.md:84",
+      "fonte": "docs/protocols/README.md:82",
       "secao": "1. State Protocol",
       "guard": null
     },
@@ -296,7 +275,7 @@
       "id": "PRO-002",
       "categoria": "protocolo",
       "regra": "[ ] Toda sprint auditada declarou token budget.",
-      "fonte": "docs/protocols/README.md:94",
+      "fonte": "docs/protocols/README.md:92",
       "secao": "2. Circuit Breaker de Tokens",
       "guard": null
     },
@@ -304,7 +283,7 @@
       "id": "PRO-003",
       "categoria": "protocolo",
       "regra": "Executar 1 auditoria mensal obrigatoria.",
-      "fonte": "docs/protocols/README.md:142",
+      "fonte": "docs/protocols/README.md:140",
       "secao": "Cadencia recomendada",
       "guard": null
     },
@@ -312,7 +291,7 @@
       "id": "PRO-004",
       "categoria": "protocolo",
       "regra": "[ ] Toda tarefa relevante do periodo precedida de chamada a queryneuralmemory.",
-      "fonte": "docs/protocols/README.md:147",
+      "fonte": "docs/protocols/README.md:145",
       "secao": "6. Neural-Memory",
       "guard": null
     },
@@ -320,7 +299,7 @@
       "id": "PRO-005",
       "categoria": "protocolo",
       "regra": "[ ] Toda decisao arquitetural do periodo possui ADR numerado com status e sprint de origem.",
-      "fonte": "docs/protocols/README.md:158",
+      "fonte": "docs/protocols/README.md:156",
       "secao": "7. ADR Governance",
       "guard": null
     },
@@ -328,7 +307,7 @@
       "id": "PRO-006",
       "categoria": "protocolo",
       "regra": "[ ] Todo modulo com codigo possui spec completa aprovada antes do codigo.",
-      "fonte": "docs/protocols/README.md:168",
+      "fonte": "docs/protocols/README.md:166",
       "secao": "8. Spec-First",
       "guard": null
     },
@@ -336,28 +315,12 @@
       "id": "PRO-007",
       "categoria": "protocolo",
       "regra": "[ ] Toda combinacao BAIXA + acao irreversivel parou para aprovacao humana.",
-      "fonte": "docs/protocols/README.md:194",
+      "fonte": "docs/protocols/README.md:192",
       "secao": "10. Calibracao e Incerteza",
       "guard": null
     },
     {
       "id": "PRO-008",
-      "categoria": "protocolo",
-      "regra": "version: deve ser 2;",
-      "fonte": "docs/protocols/action-gateway.md:17",
-      "secao": "Contrato",
-      "guard": null
-    },
-    {
-      "id": "PRO-009",
-      "categoria": "protocolo",
-      "regra": "Se a equipe exige isolamento, configure-o no executor antes de habilitar a v2. Considere as regras de arquivos, processos e rede da politica anterior.",
-      "fonte": "docs/protocols/action-gateway.md:87",
-      "secao": "Instalacao e migracao da politica",
-      "guard": null
-    },
-    {
-      "id": "PRO-010",
       "categoria": "protocolo",
       "regra": "Reversao/superacao de decisao anterior (novo ADR com Superado por, nunca edicao)",
       "fonte": "docs/protocols/adr-governance.md:20",
@@ -365,7 +328,7 @@
       "guard": null
     },
     {
-      "id": "PRO-011",
+      "id": "PRO-009",
       "categoria": "protocolo",
       "regra": "Numeracao sequencial ADR-NNN; numero nunca e reutilizado.",
       "fonte": "docs/protocols/adr-governance.md:27",
@@ -373,7 +336,7 @@
       "guard": null
     },
     {
-      "id": "PRO-012",
+      "id": "PRO-010",
       "categoria": "protocolo",
       "regra": "Todo ADR referencia a sprint de origem (rastreabilidade Neural-Flow).",
       "fonte": "docs/protocols/adr-governance.md:30",
@@ -381,7 +344,7 @@
       "guard": null
     },
     {
-      "id": "PRO-013",
+      "id": "PRO-011",
       "categoria": "protocolo",
       "regra": "Se o ADR estabelece regra impositiva, deve nascer com guard (lint/teste/CI) ou declarar explicitamente que o guard e aspiracional — principio \"documentacao orienta, guard obriga\" (templates/AGENTS-template.md).",
       "fonte": "docs/protocols/adr-governance.md:31",
@@ -389,7 +352,7 @@
       "guard": null
     },
     {
-      "id": "PRO-014",
+      "id": "PRO-012",
       "categoria": "protocolo",
       "regra": "Neural-Memory: docs/adr/.md entra nas fontes indexadas; checkcontradiction deve retornar WARNING/BLOCK para proposta que contradiz ADR aceito.",
       "fonte": "docs/protocols/adr-governance.md:42",
@@ -397,7 +360,7 @@
       "guard": null
     },
     {
-      "id": "PRO-015",
+      "id": "PRO-013",
       "categoria": "protocolo",
       "regra": "Toda decisao arquitetural do periodo possui ADR com status e sprint de origem",
       "fonte": "docs/protocols/adr-governance.md:64",
@@ -405,7 +368,7 @@
       "guard": null
     },
     {
-      "id": "PRO-016",
+      "id": "PRO-014",
       "categoria": "protocolo",
       "regra": "Sensivel: exige mascaramento",
       "fonte": "docs/protocols/aegis-security.md:15",
@@ -413,7 +376,7 @@
       "guard": null
     },
     {
-      "id": "PRO-017",
+      "id": "PRO-015",
       "categoria": "protocolo",
       "regra": "Segredo: proibido em prompt e documentacao operacional",
       "fonte": "docs/protocols/aegis-security.md:16",
@@ -421,7 +384,7 @@
       "guard": null
     },
     {
-      "id": "PRO-018",
+      "id": "PRO-016",
       "categoria": "protocolo",
       "regra": "[ ] Toda execucao tecnica do periodo possui sprint valida antes do inicio.",
       "fonte": "docs/protocols/auditoria-mensal-template.md:20",
@@ -429,7 +392,7 @@
       "guard": null
     },
     {
-      "id": "PRO-019",
+      "id": "PRO-017",
       "categoria": "protocolo",
       "regra": "[ ] Toda sprint auditada declarou token budget.",
       "fonte": "docs/protocols/auditoria-mensal-template.md:30",
@@ -437,7 +400,7 @@
       "guard": null
     },
     {
-      "id": "PRO-020",
+      "id": "PRO-018",
       "categoria": "protocolo",
       "regra": "Um item por iteracao. Nunca dois. Um item pequeno que termina verde vale mais que tres pela metade.",
       "fonte": "docs/protocols/autonomous-loop.md:50",
@@ -445,7 +408,7 @@
       "guard": null
     },
     {
-      "id": "PRO-021",
+      "id": "PRO-019",
       "categoria": "protocolo",
       "regra": "Verde no comando de verificacao e a unica condicao para marcar pronto. Explicitamente proibido: teste desabilitado, skip/xfail novo ou assercao afrouxada para passar. Num loop nao ha revisor — ou a regra esta escrita, ou nao existe.",
       "fonte": "docs/protocols/autonomous-loop.md:52",
@@ -453,7 +416,7 @@
       "guard": null
     },
     {
-      "id": "PRO-022",
+      "id": "PRO-020",
       "categoria": "protocolo",
       "regra": "Nenhuma credencial externa. Todo servico externo entra como interface + implementacao falsa deterministica, ativa por padrao. O sistema tem que subir numa maquina sem nenhuma chave.",
       "fonte": "docs/protocols/autonomous-loop.md:59",
@@ -461,7 +424,7 @@
       "guard": null
     },
     {
-      "id": "PRO-023",
+      "id": "PRO-021",
       "categoria": "protocolo",
       "regra": "Falha fechada. Caminho degradado nunca relaxa autorizacao, consentimento ou mascaramento.",
       "fonte": "docs/protocols/autonomous-loop.md:62",
@@ -469,7 +432,7 @@
       "guard": null
     },
     {
-      "id": "PRO-024",
+      "id": "PRO-022",
       "categoria": "protocolo",
       "regra": "Continua BAIXA apos os dois degraus: a lacuna e real. Registrar como divergencia (em loop) ou pendencia de contexto (em sprint) com a decisao mais conservadora tomada para seguir — nunca preencher com o valor plausivel.",
       "fonte": "docs/protocols/calibration.md:52",
@@ -477,7 +440,7 @@
       "guard": null
     },
     {
-      "id": "PRO-025",
+      "id": "PRO-023",
       "categoria": "protocolo",
       "regra": "Evidencia Sintetica: define se ha prova; este protocolo define quanto ela prova. Item so fecha com ALTA quando o criterio de aceite exige execucao.",
       "fonte": "docs/protocols/calibration.md:93",
@@ -485,7 +448,7 @@
       "guard": null
     },
     {
-      "id": "PRO-026",
+      "id": "PRO-024",
       "categoria": "protocolo",
       "regra": "Loop Autonomo: BAIXA + reversivel ⇒ DIVERGENCIAS.md; BAIXA + irreversivel ⇒ parar e perguntar. Item nunca e marcado [x] com BAIXA.",
       "fonte": "docs/protocols/calibration.md:97",
@@ -493,7 +456,7 @@
       "guard": null
     },
     {
-      "id": "PRO-027",
+      "id": "PRO-025",
       "categoria": "protocolo",
       "regra": "Toda conclusao tecnica do periodo carrega nivel de confianca, verificacao executada e resultado observado",
       "fonte": "docs/protocols/calibration.md:148",
@@ -501,7 +464,7 @@
       "guard": null
     },
     {
-      "id": "PRO-028",
+      "id": "PRO-026",
       "categoria": "protocolo",
       "regra": "Toda combinacao BAIXA + irreversivel resultou em pergunta ao humano",
       "fonte": "docs/protocols/calibration.md:152",
@@ -509,7 +472,7 @@
       "guard": null
     },
     {
-      "id": "PRO-029",
+      "id": "PRO-027",
       "categoria": "protocolo",
       "regra": "nunca prosseguir com acao estrutural sem contexto verificado",
       "fonte": "docs/protocols/context-vector.md:165",
@@ -517,7 +480,7 @@
       "guard": null
     },
     {
-      "id": "PRO-030",
+      "id": "PRO-028",
       "categoria": "protocolo",
       "regra": "Rearme exige revisão e aprovação humana explícita.",
       "fonte": "docs/protocols/neural-memory.md:89",
@@ -525,7 +488,7 @@
       "guard": null
     },
     {
-      "id": "PRO-031",
+      "id": "PRO-029",
       "categoria": "protocolo",
       "regra": "Toda tarefa relevante precedida de chamada a queryneuralmemory",
       "fonte": "docs/protocols/neural-memory.md:95",
@@ -533,7 +496,7 @@
       "guard": null
     },
     {
-      "id": "PRO-032",
+      "id": "PRO-030",
       "categoria": "protocolo",
       "regra": "Descobrir equivalencia por nome conhecido ou cobertura de secoes. Empate vira ambiguidade e pede mapeamento, nunca escolha silenciosa.",
       "fonte": "docs/protocols/product-documentation.md:28",
@@ -541,7 +504,7 @@
       "guard": null
     },
     {
-      "id": "PRO-033",
+      "id": "PRO-031",
       "categoria": "protocolo",
       "regra": "Cada linha de implementacao do plano mestre usa ID IMP-NNN, ordem unica, dependencia explicita, requisitos REQ-NNN e criterios CA-NNN. Dependencia deve anteceder o item; referencias precisam existir.",
       "fonte": "docs/protocols/product-documentation.md:79",
@@ -549,7 +512,7 @@
       "guard": null
     },
     {
-      "id": "PRO-034",
+      "id": "PRO-032",
       "categoria": "protocolo",
       "regra": "Todo modulo com codigo possui spec completa no padrao, aprovada antes do codigo",
       "fonte": "docs/protocols/spec-first.md:113",
@@ -557,7 +520,7 @@
       "guard": null
     },
     {
-      "id": "PRO-035",
+      "id": "PRO-033",
       "categoria": "protocolo",
       "regra": "Dado de dominio ausente: item marcado [BLOQUEADO], nunca preenchido com valor plausivel",
       "fonte": "docs/protocols/spec-first.md:128",

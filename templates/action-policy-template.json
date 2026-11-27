@@ -1,9 +1,0 @@
-> TEMPLATE Neural-Flow
-> Este arquivo vira `.neural-flow/action-policy.json` na instalacao.
-
-{
-  "version": 2,
-  "enabled": false,
-  "actions": [],
-  "audit_path": ".neural-flow/action-audit.jsonl"
-}

@@ -34,7 +34,6 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-from nf_action_policy import MIGRATION_REQUIRED, load_policy
 
 RAIZ_FW = Path(__file__).resolve().parent.parent
 
@@ -42,13 +41,11 @@ GUARDS = [
     "nf_gate.py", "nf_guards.py", "validate_sprint_state.py",
     "validate_token_budget.py", "validate_context_sources.py",
     "validate_adr.py", "validate_module_spec.py", "validate_calibration.py",
-    "validate_action_policy.py",
     "validate_agent_entrypoints.py",
     "nf_dashboard.py", "nf_tokens.py", "nf_agentes.py", "nf_indice_regras.py",
     "nf_product_docs.py",
 ]
 
-RUNTIME_SCRIPTS = ["nf_action_policy.py", "nf_action_gateway.py"]
 
 SMOKE_GATE_REPO = "reimon/smoke-gate"
 # Rede indisponivel ou API fora do ar nao pode impedir a instalacao — cai para a
@@ -209,20 +206,6 @@ def instalar_guards(inst: Instalacao) -> None:
             )
             continue
         inst.copiar(RAIZ_FW / "scripts" / nome, destino)
-    # O guard valida a politica; estes scripts fazem a decisao em runtime.
-    # Eles ficam separados para que o projeto adotante possa chamar o gateway
-    # sem importar o orquestrador inteiro.
-    for nome in RUNTIME_SCRIPTS:
-        destino = inst.alvo / "scripts" / nome
-        if destino.exists() and not _assinado(destino) and not inst.forcar:
-            alternativo = inst.alvo / "scripts" / f"nf_{nome}"
-            inst.copiar(RAIZ_FW / "scripts" / nome, alternativo)
-            inst.avisos.append(
-                f"'scripts/{nome}' ja existe e nao e do framework — o runtime "
-                f"foi instalado como 'scripts/nf_{nome}'."
-            )
-            continue
-        inst.copiar(RAIZ_FW / "scripts" / nome, destino)
     inst.copiar(
         RAIZ_FW / "templates" / "githooks" / "pre-commit",
         inst.alvo / ".githooks" / "pre-commit",
@@ -231,10 +214,6 @@ def instalar_guards(inst: Instalacao) -> None:
     inst.copiar(
         RAIZ_FW / ".github" / "workflows" / "neural-flow-gates.yml",
         inst.alvo / ".github" / "workflows" / "neural-flow-gates.yml",
-    )
-    inst.copiar_template(
-        "templates/action-policy-template.json",
-        inst.alvo / ".neural-flow" / "action-policy.json",
     )
 
 
@@ -820,17 +799,12 @@ def configurar_git(inst: Instalacao, iniciar: bool) -> None:
     # inteiro — o indice de regras nunca chegaria ao CI nem a maquina de outra
     # pessoa, e o guard `agentes` reprovaria justamente onde ninguem pode
     # regerar. Reinstalar precisa consertar isso, e a marca sozinha nao detecta.
-    if marca in conteudo and (
-        ".neural-flow/indice-regras" not in conteudo
-        or ".neural-flow/action-policy.json" not in conteudo
-    ) and not inst.dry_run:
+    if marca in conteudo and ".neural-flow/indice-regras" not in conteudo and not inst.dry_run:
         excecoes = []
         if ".neural-flow/indice-regras.md" not in conteudo:
             excecoes.append("!.neural-flow/indice-regras.md")
         if ".neural-flow/indice-regras.json" not in conteudo:
             excecoes.append("!.neural-flow/indice-regras.json")
-        if ".neural-flow/action-policy.json" not in conteudo:
-            excecoes.append("!.neural-flow/action-policy.json")
         gitignore.write_text(
             conteudo.rstrip("\n")
             + "\n\n# Neural-Flow — artefatos de governanca versionados de proposito\n"
@@ -849,8 +823,7 @@ def configurar_git(inst: Instalacao, iniciar: bool) -> None:
             # O indice de regras e versionado de proposito: e o primeiro arquivo
             # que qualquer agente le, inclusive no CI e na maquina de outra
             # pessoa. Ignora-lo tornaria a governanca local.
-            "!.neural-flow/indice-regras.md\n!.neural-flow/indice-regras.json\n"
-            "!.neural-flow/action-policy.json\n",
+            "!.neural-flow/indice-regras.md\n!.neural-flow/indice-regras.json\n",
             encoding="utf-8",
         )
 
@@ -944,10 +917,6 @@ def main() -> int:
     )
     print(proc.stdout.strip() or proc.stderr.strip())
     if proc.returncode != 0:
-        politica, _ = load_policy(alvo)
-        if politica is not None and politica.get("version") == 1:
-            print(f"\nInstalacao pendente de validacao: {MIGRATION_REQUIRED}.")
-            return 1
         print("\nA instalacao gerou artefato que nao passa no gate — isto e um bug do")
         print("instalador, nao seu. Rode `python3 scripts/nf_gate.py` para ver os detalhes.")
         return 1

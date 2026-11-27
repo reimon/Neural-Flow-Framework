@@ -6,7 +6,7 @@
 
 Transforme intencao em mudanca verificavel, sem perder contexto, controle ou memoria.
 
-`v0.1.0` · `11 protocolos` · `8 guards executaveis` · `gateway de acoes` · `dashboard` · `MIT`
+`v0.1.0` · `10 protocolos` · `7 guards executaveis` · `dashboard` · `MIT`
 
 [Instalar em 5 minutos](#comece-em-5-minutos) · [Verificar os documentos com IA](#verificar-os-documentos-do-projeto-com-ia) · [Ver beneficios](#o-que-voce-ganha) · [Abrir o dashboard](#dashboard) · [Ler os protocolos](docs/protocols/README.md)
 
@@ -83,9 +83,7 @@ O instalador detecta o caminho mais seguro:
 O guia [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) percorre o mesmo fluxo com
 mais contexto e termina com um gate bloqueando um commit de verdade.
 
-O [Action Gateway](docs/protocols/action-gateway.md) executa comandos completos
-cadastrados na politica v2. Projetos com politica v1 precisam migrar explicitamente
-antes de usar o gateway. O ambiente de execucao aplica o isolamento exigido pela equipe.
+Neste repositorio, rode os testes e os guards localmente antes de publicar. Ative o hook local com `git config core.hooksPath .githooks`.
 
 ## Verificar os documentos do projeto com IA
 
@@ -302,7 +300,6 @@ Os protocolos estao implementados e versionados em `docs/protocols/`.
 | Spec-First                            | Especificar e passar em gate antes de codificar    | docs/protocols/spec-first.md            |
 | Loop Autonomo                         | Execucao prolongada com estado em disco            | docs/protocols/autonomous-loop.md       |
 | Calibracao e Incerteza                | Grau de certeza explicito, derivado de evidencia   | docs/protocols/calibration.md           |
-| Action Gateway                        | Allowlist de comandos e aprovacao humana antes de risco alto | docs/protocols/action-gateway.md |
 
 Guia consolidado:
 
@@ -418,8 +415,6 @@ Para aplicar o Neural-Flow em qualquer projeto, copiar e preencher:
 | templates/loop/PROMPT-LOOP-template.md    | `build/PROMPT-LOOP.md`         | Folha de operacao do humano que dispara o loop             |
 | templates/githooks/pre-commit             | `.githooks/pre-commit`         | Gates rodando sobre o stage a cada commit                  |
 | scripts/validate_calibration.py           | `scripts/`                     | Guard executavel do protocolo de Calibracao                |
-| scripts/validate_action_policy.py         | `scripts/`                     | Guard da politica de acoes e dos riscos declarados         |
-| scripts/nf_action_gateway.py              | `scripts/`                     | Fronteira de execucao: allowlist, sprint, aprovacao e auditoria |
 | scripts/nf_dashboard.py                   | `scripts/`                     | Dashboard HTML auto-contido do estado da governanca        |
 | scripts/nf_diagrama.py                    | `scripts/`                     | Gera o diagrama de arquitetura a partir do registro de guards |
 | scripts/nf_agentes.py                     | `scripts/`                     | Corpo canonico das portas de entrada de agente (uma fonte, muitas portas) |
@@ -480,7 +475,7 @@ apenas os modos audit generico e MCP.
 | docs/Manifest-Dev-AI.md                     | Manifesto principal e regras obrigatorias do Neural-Flow |
 | docs/NEURAL-MEMORY.md                       | Seed document do banco vetorial — memoria institucional  |
 | docs/SPRINTS-MVP.md                         | Sprint de baseline para iniciar governanca no projeto    |
-| docs/protocols/README.md                    | Matriz operacional dos 11 protocolos + checklist de auditoria |
+| docs/protocols/README.md                    | Matriz operacional dos 10 protocolos + checklist de auditoria |
 | docs/protocols/neural-memory.md             | 6o protocolo — RAG vetorial + MCP                        |
 | docs/protocols/auditoria-mensal-template.md | Modelo oficial de auditoria mensal dos protocolos        |
 
@@ -618,7 +613,7 @@ python3 scripts/nf_dashboard.py --open
 ```
 
 Le os artefatos do repositorio e gera **um HTML auto-contido** com o estado da governanca:
-sprint ativa e progresso, os 8 guards executados na hora, FinOps de tokens (orcamento x
+sprint ativa e progresso, os 7 guards executados na hora, FinOps de tokens (orcamento x
 consumo por sprint), smoke-gate (versao e ultimo audit), o indice de conhecimento (nos,
 arestas, comunidades, arestas AMBIGUOUS), o loop (progresso, divergencias pendentes,
 confianca declarada por iteracao) e a tabela de protocolos separando o que **trava** do que
@@ -719,7 +714,6 @@ item tem um protocolo que o garante, nao uma recomendacao que o sugere.
 | **Nao inventa dado de dominio** | Spec-First: dado ausente bloqueia o item; nunca vira valor plausivel |
 | **Nao contradiz decisao vigente** | ADR imutavel + `check_contradiction` com BLOCK acionando o Circuit Breaker |
 | **Nao expoe segredo nem destroi producao** | Aegis + `AI_SAFETY.md`: proibicoes absolutas e acoes que exigem confirmacao |
-| **Para antes de uma acao sensivel** | Action Gateway: allowlist versionada, risco declarado, sprint A0/A1 e aprovacao TTY para comando exato |
 | **Opera com arsenal tatico padronizado** | 27 skills de `mattpocock/skills` instaladas em `.agents/skills/` e `.claude/skills/` com invocacao autonoma pelo modelo (TDD red-green-refactor, *deep modules*, *grilling*, fatias verticais, revisao e handoff) combinadas aos principios de Karpathy e sob soberania dos guards (`ADR-010`) |
 
 Checklist de auditoria por protocolo: `docs/protocols/README.md`.

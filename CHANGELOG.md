@@ -21,8 +21,8 @@ tarde, de qual geracao veio o `AGENTS.md` que esta la.
 
 ### Alterado
 
-- **Action Gateway** — politica v2 com comandos completos e execucao sem sandbox
-  interno. Politicas v1 exigem [migracao explicita](docs/protocols/action-gateway.md).
+- **Mudanca incompativel** — retirada do Action Gateway e do guard de politica.
+  A validacao local continua com `nf_gate.py`, testes e pre-commit.
 
 ### Adicionado
 

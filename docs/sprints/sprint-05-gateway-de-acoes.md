@@ -48,24 +48,24 @@ auditavel e fail-closed para comandos que um agente tenta rodar.
 ### Bloco 1: Contrato e politica
 
 - [x] 1.1 ADR e protocolo do gateway escritos
-  - Arquivo(s): `docs/adr/ADR-006-gateway-de-acoes.md`, `docs/adr/ADR-007-sandbox-do-gateway.md`, `docs/protocols/action-gateway.md`
+  - Arquivo(s): `docs/adr/ADR-006-gateway-de-acoes.md`, `docs/adr/ADR-007-sandbox-do-gateway.md`, [docs/protocols/action-gateway.md](https://github.com/reimon/Neural-Flow-Framework/blob/c41cedd44c22ef023e6b243100100a81be705141/docs/protocols/action-gateway.md)
   - Validacao: `python3 scripts/nf_gate.py adr`
   - Evidencia: `python3 scripts/nf_gate.py adr` passou com ADR-006, ADR-007 e protocolo versionado.
 
-- [x] 1.2 Contrato `.neural-flow/action-policy.json` definido
-  - Arquivo(s): `scripts/nf_action_policy.py`, `.neural-flow/action-policy.json`
+- [x] 1.2 Contrato [.neural-flow/action-policy.json](https://github.com/reimon/Neural-Flow-Framework/blob/c41cedd44c22ef023e6b243100100a81be705141/.neural-flow/action-policy.json) definido
+  - Arquivo(s): [scripts/nf_action_policy.py](https://github.com/reimon/Neural-Flow-Framework/blob/c41cedd44c22ef023e6b243100100a81be705141/scripts/nf_action_policy.py), [.neural-flow/action-policy.json](https://github.com/reimon/Neural-Flow-Framework/blob/c41cedd44c22ef023e6b243100100a81be705141/.neural-flow/action-policy.json)
   - Validacao: `python3 scripts/nf_gate.py action`
   - Evidencia: `python3 scripts/validate_action_policy.py` retornou `PASS` para a politica habilitada.
 
 ### Bloco 2: Fronteira de execucao
 
 - [x] 2.1 Gateway bloqueia acao desconhecida e exige aprovacao interativa para risco alto
-  - Arquivo(s): `scripts/nf_action_gateway.py`
+  - Arquivo(s): [scripts/nf_action_gateway.py](https://github.com/reimon/Neural-Flow-Framework/blob/c41cedd44c22ef023e6b243100100a81be705141/scripts/nf_action_gateway.py)
   - Validacao: `python3 -m unittest tests.test_action_gateway`
   - Evidencia: 6 testes focados passaram; com politica `required` sem adaptador validado, o gateway bloqueia.
 
 - [x] 2.2 Gateway registra somente hash do comando, decisao e resultado
-  - Arquivo(s): `scripts/nf_action_gateway.py`
+  - Arquivo(s): [scripts/nf_action_gateway.py](https://github.com/reimon/Neural-Flow-Framework/blob/c41cedd44c22ef023e6b243100100a81be705141/scripts/nf_action_gateway.py)
   - Validacao: teste de auditoria sem segredo em claro
   - Evidencia: teste focado confirmou auditoria sem segredo ou comando cru em `action-audit.jsonl`.
 
